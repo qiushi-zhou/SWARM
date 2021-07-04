@@ -139,10 +139,10 @@ namespace op
                 // Idea: Find minimum possible x and y
                 const auto minTargetX = blockIdx.x * rescaleFactor;
                 const auto minSourceXFloat = (minTargetX + T(0.5f)) / T(rescaleFactor) - T(0.5f);
-                const auto minSourceXInt = int(floor(minSourceXFloat)) - 1;
+                const auto minSourceXInt = int(floorf(minSourceXFloat)) - 1; //HACK: replaced floor with floorf due to compiling issue
                 const auto minTargetY = blockIdx.y * rescaleFactor;
                 const auto minSourceYFloat = (minTargetY + T(0.5f)) / T(rescaleFactor) - T(0.5f);
-                const auto minSourceYInt = int(floor(minSourceYFloat)) - 1;
+                const auto minSourceYInt = int(floorf(minSourceYFloat)) - 1; //HACK: replaced floor with floorf due to compiling issue
                 // Get current x and y
                 const auto xClean = fastTruncateCuda(minSourceXInt+int(sharedLoadId%5), 0, widthSource - 1);
                 const auto yClean = fastTruncateCuda(minSourceYInt+int(sharedLoadId/5), 0, heightSource - 1);
