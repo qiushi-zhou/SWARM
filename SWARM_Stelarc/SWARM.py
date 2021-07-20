@@ -9,6 +9,7 @@ import sys
 import getopt
 import Constants
 import pygame
+import serial
 
 class Twister():
 
@@ -21,9 +22,9 @@ class Twister():
         screen = pygame.display.get_surface()
         self.scene = Scene(screen, self.input)
 
-    def run(self, csvWriter):
+    def run(self, csvWriter, serial):
         while True:
-            self.input.run(csvWriter)
+            self.input.run(csvWriter, serial)
             self.scene.run()
 
 if __name__ == "__main__":
@@ -48,5 +49,10 @@ if __name__ == "__main__":
                              "LBigToe.x", "LBigToe.y", "LSmallToe.x", "LSmallToe.y", "LHeel.x", "LHeel.y",
                              "RBigToe.x", "RBigToe.y", "RSmallToe.x", "RSmallToe.y", "RHeel.x", "RHeel.y"])
 
+        ser = serial.Serial()
+        #ser.baudrate = 9600
+        #ser.port = 'COM8'
+        #ser.open()
+
         game = Twister()
-        game.run(spamwriter)
+        game.run(spamwriter,ser)

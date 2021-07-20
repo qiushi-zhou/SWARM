@@ -14,6 +14,7 @@ import time
 import csv
 import pygame
 from datetime import datetime
+from scipy.interpolate import interp1d
 
 # Load OpenPose:
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -54,6 +55,8 @@ class Input():
         params = dict()
         params["model_folder"] = Constants.openpose_modelfolder
         params["net_resolution"] = "-1x320"
+        #params["write_video"] = "test.avi"
+        params["write_images"] = "videos/"
         self.openpose = op.WrapperPython()
         self.openpose.configure(params)
         self.openpose.start()
@@ -69,7 +72,9 @@ class Input():
         metric = nn_matching.NearestNeighborDistanceMetric("cosine", max_cosine_distance, nn_budget)
         self.tracker = DeepTracker(metric, max_age = max_age,n_init= n_init)
 
-        self.capture = cv2.VideoCapture(0)
+        self.capture = cv2.VideoCapture('Video/DJI_0561.mp4')
+        #self.capture = cv2.VideoCapture(0)
+
         if self.capture.isOpened():         # Checks the stream
             self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
             self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 1920)
@@ -78,6 +83,7 @@ class Input():
         Constants.SCREEN_HEIGHT = self.frameSize[0]
         Constants.SCREEN_WIDTH = self.frameSize[1]
         self.start_time = time.time()
+
 
     def getCurrentFrameAsImage(self):
             frame = self.currentFrame
@@ -93,13 +99,37 @@ class Input():
         csvWriter.writerow([s])
         s = ""
 
-    def run(self, csvWriter):
+    def printCSVforVideo(self, track, csvWriter):
+        s = str(self.capture.get(cv2.CAP_PROP_POS_MSEC)) + ',' + str(track.track_id)
+        for i in track.last_seen_detection.pose:
+            for j in i:
+                s += (',' + str(j))
+        csvWriter.writerow([s])
+        s = ""
+
+    def debugKeypoints(datums):
+        datum = datums[0]
+        # print(datum.poseKeypoints[0][0][0])
+        if abs(datum.poseKeypoints[0][4][0] - datum.poseKeypoints[0][7][0]) < abs(
+                datum.poseKeypoints[0][6][0] - datum.poseKeypoints[0][3][0]):
+            print("wide")
+            # ser.write(b'A')
+        else:
+            print("narrow")
+            # ser.write(b'B')
+        # time.sleep(6)
+        # ser.write(b'B')
+        # x = ser.read()
+        # print(x)
+
+    def run(self, csvWriter, ser):
         result, self.currentFrame = self.capture.read()
         datum = op.Datum()
         datum.cvInputData = self.currentFrame
         self.openpose.emplaceAndPop(op.VectorDatum([datum]))
 
         keypoints, self.currentFrame = np.array(datum.poseKeypoints), datum.cvOutputData
+        #print(keypoints)
         # Doesn't use keypoint confidence
 
         if keypoints.any():
@@ -119,7 +149,10 @@ class Input():
             detections = [detections[i] for i in indices]
             # Call the tracker
             self.tracker.predict()
-            self.tracker.update( self.currentFrame, detections)
+            self.tracker.update(self.currentFrame, detections)
+
+            hand_count = 0
+            raise_count = 0
 
             for track in self.tracker.tracks:
                 color = None
@@ -130,8 +163,32 @@ class Input():
                 bbox = track.to_tlbr()
                 #print(track.last_seen_detection.pose)
 
-                self.printCSV(track, csvWriter)
+                #self.printCSV(track, csvWriter)
+                self.printCSVforVideo(track, csvWriter)
                 cv2.rectangle(self.currentFrame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),color, 2)
                 cv2.putText(self.currentFrame, "id%s - ts%s"%(track.track_id,track.time_since_update),(int(bbox[0]), int(bbox[1])-20),0, 5e-3 * 200, (0,255,0),2)
+                #print(track.last_seen_detection.pose[4])
+                #print(track.last_seen_detection.pose[7])
+                # detect hand raise
+                if track.last_seen_detection.pose[1][1] > 0:
+                    hand_count += 2
+                    if track.last_seen_detection.pose[4][1] < track.last_seen_detection.pose[2][1]:
+                        raise_count += 1
+                #if track.last_seen_detection.pose[7][1] > 0:
 
+                    if track.last_seen_detection.pose[7][1] < track.last_seen_detection.pose[5][1]:
+                        raise_count += 1
+
+
+            # change on/off frequency
+            if hand_count == 0:
+                percentage = 0
+            else:
+                percentage = raise_count / hand_count
+
+            #m = interp1d([0, 1], [2500, 350])
+            #ser.write((str(int(m(percentage)))+'\n').encode())
+            #ser.write((str(percentage*100)+'\n').encode())
+            #ser.flush()
+            #print((str(percentage*100)+'\n').encode())
             cv2.waitKey(1)
