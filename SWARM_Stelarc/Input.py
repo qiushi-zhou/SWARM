@@ -15,6 +15,8 @@ import csv
 import pygame
 from datetime import datetime
 from scipy.interpolate import interp1d
+import imagiz
+import cv2
 
 # Load OpenPose:
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -35,6 +37,8 @@ except ImportError as e:
     print('Error: OpenPose library could not be found. Did you enable `BUILD_PYTHON` in CMake and have this Python script in the right folder?')
     raise e
 
+server = imagiz.TCP_Server(9990)# TCP testing code
+server.start()# TCP testing code
 
 from deep_sort.iou_matching import iou_cost
 from deep_sort.kalman_filter import KalmanFilter
@@ -72,8 +76,8 @@ class Input():
         metric = nn_matching.NearestNeighborDistanceMetric("cosine", max_cosine_distance, nn_budget)
         self.tracker = DeepTracker(metric, max_age = max_age,n_init= n_init)
 
-        self.capture = cv2.VideoCapture('Video/DJI_0561.mp4')
-        #self.capture = cv2.VideoCapture(0)
+        #self.capture = cv2.VideoCapture('Video/DJI_0561.mp4')
+        self.capture = cv2.VideoCapture(0)
 
         if self.capture.isOpened():         # Checks the stream
             self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
@@ -86,10 +90,10 @@ class Input():
 
 
     def getCurrentFrameAsImage(self):
-            frame = self.currentFrame
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            pgImg = pygame.image.frombuffer(frame.tostring(), frame.shape[1::-1], "RGB")
-            return pgImg
+        frame = self.currentFrame
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        pgImg = pygame.image.frombuffer(frame.tostring(), frame.shape[1::-1], "RGB")
+        return pgImg
 
     def printCSV(self, track, csvWriter):
         s = str(time.time() - self.start_time)+','+str(track.track_id)
@@ -123,9 +127,11 @@ class Input():
         # print(x)
 
     def run(self, csvWriter, ser):
+        #message = server.receive() # TCP testing code
         result, self.currentFrame = self.capture.read()
         datum = op.Datum()
         datum.cvInputData = self.currentFrame
+        #datum.cvInputData = cv2.imdecode(message.image,1) # TCP testing code
         self.openpose.emplaceAndPop(op.VectorDatum([datum]))
 
         keypoints, self.currentFrame = np.array(datum.poseKeypoints), datum.cvOutputData
