@@ -16,7 +16,9 @@ import pygame
 from datetime import datetime
 from scipy.interpolate import interp1d
 import imagiz
-import cv2
+from flask import Flask, render_template, Response
+
+app = Flask(__name__)
 
 # Load OpenPose:
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -37,8 +39,8 @@ except ImportError as e:
     print('Error: OpenPose library could not be found. Did you enable `BUILD_PYTHON` in CMake and have this Python script in the right folder?')
     raise e
 
-server = imagiz.TCP_Server(9990)# TCP testing code
-server.start()# TCP testing code
+#server = imagiz.TCP_Server(9990)# TCP testing code
+#server.start()# TCP testing code
 
 from deep_sort.iou_matching import iou_cost
 from deep_sort.kalman_filter import KalmanFilter
@@ -58,9 +60,9 @@ class Input():
         #from openpose import *
         params = dict()
         params["model_folder"] = Constants.openpose_modelfolder
-        params["net_resolution"] = "-1x320"
+        params["net_resolution"] = "-1x160"
         #params["write_video"] = "test.avi"
-        params["write_images"] = "videos/"
+        #params["write_images"] = "videos/"
         self.openpose = op.WrapperPython()
         self.openpose.configure(params)
         self.openpose.start()
@@ -77,15 +79,30 @@ class Input():
         self.tracker = DeepTracker(metric, max_age = max_age,n_init= n_init)
 
         #self.capture = cv2.VideoCapture('Video/DJI_0561.mp4')
-        self.capture = cv2.VideoCapture(0)
+        #self.capture = cv2.VideoCapture(0)
 
-        if self.capture.isOpened():         # Checks the stream
-            self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
-            self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 1920)
-            self.frameSize = (int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT)),
-                               int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH)))
-        Constants.SCREEN_HEIGHT = self.frameSize[0]
-        Constants.SCREEN_WIDTH = self.frameSize[1]
+        # capture0
+        self.capture0 = cv2.VideoCapture(0)
+
+        if self.capture0.isOpened():         # Checks the stream
+            self.capture0.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
+            self.capture0.set(cv2.CAP_PROP_FRAME_HEIGHT, 1920)
+            self.frameSize0 = (int(self.capture0.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+                               int(self.capture0.get(cv2.CAP_PROP_FRAME_WIDTH)))
+        #Constants.SCREEN_HEIGHT = self.frameSize[0]
+        #Constants.SCREEN_WIDTH = self.frameSize[1]
+
+        # capture1
+        self.capture1 = cv2.VideoCapture(1)
+
+        if self.capture1.isOpened():  # Checks the stream
+            self.capture1.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
+            self.capture1.set(cv2.CAP_PROP_FRAME_HEIGHT, 1920)
+            self.frameSize1 = (int(self.capture1.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+                              int(self.capture1.get(cv2.CAP_PROP_FRAME_WIDTH)))
+        Constants.SCREEN_HEIGHT = self.frameSize0[0] + self.frameSize1[0]
+        Constants.SCREEN_WIDTH = self.frameSize0[1] + self.frameSize1[1]
+
         self.start_time = time.time()
 
 
@@ -128,7 +145,9 @@ class Input():
 
     def run(self, csvWriter, ser):
         #message = server.receive() # TCP testing code
-        result, self.currentFrame = self.capture.read()
+        result, self.currentFrame0 = self.capture0.read()
+        result, self.currentFrame1 = self.capture1.read()
+        self.currentFrame = np.hstack((self.currentFrame0,self.currentFrame1))
         datum = op.Datum()
         datum.cvInputData = self.currentFrame
         #datum.cvInputData = cv2.imdecode(message.image,1) # TCP testing code
@@ -170,7 +189,7 @@ class Input():
                 #print(track.last_seen_detection.pose)
 
                 #self.printCSV(track, csvWriter)
-                self.printCSVforVideo(track, csvWriter)
+                #self.printCSVforVideo(track, csvWriter)
                 cv2.rectangle(self.currentFrame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),color, 2)
                 cv2.putText(self.currentFrame, "id%s - ts%s"%(track.track_id,track.time_since_update),(int(bbox[0]), int(bbox[1])-20),0, 5e-3 * 200, (0,255,0),2)
                 #print(track.last_seen_detection.pose[4])
