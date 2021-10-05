@@ -1,0 +1,12 @@
+opencv_python==4.5.2.52
+pygame==2.0.1
+imagiz==0.5
+pykalman==0.9.5
+Flask==2.0.1
+tensorflow_gpu==1.15.0
+numpy==1.19.5
+scipy==1.7.0
+numba==0.53.1
+pyserial==3.5
+scikit_learn==1.0
+tensorflow==2.6.0
