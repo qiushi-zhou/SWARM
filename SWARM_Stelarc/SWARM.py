@@ -51,7 +51,7 @@ if __name__ == "__main__":
 
         ser = serial.Serial()
         #ser.baudrate = 9600
-        #ser.port = 'COM8'
+        #ser.port = 'COM3'
         #ser.open()
 
         game = Twister()
