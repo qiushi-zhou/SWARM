@@ -142,3 +142,4 @@ output*/
 *cublas64_11.dll
 *cublasLt64_11.dll
 *opencv_world450d.dll
+*.csv

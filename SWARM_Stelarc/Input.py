@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import collections
 import math
 
 import cv2
@@ -18,7 +17,10 @@ import csv
 import pygame
 from datetime import datetime
 from scipy.interpolate import interp1d
-import socket
+import imagiz
+from flask import Flask, render_template, Response
+
+app = Flask(__name__)
 
 # Load OpenPose:
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -26,21 +28,18 @@ try:
         # Windows Import
     if platform == "win32":
             # Change these variables to point to the correct folder (Release/x64 etc.)
-        sys.path.append(dir_path + '/../../python/openpose/Release');
-        os.environ['PATH']  = os.environ['PATH'] + ';' + dir_path + '/../../x64/Release;' +  dir_path + '/../../bin;'
+        sys.path.append(dir_path + '/../build/python/openpose/Release');
+        os.environ['PATH']  = os.environ['PATH'] + ';' + dir_path + '/../build/x64/Release;' +  dir_path + '/../build/bin;'
         import pyopenpose as op
     else:
             # Change these variables to point to the correct folder (Release/x64 etc.)
-        sys.path.append('../../python');
+        sys.path.append('../build/python');
             # If you run `make install` (default path is `/usr/local/python` for Ubuntu), you can also access the OpenPose/python module from there. This will install OpenPose and the python library at your desired installation path. Ensure that this is in your python path in order to use it.
             # sys.path.append('/usr/local/python')
         from openpose import pyopenpose as op
 except ImportError as e:
     print('Error: OpenPose library could not be found. Did you enable `BUILD_PYTHON` in CMake and have this Python script in the right folder?')
     raise e
-
-#server = imagiz.TCP_Server(9990)# TCP testing code
-#server.start()# TCP testing code
 
 from deep_sort.iou_matching import iou_cost
 from deep_sort.kalman_filter import KalmanFilter
@@ -60,9 +59,7 @@ class Input():
         #from openpose import *
         params = dict()
         params["model_folder"] = Constants.openpose_modelfolder
-        params["net_resolution"] = "-1x160"
-        #params["write_video"] = "test.avi"
-        #params["write_images"] = "videos/"
+        params["net_resolution"] = "-1x320"
         self.openpose = op.WrapperPython()
         self.openpose.configure(params)
         self.openpose.start()
@@ -78,38 +75,15 @@ class Input():
         metric = nn_matching.NearestNeighborDistanceMetric("cosine", max_cosine_distance, nn_budget)
         self.tracker = DeepTracker(metric, max_age = max_age,n_init= n_init)
 
-
-        self.capture0 = cv2.VideoCapture(1, cv2.CAP_DSHOW)
-        #self.queue_size = 1
-        #video
-        #self.capture0 = cv2.VideoCapture('kung_Trim.mp4')
-        #self.length = int(self.capture0.get(cv2.CAP_PROP_FRAME_COUNT))
-        #self.fps = int(self.capture0.get(cv2.CAP_PROP_FPS))
-        #print(self.length)
-        #print(self.fps)
-        #self.queue_size = 1 * self.fps
-        #self.queue_size = 1
+        self.capture0 = cv2.VideoCapture(3, cv2.CAP_DSHOW)
 
         if self.capture0.isOpened():         # Checks the stream
-            self.capture0.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
-            self.capture0.set(cv2.CAP_PROP_FRAME_HEIGHT, 1920)
-            self.frameSize = (int(self.capture0.get(cv2.CAP_PROP_FRAME_HEIGHT)),
-                               int(self.capture0.get(cv2.CAP_PROP_FRAME_WIDTH)))
-        Constants.SCREEN_HEIGHT = self.frameSize[0]
-        Constants.SCREEN_WIDTH = self.frameSize[1]
-
-        ''' for stacking multiple cameras
-        # capture1
-        self.capture1 = cv2.VideoCapture(1)
-
-        if self.capture1.isOpened():  # Checks the stream
-            self.capture1.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
-            self.capture1.set(cv2.CAP_PROP_FRAME_HEIGHT, 1920)
-            self.frameSize1 = (int(self.capture1.get(cv2.CAP_PROP_FRAME_HEIGHT)),
-                              int(self.capture1.get(cv2.CAP_PROP_FRAME_WIDTH)))
-        Constants.SCREEN_HEIGHT = self.frameSize0[0] + self.frameSize1[0]
-        Constants.SCREEN_WIDTH = self.frameSize0[1] + self.frameSize1[1]
-        '''
+            self.capture0.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+            self.capture0.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+            self.frameSize = (int(self.capture0.get(cv2.CAP_PROP_FRAME_WIDTH)),
+                               int(self.capture0.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+        Constants.SCREEN_WIDTH = self.frameSize[0]
+        Constants.SCREEN_HEIGHT = self.frameSize[1]
 
         self.start_time = time.time()
 
@@ -501,20 +475,16 @@ class Input():
                 theta = 360 - theta
             self.KEY_ANGLES["LHip"].append(theta)
 
-    def run(self, csvWriter, ser):
-        #message = server.receive() # TCP testing code
+    def run(self, csvWriter, arduino, tracking_quadrant=0, quad_command="seq_0"):
         result, self.currentFrame = self.capture0.read()
-        #result, self.currentFrame0 = self.capture0.read()
-        #result, self.currentFrame1 = self.capture1.read()
-        #self.currentFrame = np.hstack((self.currentFrame0,self.currentFrame1))
         datum = op.Datum()
         datum.cvInputData = self.currentFrame
-        #datum.cvInputData = cv2.imdecode(message.image,1) # TCP testing code
         self.openpose.emplaceAndPop(op.VectorDatum([datum]))
-
         keypoints, self.currentFrame = np.array(datum.poseKeypoints), datum.cvOutputData
+        cv2.putText(self.currentFrame, arduino.debug_string(), (20, 70), 0, 0.4, (255,255,0), 1)
         #print(keypoints)
         # Doesn't use keypoint confidence
+
 
         if keypoints.any():
             poses = keypoints[:,:,:2]
@@ -522,7 +492,7 @@ class Input():
             boxes = poses2boxes(poses)
             boxes_xywh = [[x1,y1,x2-x1,y2-y1] for [x1,y1,x2,y2] in boxes]
             features = self.encoder(self.currentFrame,boxes_xywh)
-            # print(features)
+            #print(features)
 
             nonempty = lambda xywh: xywh[2] != 0 and xywh[3] != 0
             detections = [Detection(bbox, 1.0, feature, pose) for bbox, feature, pose in zip(boxes_xywh, features, poses) if nonempty(bbox)]
@@ -538,6 +508,7 @@ class Input():
             hand_count = 0
             raise_count = 0
 
+            quadrants=[]
             for track in self.tracker.tracks:
                 color = None
                 if not track.is_confirmed():
@@ -549,8 +520,35 @@ class Input():
 
                 #self.printCSV(track, csvWriter)
                 #self.printCSVforVideo(track, csvWriter)
+                for i in range(0,4):
+                    if len(quadrants) < i+1:
+                        q_col = 0 if (i % 2) == 0 else 1
+                        q_row = 0 if i < 2 else 1
+                        start_x = 0 if q_col <= 0 else Constants.SCREEN_WIDTH/2
+                        end_x = Constants.SCREEN_WIDTH/2 if q_col <= 0 else Constants.SCREEN_WIDTH
+                        start_y = 0 if q_row <= 0 else Constants.SCREEN_HEIGHT/2
+                        end_y = Constants.SCREEN_HEIGHT/2 if q_row <= 0 else Constants.SCREEN_HEIGHT
+                        quadrants.append({"count": 0, "start_x": start_x, "end_x":end_x, "start_y":start_y, "end_y":end_y })
+                    min_y = min(int(bbox[1]), int(bbox[3]))
+                    min_x = min(int(bbox[0]), int(bbox[2]))
+                    print(f"Quadrant {i+1} [{q_row}, {q_col}] - Count: {quadrants[i]['count']} x=[{quadrants[i]['start_x']}, {quadrants[i]['end_x']}] - y=[{quadrants[i]['start_y']}, {quadrants[i]['end_y']}]")
+                    if quadrants[i]["start_x"] <= min_x <= quadrants[i]["end_x"] and quadrants[i]["start_y"] <= min_y <= quadrants[i]["end_y"]:
+                        quadrants[i]["count"] += 1
+
                 cv2.rectangle(self.currentFrame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),color, 2)
-                cv2.putText(self.currentFrame, "id%s - ts%s"%(track.track_id,track.time_since_update),(int(bbox[0]), int(bbox[1])-20),0, 5e-3 * 200, (0,255,0),2)
+                cv2.putText(self.currentFrame, "id%s - ts%s"%(track.track_id,track.time_since_update),(int(bbox[0]), int(bbox[1])-20),0, 0.5, (0,255,0),1)
+            for i in range(0,len(quadrants)):
+                quad = quadrants[i]
+                text_x = int(quad['start_x'])
+                text_y = int(quad['end_y'])
+                offset = 20
+                cv2.rectangle(self.currentFrame, (int(quad["start_x"]), int(quad["start_y"])), (int(quad["end_x"]), int(quad["end_y"])), (255,0,0), 1)
+                cv2.putText(self.currentFrame, f"Q{i+1}: {quad['count']}",(text_x+offset, text_y-offset),0, 0.6, (0,0,255),2)
+                if i == tracking_quadrant:
+                    if(quad["count"] > 0):
+                        arduino.send_command(quad_command)
+                        # cv2.putText(self.currentFrame, f"{quad_command} sent",((text_x+offset, text_y-(offset*2)),0, 0.6, (0,0,255),2))
+
 
             """
                 # detect hand raise
@@ -597,8 +595,5 @@ class Input():
             #print(str(int(m(self.movement_value))))
             #csvWriter.writerow(str(int(m(self.movement_value))))
 
-            #sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            #sock.bind(('127.0.0.1',9001))
-            #sock.sendto((str(int(m(self.movement_value)))+'\n').encode('utf-8'), ('127.0.0.1', 9000))
             #time.sleep(0.5)
             cv2.waitKey(1)
