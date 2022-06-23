@@ -545,9 +545,21 @@ class Input():
                 cv2.rectangle(self.currentFrame, (int(quad["start_x"]), int(quad["start_y"])), (int(quad["end_x"]), int(quad["end_y"])), (255,0,0), 1)
                 cv2.putText(self.currentFrame, f"Q{i+1}: {quad['count']}",(text_x+offset, text_y-offset),0, 0.6, (0,0,255),2)
                 if i == tracking_quadrant:
-                    if(quad["count"] > 0):
-                        arduino.send_command(quad_command)
-                        # cv2.putText(self.currentFrame, f"{quad_command} sent",((text_x+offset, text_y-(offset*2)),0, 0.6, (0,0,255),2))
+                    command = ""
+                    if(quad["count"] == 0):
+                        arduino.send_command("stop")
+                        command = "pulse_1"
+                    if(quad["count"] == 1):
+                        arduino.send_command("stop")
+                        command = "quiver_1"
+                    if(quad["count"] == 2):
+                        arduino.send_command("stop")
+                        command = "undulate_1"
+                    if(quad["count"] == 3):
+                        arduino.send_command("stop")
+                        command = "glitch_1"
+                    arduino.send_command(command)
+                    cv2.putText(self.currentFrame, f"{command} sent",(int(text_x)+offset, int(quad['start_y'])+offset),0, 0.6, (0,0,255),2)
 
 
             """

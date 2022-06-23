@@ -97,6 +97,9 @@ class Arduino():
             self.ser.write((string+"\n").encode())
             self.ser.flush()
 
+    def close(self):
+        self.ser.close()
+
     def receive(self):
         ck = ""
         x = "z" # any value that is not an end- or Arduino.startMarker
@@ -156,3 +159,4 @@ if __name__ == "__main__":
 
         game = Twister()
         game.run(spamwriter,arduino, tracking_quadrant=0, quad_command="quiver_0")
+    arduino.close()
