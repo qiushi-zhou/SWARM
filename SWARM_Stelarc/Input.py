@@ -476,6 +476,7 @@ class Input():
             self.KEY_ANGLES["LHip"].append(theta)
 
     def run(self, csvWriter, arduino, tracking_quadrant=0, quad_command="seq_0"):
+        arduino.update_status()
         result, self.currentFrame = self.capture0.read()
         datum = op.Datum()
         datum.cvInputData = self.currentFrame
@@ -558,8 +559,20 @@ class Input():
                     if(quad["count"] == 3):
                         arduino.send_command("stop")
                         command = "glitch_1"
-                    arduino.send_command(command)
-                    cv2.putText(self.currentFrame, f"{command} sent",(int(text_x)+offset, int(quad['start_y'])+offset),0, 0.6, (0,0,255),2)
+                    res = arduino.send_command(command)
+                    log_str = ""
+                    if res <= 0:
+                        log_str = f"{command} sent"
+                    elif res == 1:
+                        log_str = f"Arduino NOT CONNECTED"
+                    elif res == 2:
+                        log_str = f"Command ALREADY SENT"
+                    elif res == 3:
+                        log_str = f"Arduino is BUSY"
+                    else:
+                        log_str = f"Arduino UNKNOWN ERROR"                        
+                    cv2.putText(self.currentFrame, log_str,(int(text_x)+offset, int(quad['start_y'])+offset),0, 0.6, (0,0,255),2)
+
 
 
             """
