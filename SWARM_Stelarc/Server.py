@@ -3,6 +3,7 @@ import cv2
 
 server=imagiz.TCP_Server(9990)
 server.start()
+
 while True:
     message=server.receive()
     frame=cv2.imdecode(message.image,1)

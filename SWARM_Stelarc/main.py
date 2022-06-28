@@ -5,32 +5,13 @@ import re
 import time
 from Input import Input
 from Scene import Scene
+from SwarmApp import SwarmAPP
+from Arduino import Arduino
 import sys
 import getopt
 import Constants
 import pygame
 import serial
-
-
-class Twister():
-
-    def __init__(self, observable):
-        observable.subscribe(self)
-        self.input = Input()
-
-        pygame.init()
-        pygame.display.set_mode((Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT))
-        pygame.display.set_caption("SWARM")
-        screen = pygame.display.get_surface()
-        self.scene = Scene(screen, self.input)
-    
-    def notify(self,observable,*args,**kwargs):
-        print ('Got', args, kwargs, 'From', observable)
-
-    def run(self, csvWriter, arduino, tracking_quadrant=0, quad_command="quiver_0"):
-        while True:
-            self.input.run(csvWriter, arduino, tracking_quadrant, quad_command)
-            self.scene.run()
 
 if __name__ == "__main__":
     arduino = Arduino(port="COM4", wait=False)
@@ -56,6 +37,6 @@ if __name__ == "__main__":
                              "LBigToe.x", "LBigToe.y", "LSmallToe.x", "LSmallToe.y", "LHeel.x", "LHeel.y",
                              "RBigToe.x", "RBigToe.y", "RSmallToe.x", "RSmallToe.y", "RHeel.x", "RHeel.y"])
 
-        game = Twister(arduino)
+        game = SwarmAPP(arduino)
         game.run(spamwriter,arduino, tracking_quadrant=0, quad_command="quiver_0")
     arduino.close()
