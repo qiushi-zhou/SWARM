@@ -16,25 +16,29 @@ import Constants
 
 # Load OpenPose:
 dir_path = os.path.dirname(os.path.realpath(__file__))
-use_openpose = False
+use_openpose = True
+openpose_modelfolder = ""
 if use_openpose:
     try:
         # Windows Import
         if platform == "win32":
             # Change these variables to point to the correct folder (Release/x64 etc.)
-            sys.path.append(dir_path + '/../build/python/openpose/Release')
-            os.environ['PATH'] = os.environ[
-                                     'PATH'] + ';' + dir_path + '/../build/x64/Release;' + dir_path + '/../build/bin;'
+            sys.path.append(dir_path + '/../openpose/windows/python')
+            os.environ['PATH'] = os.environ['PATH'] + ';' + dir_path + '/../build/x64/Release;' + dir_path + '/../build/bin;'
             import pyopenpose as op
+            openpose_modelfolder = Constants.openpose_modelfolder_win
         else:
             # Change these variables to point to the correct folder (Release/x64 etc.)
-            sys.path.append('../python')
+            sys.path.append('../openpose/mac/python/')
             # If you run `make install` (default path is `/usr/local/python` for Ubuntu), you can also access the OpenPose/python module from there. This will install OpenPose and the python library at your desired installation path. Ensure that this is in your python path in order to use it.
             # sys.path.append('/usr/local/python')
+            # Fix Issue with attempt to free invalid pointer:
+            # https://github.com/CMU-Perceptual-Computing-Lab/openpose/issues/1902#issuecomment-1024890817
+            # https://stackoverflow.com/questions/53203644/caffe-is-conflicted-with-python-cv2/53386302#53386302
             from openpose import pyopenpose as op
+            openpose_modelfolder = Constants.openpose_modelfolder_mac
     except ImportError as e:
-        print(
-            'Error: OpenPose library could not be found. Did you enable `BUILD_PYTHON` in CMake and have this Python script in the right folder?')
+        print('Error: OpenPose library could not be found. Did you enable `BUILD_PYTHON` in CMake and have this Python script in the right folder?')
         raise e
 
 
@@ -45,7 +49,8 @@ class Input:
         self.cv2 = cv2
         # from openpose import *
         params = dict()
-        params["model_folder"] = Constants.openpose_modelfolder
+        params["model_folder"] = openpose_modelfolder
+        print(f"Using openpose model at {params['model_folder']}")
         params["net_resolution"] = "-1x320"
         if use_openpose:
             self.openpose = op.WrapperPython()
@@ -109,9 +114,9 @@ class Input:
                 s += (',' + str(j))
         csv_writer.writerow([s])
 
-    def update_trackers(self, frame):
+    def update_trackers(self, camera_frame):
         datum = op.Datum()
-        datum.cvInputData = frame
+        datum.cvInputData = camera_frame
         self.openpose.emplaceAndPop(op.VectorDatum([datum]))
         keypoints, frame = np.array(datum.poseKeypoints), datum.cvOutputData
         # print(keypoints)

@@ -1,0 +1,13 @@
+# Target labels
+ openpose_lib
+# Source files and their labels
+/Users/marinig/Documents/GitHub/openpose/build/CMakeFiles/openpose_lib
+/Users/marinig/Documents/GitHub/openpose/build/CMakeFiles/openpose_lib.rule
+/Users/marinig/Documents/GitHub/openpose/build/CMakeFiles/openpose_lib-complete.rule
+/Users/marinig/Documents/GitHub/openpose/build/caffe/src/openpose_lib-stamp/openpose_lib-build.rule
+/Users/marinig/Documents/GitHub/openpose/build/caffe/src/openpose_lib-stamp/openpose_lib-configure.rule
+/Users/marinig/Documents/GitHub/openpose/build/caffe/src/openpose_lib-stamp/openpose_lib-download.rule
+/Users/marinig/Documents/GitHub/openpose/build/caffe/src/openpose_lib-stamp/openpose_lib-install.rule
+/Users/marinig/Documents/GitHub/openpose/build/caffe/src/openpose_lib-stamp/openpose_lib-mkdir.rule
+/Users/marinig/Documents/GitHub/openpose/build/caffe/src/openpose_lib-stamp/openpose_lib-patch.rule
+/Users/marinig/Documents/GitHub/openpose/build/caffe/src/openpose_lib-stamp/openpose_lib-update.rule

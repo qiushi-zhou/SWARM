@@ -34,25 +34,29 @@ class Arduino():
         self.p_1 = p_1
         self.p_2 = p_2
         self.p_3 = p_3
-        self.connected = False
+        self.is_connected = False
         self.last_command = ""
         self.is_ready = False
 
         self.ser = serial.Serial()
         self.ser.baudrate = self.bps
         self.ser.port = self.port
-        self.ser.open()
-        self.connected = True
-        time.sleep(1)
-        self.is_ready = True
+        try:
+            self.ser.open()
+            self.is_connected = True
+            time.sleep(1)
+            self.is_ready = True
+        except Exception as e:
+            print(f"Error opening port {self.port} for Arduino: {e}")
+
         print(self.debug_string())
         # try:
         #     self.ser.open()
-        #     self.connected = True
+        #     self.is_connected = True
         #     if wait:
         #         self.wait_for_connection(Arduino.wait_timeout if wait else 0)
         #     else:
-        #         self.connected = True
+        #         self.is_connected = True
         # except Exception as e:
         #     print(f"Error opening serial port: {e}")
 
@@ -79,16 +83,16 @@ class Arduino():
                     return
             msg = self.receive()
         print(f"Connected to Arduino on {self.port}: bps={self.bps}, {self.p_1}/{self.p_2}/{self.p_3}")
-        self.connected = True
+        self.is_connected = True
 
     def debug_string(self):
-        if self.connected:
+        if self.is_connected:
             return f"Arduino CONNECTED on {self.port}: bps={self.bps}, {self.p_1}/{self.p_2}/{self.p_3}"
         else:
             return f"Arduino NOT found on {self.port}: bps={self.bps}, {self.p_1}/{self.p_2}/{self.p_3}"
 
     def send_command(self, command):
-        if self.connected:
+        if self.is_connected:
             if self.is_ready:
               if command == self.last_command:
                   print(f"command {command} already sent")
@@ -107,7 +111,7 @@ class Arduino():
         self.ser.flush()
 
     def send(self, string):
-        if(self.connected):
+        if(self.is_connected):
             self.ser.write((string+"\n").encode())
             self.ser.flush()
 
@@ -115,10 +119,11 @@ class Arduino():
         self.ser.close()
 
     def update_status(self):
-      received = self.receive()
-      if received == Arduino.done:
-        self.is_ready = True
-      return self.is_ready
+        if self.is_connected:
+            received = self.receive()
+            if received == Arduino.done:
+                self.is_ready = True
+        return self.is_ready
 
     def receive(self):
         ck = ""

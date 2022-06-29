@@ -36,7 +36,7 @@ class Person:
         pass
 
 class SwarmAPP():
-    def __init__(self, n_cameras=4, observable=None):
+    def __init__(self, n_cameras=4, observable=None, arduino_port="COM4"):
         if observable:
             observable.subscribe(self)
         self.cv2 = cv2
@@ -75,7 +75,7 @@ class SwarmAPP():
         screen = pygame.display.get_surface()
         self.scene = Scene(screen)
 
-        self.arduino = Arduino(port="COM4", wait=False)
+        self.arduino = Arduino(port=arduino_port, wait=False)
         self.n_cameras = n_cameras
         self.cameras = []
         self.people = []
@@ -95,34 +95,26 @@ class SwarmAPP():
                 end_y = Constants.SCREEN_HEIGHT / 2 if q_row <= 0 else Constants.SCREEN_HEIGHT
                 self.cameras.append(Camera(start_x, end_x, start_y, end_y, q_row, q_col))
 
-    def update_cameras(self, tracks, frame):
-        for i in range(0, len(self.cameras)):
-            camera = self.cameras[i]
-            text_x = int(camera.start_x)
-            text_y = int(camera.end_y)
-            offset = 20
-            for track in tracks:
-                color = (255, 255, 255)
-                if not track.is_confirmed():
-                    color = (0, 0, 255)
-                bbox = track.to_tlbr()
-                min_y = min(int(bbox[1]), int(bbox[3]))
-                min_x = min(int(bbox[0]), int(bbox[2]))
-
+    def update_tracks(self, tracks, frame):
+        for track in tracks:
+            color = (255, 255, 255)
+            if not track.is_confirmed():
+                color = (0, 0, 255)
+            bbox = track.to_tlbr()
+            min_y = min(int(bbox[1]), int(bbox[3]))
+            min_x = min(int(bbox[0]), int(bbox[2]))
+            self.cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2)
+            self.cv2.putText(frame, "id%s - ts%s" % (track.track_id, track.time_since_update),(int(bbox[0]), int(bbox[1]) - 20), 0, 0.5, (0, 255, 0), 1)
+            for i in range(0, len(self.cameras)):
+                camera = self.cameras[i]
                 if camera.is_in_camera(min_x, min_y):
                     camera.count += 1
-
-                self.cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2)
-                self.cv2.putText(frame, "id%s - ts%s" % (track.track_id, track.time_since_update),(int(bbox[0]), int(bbox[1]) - 20), 0, 0.5, (0, 255, 0), 1)
-
-            print(f"Quadrant {i + 1} [{camera.q_row}, {camera.q_col}] - Count: {camera.count} x=[{camera.start_x}, {camera.end_x}] - y=[{camera.start_y}, {camera.end_y}]")
-            self.cv2.rectangle(frame, (int(camera.start_x), int(camera.start_y)),(int(camera.end_x), int(camera.end_y)), (255, 0, 0), 1)
-            self.cv2.putText(frame, f"Q{i + 1}: {camera.count}", (text_x + offset, text_y - offset), 0, 0.6, (0, 0, 255), 2)
 
     def update_behavior(self, frame):
         for i in range(0, len(self.cameras)):
             camera = self.cameras[i]
             text_x = int(camera.start_x)
+            text_y = int(camera.end_y)
             offset = 20
             command = ""
             arduino = self.arduino
@@ -150,6 +142,9 @@ class SwarmAPP():
             elif res == 3:
                 log_str = "Arduino is BUSY"
 
+            print(f"Quadrant {i + 1} [{camera.q_row}, {camera.q_col}] - Count: {camera.count} x=[{camera.start_x}, {camera.end_x}] - y=[{camera.start_y}, {camera.end_y}]")
+            self.cv2.rectangle(frame, (int(camera.start_x), int(camera.start_y)),(int(camera.end_x), int(camera.end_y)), (255, 0, 0), 1)
+            self.cv2.putText(frame, f"Q{i + 1}: {camera.count}", (text_x + offset, text_y - offset), 0, 0.6, (0, 0, 255), 2)
             self.cv2.putText(frame, log_str, (int(text_x) + offset, int(camera.start_y) + offset), 0,0.6, (0, 0, 255), 2)
 
     def update_map(self):
@@ -157,21 +152,21 @@ class SwarmAPP():
         width = 500
         map_canvas = np.ones((height, width, 3), np.uint8)
         map_canvas *= 255
-        self.cv2.circle(map_canvas, (height/2, width/2), Constants.inner_radius, (0, 0, 0), 2)
-        self.cv2.circle(map_canvas, (height/2, width/2), Constants.outer_radius, (0, 0, 0), 2)
+        self.cv2.circle(map_canvas, (int(height/2), int(width/2)), Constants.inner_radius, (0, 0, 0), 2)
+        self.cv2.circle(map_canvas, (int(height/2), int(width/2)), Constants.outer_radius, (0, 0, 0), 2)
         self.cv2.imshow("SWARM map", map_canvas)
 
-    def run(self, csvWriter, arduino):
+    def run(self):
         while True:
             result, frame = self.capture0.read()
             self.arduino.update_status()
-            self.cv2.putText(frame, arduino.debug_string(), (20, 70), 0, 0.4, (255, 255, 0), 1)
+            self.cv2.putText(frame, self.arduino.debug_string(), (20, 70), 0, 0.4, (255, 255, 0), 1)
 
-            # tracks = self.input.update_trackers(frame)
-            # self.update_cameras(tracks)
-            # self.update_behavior(frame)
+            tracks = self.input.update_trackers(frame)
+            self.update_tracks(tracks, frame)
+            self.update_behavior(frame)
 
-            self.scene.update(frame)
+            self.scene.update(self.cv2.cvtColor(frame, self.cv2.COLOR_BGR2RGB))
 
             self.update_map()
 
