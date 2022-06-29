@@ -14,7 +14,6 @@ import pygame
 import serial
 
 if __name__ == "__main__":
-    arduino = Arduino(port="COM4", wait=False)
     options, remainder = getopt.getopt(sys.argv[1:], 's:x:')
     for opt, arg in options:
         if opt in ('-s'):
@@ -37,6 +36,6 @@ if __name__ == "__main__":
                              "LBigToe.x", "LBigToe.y", "LSmallToe.x", "LSmallToe.y", "LHeel.x", "LHeel.y",
                              "RBigToe.x", "RBigToe.y", "RSmallToe.x", "RSmallToe.y", "RHeel.x", "RHeel.y"])
 
-        game = SwarmAPP(arduino)
-        game.run(spamwriter,arduino, tracking_quadrant=0, quad_command="quiver_0")
+        swarm = SwarmAPP()
+        swarm.run(spamwriter)
     arduino.close()
