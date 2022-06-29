@@ -11,7 +11,9 @@ n_init = 20
 openpose_modelfolder = "C:/Users/Admin/Documents/GitHub/SWARM/models"
 
 inner_radius = 10
-outer_radius = 10
+outer_radius = 40
+
+max_capture_index = 10
 
 
 

@@ -2,11 +2,12 @@
 # -*- coding: utf-8 -*-
 from Input import Input
 from Scene import Scene
-from cv2 import cv2
+import cv2
 import numpy as np
 import Constants
 import pygame
 from Arduino import Arduino
+import time
 
 class Camera:
     def __init__(self, start_x, start_y, end_x, end_y, q_row, q_col):
@@ -34,19 +35,36 @@ class Person:
     def draw_debug_data(self, cv2, frame):
         pass
 
-
-
-
 class SwarmAPP():
-    def __init__(self, observable, n_cameras=4):
-        observable.subscribe(self)
+    def __init__(self, n_cameras=4, observable=None):
+        if observable:
+            observable.subscribe(self)
         self.cv2 = cv2
-        self.capture0 = self.cv2.VideoCapture(3, self.cv2.CAP_DSHOW)
-        if self.capture0.isOpened():  # Checks the stream
-            self.capture0.set(self.cv2.CAP_PROP_FRAME_WIDTH, 1920)
-            self.capture0.set(self.cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-            self.frameSize = (int(self.capture0.get(self.cv2.CAP_PROP_FRAME_WIDTH)),
-                              int(self.capture0.get(self.cv2.CAP_PROP_FRAME_HEIGHT)))
+        self.capture_index = 0
+        self.capture0 = None
+        while True:
+            try:
+                # On MacOS, make sure to install opencv with "brew install opencv" and then link it with "brew link --overwrite opencv"
+                # Also remove CAP_DSHOW for MacOS
+                # self.capture0 = self.cv2.VideoCapture(self.capture_index, self.cv2.CAP_DSHOW)
+                self.capture0 = self.cv2.VideoCapture(self.capture_index, self.cv2.CAP_AVFOUNDATION)
+                time.sleep(1)
+                if self.capture0.isOpened():  # Checks the stream
+                    print(f"VideoCapture {self.capture_index} OPEN")
+                    break
+                else:
+                    print(f"VideoCapture {self.capture_index} CLOSED")
+                    self.capture_index += 1
+                if self.capture_index > Constants.max_capture_index:
+                    break
+            except Exception as e:
+                print(f"Exception opening VideoCapture {self.capture_index}, stopping...")
+                return
+
+        self.capture0.set(self.cv2.CAP_PROP_FRAME_WIDTH, 1920)
+        self.capture0.set(self.cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+        self.frameSize = (int(self.capture0.get(self.cv2.CAP_PROP_FRAME_WIDTH)),
+                          int(self.capture0.get(self.cv2.CAP_PROP_FRAME_HEIGHT)))
         Constants.SCREEN_WIDTH = self.frameSize[0]
         Constants.SCREEN_HEIGHT = self.frameSize[1]
 
@@ -58,7 +76,7 @@ class SwarmAPP():
         self.scene = Scene(screen)
 
         self.arduino = Arduino(port="COM4", wait=False)
-        self.n_cameras = 4
+        self.n_cameras = n_cameras
         self.cameras = []
         self.people = []
         self.init_cameras()
@@ -149,9 +167,9 @@ class SwarmAPP():
             self.arduino.update_status()
             self.cv2.putText(frame, arduino.debug_string(), (20, 70), 0, 0.4, (255, 255, 0), 1)
 
-            tracks = self.input.update_trackers(frame)
-            self.update_cameras(tracks)
-            self.update_behavior(frame)
+            # tracks = self.input.update_trackers(frame)
+            # self.update_cameras(tracks)
+            # self.update_behavior(frame)
 
             self.scene.update(frame)
 
