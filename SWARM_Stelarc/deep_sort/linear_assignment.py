@@ -1,8 +1,12 @@
 # vim: expandtab:ts=4:sw=4
 from __future__ import absolute_import
 import numpy as np
-from scipy.optimize import linear_sum_assignment as linear_assignment
-# from sklearn.utils.linear_assignment_ import linear_assignment
+from sys import platform
+
+if platform == "win32":
+    from sklearn.utils.linear_assignment_ import linear_assignment
+else:
+    from scipy.optimize import linear_sum_assignment as linear_assignment
 from . import kalman_filter
 
 INFTY_COST = 1e+5

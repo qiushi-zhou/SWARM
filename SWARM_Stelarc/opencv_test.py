@@ -1,16 +1,19 @@
 import sys
 import cv2
 import time
+from sys import platform
 
-capture_index = 0
+capture_index = 3
 max_capture_index = 10
 vc = None
 while True:
     try:
-        # On MacOS, make sure to install opencv with "brew install opencv" and then link it with "brew link --overwrite opencv"
-        # Also remove CAP_DSHOW for MacOS
-        # vc = cv2.VideoCapture(capture_index, cv2.CAP_DSHOW)
-        vc = cv2.VideoCapture(capture_index, cv2.CAP_AVFOUNDATION)
+        if platform == "win32":
+            vc = cv2.VideoCapture(capture_index, cv2.CAP_DSHOW)
+        else:
+            # On MacOS, make sure to install opencv with "brew install opencv" and then link it with "brew link --overwrite opencv"
+            # Also remove CAP_DSHOW for MacOS
+            vc = cv2.VideoCapture(capture_index, cv2.CAP_AVFOUNDATION)
         time.sleep(1)
         if vc.isOpened():  # Checks the stream
             print(f"VideoCapture {capture_index} OPEN")

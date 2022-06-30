@@ -8,13 +8,14 @@ import Constants
 import pygame
 from Arduino import Arduino
 import time
+from sys import platform
 
 class Camera:
     def __init__(self, start_x, start_y, end_x, end_y, q_row, q_col):
         self.count = 0
         self.start_x = start_x
-        self.end_x = end_x
         self.start_y = start_y
+        self.end_x = end_x
         self.end_y = end_y
         self.q_row = q_row
         self.q_col = q_col
@@ -40,14 +41,16 @@ class SwarmAPP():
         if observable:
             observable.subscribe(self)
         self.cv2 = cv2
-        self.capture_index = 0
+        self.capture_index = 3
         self.capture0 = None
         while True:
             try:
-                # On MacOS, make sure to install opencv with "brew install opencv" and then link it with "brew link --overwrite opencv"
-                # Also remove CAP_DSHOW for MacOS
-                # self.capture0 = self.cv2.VideoCapture(self.capture_index, self.cv2.CAP_DSHOW)
-                self.capture0 = self.cv2.VideoCapture(self.capture_index, self.cv2.CAP_AVFOUNDATION)
+                if platform == "win32":
+                    self.capture0 = cv2.VideoCapture(self.capture_index, cv2.CAP_DSHOW)
+                else:
+                    # On MacOS, make sure to install opencv with "brew install opencv" and then link it with "brew link --overwrite opencv"
+                    # Also remove CAP_DSHOW for MacOS
+                    self.capture0 = cv2.VideoCapture(self.capture_index, cv2.CAP_AVFOUNDATION)
                 time.sleep(1)
                 if self.capture0.isOpened():  # Checks the stream
                     print(f"VideoCapture {self.capture_index} OPEN")
@@ -93,9 +96,9 @@ class SwarmAPP():
                 end_x = Constants.SCREEN_WIDTH / 2 if q_col <= 0 else Constants.SCREEN_WIDTH
                 start_y = 0 if q_row <= 0 else Constants.SCREEN_HEIGHT / 2
                 end_y = Constants.SCREEN_HEIGHT / 2 if q_row <= 0 else Constants.SCREEN_HEIGHT
-                self.cameras.append(Camera(start_x, end_x, start_y, end_y, q_row, q_col))
+                self.cameras.append(Camera(start_x, start_y, end_x, end_y, q_row, q_col))
 
-    def update_tracks(self, tracks, frame):
+    def update_tracks(self, tracks, frame, debug=True):
         for track in tracks:
             color = (255, 255, 255)
             if not track.is_confirmed():
@@ -110,7 +113,7 @@ class SwarmAPP():
                 if camera.is_in_camera(min_x, min_y):
                     camera.count += 1
 
-    def update_behavior(self, frame):
+    def update_behavior(self, frame, debug=True):
         for i in range(0, len(self.cameras)):
             camera = self.cameras[i]
             text_x = int(camera.start_x)
@@ -141,8 +144,8 @@ class SwarmAPP():
                 log_str = "Command ALREADY SENT"
             elif res == 3:
                 log_str = "Arduino is BUSY"
-
-            print(f"Quadrant {i + 1} [{camera.q_row}, {camera.q_col}] - Count: {camera.count} x=[{camera.start_x}, {camera.end_x}] - y=[{camera.start_y}, {camera.end_y}]")
+            if debug:
+                print(f"Quadrant {i + 1} [{camera.q_row}, {camera.q_col}] - Count: {camera.count} x=[{camera.start_x}, {camera.end_x}] - y=[{camera.start_y}, {camera.end_y}]")
             self.cv2.rectangle(frame, (int(camera.start_x), int(camera.start_y)),(int(camera.end_x), int(camera.end_y)), (255, 0, 0), 1)
             self.cv2.putText(frame, f"Q{i + 1}: {camera.count}", (text_x + offset, text_y - offset), 0, 0.6, (0, 0, 255), 2)
             self.cv2.putText(frame, log_str, (int(text_x) + offset, int(camera.start_y) + offset), 0,0.6, (0, 0, 255), 2)
@@ -162,12 +165,15 @@ class SwarmAPP():
             self.arduino.update_status()
             self.cv2.putText(frame, self.arduino.debug_string(), (20, 70), 0, 0.4, (255, 255, 0), 1)
 
-            tracks = self.input.update_trackers(frame)
-            self.update_tracks(tracks, frame)
-            self.update_behavior(frame)
+            tracks, frame_updated = self.input.update_trackers(frame)
+            if frame_updated is not None:
+                frame = frame_updated
+            self.update_tracks(tracks, frame, debug=False)
+            self.update_behavior(frame, debug=False)
 
             self.scene.update(self.cv2.cvtColor(frame, self.cv2.COLOR_BGR2RGB))
+            # self.scene.update(frame)
 
-            self.update_map()
+            # self.update_map()
 
             self.cv2.waitKey(1)

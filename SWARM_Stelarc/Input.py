@@ -114,11 +114,12 @@ class Input:
                 s += (',' + str(j))
         csv_writer.writerow([s])
 
-    def update_trackers(self, camera_frame):
+    def update_trackers(self, frame):
         datum = op.Datum()
-        datum.cvInputData = camera_frame
+        datum.cvInputData = frame
         self.openpose.emplaceAndPop(op.VectorDatum([datum]))
-        keypoints, frame = np.array(datum.poseKeypoints), datum.cvOutputData
+        keypoints = np.array(datum.poseKeypoints)
+        frame = datum.cvOutputData
         # print(keypoints)
         # Doesn't use keypoint confidence
 
@@ -144,7 +145,8 @@ class Input:
 
             hand_count = 0
             raise_count = 0
-        return self.tracker.tracks
+            return self.tracker.tracks, frame
+        return self.tracker.tracks, None
 
 
 
