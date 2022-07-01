@@ -177,9 +177,8 @@ class SwarmAPP():
             camera = self.cameras[i]
             camera.people_graph.calculate_edges()
             camera.people_graph.cv_draw_nodes(self.cv2, canvas)
-            camera.people_graph.cv_draw_edges(self.cv2, canvas, dfebug=False)
-            if debug:
-                camera.people_graph.cv_draw_debug(self.cv2, canvas, camera.start_x, camera.start_y, offset_x, offset_y, debug=debug, prefix=i)
+            camera.people_graph.cv_draw_edges(self.cv2, canvas, debug=debug)
+            camera.people_graph.cv_draw_debug(self.cv2, canvas, camera.start_x, camera.start_y, offset_x, offset_y, debug=debug, prefix=i)
 
     def run(self):
         while True:

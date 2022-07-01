@@ -70,10 +70,17 @@ class PeopleGraph:
         self.edges_calculated = True
 
     def get_average_distance(self):
-        return self.nx.average_shortest_path_length(self.nx_graph)
+        if self.edges_calculated and self.nx_graph.number_of_nodes() > 0:
+            sum_of_edges = 0
+            for i, j, w in self.nx_graph.edges(data=True):
+                sum_of_edges += w['weight']
+            return sum_of_edges/self.nx_graph.number_of_nodes()
+        return 0
 
     def get_average_clustering(self):
-        return nx.average_clustering(self.nx_graph)
+        # if self.edges_calculated:
+        #     return nx.average_clustering(self.nx_graph, weight='weight')
+        return 0
 
     def get_nx_graph(self):
         return self.nx_graph
@@ -109,11 +116,14 @@ class PeopleGraph:
         nodes_data = f"[{nodes_data}]"
         edges_data = ""
         for i, j, w in self.nx_graph.edges(data=True):
-            edges_data = f"{edges_data}, ({i.pos[0]:.2f}, {i.pos[1]:.2f}, weight: {w['weight']:.2f}\n)"
+            # edges_data = f"{edges_data}, ({i.pos[0]:.2f}, {i.pos[1]:.2f}, weight: {w['weight']:.2f}\n)"
+            edges_data = f"{edges_data},{w['weight']:.2f}"
+        edges_data = f"[{edges_data}]"
         text_x = int(text_x+offset_x)
         text_y = int(text_y+offset_y)
-        cv2.putText(canvas, f"Nodes: {nodes_data}", (text_x, text_y), 0, 0.5, (255, 255, 0), 2)
-        cv2.putText(canvas, f"Edges: {edges_data}", (text_x, text_y+20), 0, 0.5, (255, 255, 0), 2)
+        cv2.putText(canvas, f"Nodes {self.nx_graph.number_of_nodes()}: {nodes_data}", (text_x, text_y), 0, 0.5, (255, 255, 0), 2)
+        cv2.putText(canvas, f"Edges {self.nx_graph.number_of_edges()}: {edges_data}", (text_x, text_y+20), 0, 0.5, (255, 255, 0), 2)
+        cv2.putText(canvas, f"Avg Distance: {self.get_average_distance()}\tAvg Clustering: {self.get_average_clustering()}", (text_x, text_y+40), 0, 0.5, (255, 255, 0), 2)
         if debug:
             print(f"Camera {prefix:<2} - Nodes: {self.nx_graph.number_of_nodes():<3} Edges: {self.nx_graph.number_of_edges():<3}")
 
