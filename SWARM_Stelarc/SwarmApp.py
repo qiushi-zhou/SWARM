@@ -7,34 +7,25 @@ import numpy as np
 import Constants
 import pygame
 from Arduino import Arduino
+from people_graph import *
 import time
 from sys import platform
 
 class Camera:
     def __init__(self, start_x, start_y, end_x, end_y, q_row, q_col):
         self.count = 0
+        self.avg_distance = 0
         self.start_x = start_x
         self.start_y = start_y
         self.end_x = end_x
         self.end_y = end_y
         self.q_row = q_row
         self.q_col = q_col
+        self.people_graph = PeopleGraph()
 
     def is_in_camera(self, x, y):
         return self.start_x <= x <= self.end_x and self.start_y <= y <= self.end_y
 
-class Person:
-    def __init__(self, id=-1, x=0, y=0, z=0):
-        self.id = id
-        self.x = x
-        self.y = y
-        self.z = z
-
-    def update_location(self, tracks):
-        pass
-
-    def draw_debug_data(self, cv2, frame):
-        pass
 
 class SwarmAPP():
     def __init__(self, n_cameras=4, observable=None, arduino_port="COM4"):
@@ -79,9 +70,12 @@ class SwarmAPP():
         self.scene = Scene(screen)
 
         self.arduino = Arduino(port=arduino_port, wait=False)
+        self.last_arduino_command = "NO COMMAND SENT"
+        self.arduino_status = "STATUS UNKNOWN"
         self.n_cameras = n_cameras
         self.cameras = []
-        self.people = []
+        self.total_people = 0
+        self.avg_distance = 0
         self.init_cameras()
 
     def notify(self, observable, *args, **kwargs):
@@ -99,56 +93,75 @@ class SwarmAPP():
                 self.cameras.append(Camera(start_x, start_y, end_x, end_y, q_row, q_col))
 
     def update_tracks(self, tracks, frame, debug=True):
+        for camera in self.cameras:
+            camera.people_graph.init_graph()
+            camera.count = 0
+
         for track in tracks:
             color = (255, 255, 255)
             if not track.is_confirmed():
                 color = (0, 0, 255)
             bbox = track.to_tlbr()
-            min_y = min(int(bbox[1]), int(bbox[3]))
             min_x = min(int(bbox[0]), int(bbox[2]))
-            self.cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2)
-            self.cv2.putText(frame, "id%s - ts%s" % (track.track_id, track.time_since_update),(int(bbox[0]), int(bbox[1]) - 20), 0, 0.5, (0, 255, 0), 1)
-            for i in range(0, len(self.cameras)):
-                camera = self.cameras[i]
+            min_y = min(int(bbox[1]), int(bbox[3]))
+            chest_offset_x = 0
+            chest_offset_y = 0
+            center_x, center_y = (min_x + ((bbox[2]-bbox[0])/2) + chest_offset_x, min_y + ((bbox[3]-bbox[1])/2) + chest_offset_y) # ((x1+x2)/2, (y1+y2)/2).
+            dist_from_camera = -1
+            if Constants.draw_openpose:
+                self.cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2)
+                self.cv2.putText(frame, "id%s - ts%s" % (track.track_id, track.time_since_update), (int(bbox[0]), int(bbox[1]) - 20), 0, 0.5, (0, 255, 0), 1)
+            for camera in self.cameras:
                 if camera.is_in_camera(min_x, min_y):
                     camera.count += 1
+                    camera.people_graph.add_node(center_x, center_y, dist_from_camera)
+            if debug:
+                print(f"Center: ({center_x:.2f}, {center_y:.2f})")
 
-    def update_behavior(self, frame, debug=True):
+    def update_action(self, debug=True):
+        arduino = self.arduino
+        if self.total_people == 0:
+            arduino.send_command("stop")
+            command = "pulse_1"
+        if self.total_people == 1:
+            arduino.send_command("stop")
+            command = "quiver_1"
+        if self.total_people == 2:
+            arduino.send_command("stop")
+            command = "undulate_1"
+        if self.total_people == 3:
+            arduino.send_command("stop")
+            command = "glitch_1"
+        res = arduino.send_command(command)
+
+        log_str = "Arduino UNKNOWN ERROR"
+        if res <= 0:
+            log_str = f"{command} sent"
+        elif res == 1:
+            log_str = "Arduino NOT CONNECTED"
+        elif res == 2:
+            log_str = "Command ALREADY SENT"
+        elif res == 3:
+            log_str = "Arduino is BUSY"
+
+        self.last_arduino_command = command
+        self.arduino_status = log_str
+
+    def draw_behavior_debug(self, frame, debug=True, offset_x=20, offset_y=300):
+        text_x = int(0 + offset_x)
+        text_y = int(0 + offset_y)
+        self.cv2.putText(frame, self.arduino_status, (text_x, text_y), 0, 0.6, (0, 0, 255), 2)
+        self.cv2.putText(frame, self.arduino.debug_string(), (text_x, text_y+20), 0, 0.4, (255, 255, 0), 1)
+
+    def draw_camera_debug(self, frame, debug=True, offset_x=20, offset_y=-20):
         for i in range(0, len(self.cameras)):
             camera = self.cameras[i]
-            text_x = int(camera.start_x)
-            text_y = int(camera.end_y)
-            offset = 20
-            command = ""
-            arduino = self.arduino
-            if camera.count == 0:
-                arduino.send_command("stop")
-                command = "pulse_1"
-            if camera.count == 1:
-                arduino.send_command("stop")
-                command = "quiver_1"
-            if camera.count == 2:
-                arduino.send_command("stop")
-                command = "undulate_1"
-            if camera.count == 3:
-                arduino.send_command("stop")
-                command = "glitch_1"
-            res = arduino.send_command(command)
-
-            log_str = "Arduino UNKNOWN ERROR"
-            if res <= 0:
-                log_str = f"{command} sent"
-            elif res == 1:
-                log_str = "Arduino NOT CONNECTED"
-            elif res == 2:
-                log_str = "Command ALREADY SENT"
-            elif res == 3:
-                log_str = "Arduino is BUSY"
-            if debug:
-                print(f"Quadrant {i + 1} [{camera.q_row}, {camera.q_col}] - Count: {camera.count} x=[{camera.start_x}, {camera.end_x}] - y=[{camera.start_y}, {camera.end_y}]")
-            self.cv2.rectangle(frame, (int(camera.start_x), int(camera.start_y)),(int(camera.end_x), int(camera.end_y)), (255, 0, 0), 1)
-            self.cv2.putText(frame, f"Q{i + 1}: {camera.count}", (text_x + offset, text_y - offset), 0, 0.6, (0, 0, 255), 2)
-            self.cv2.putText(frame, log_str, (int(text_x) + offset, int(camera.start_y) + offset), 0,0.6, (0, 0, 255), 2)
+            text_x = int(camera.start_x + offset_x)
+            text_y = int(camera.end_y + offset_y)
+            self.cv2.rectangle(frame, (int(camera.start_x), int(camera.start_y)), (int(camera.end_x), int(camera.end_y)), (255, 0, 0), 1)
+            self.cv2.putText(frame, f"Q{i + 1}: {camera.count}", (text_x, text_y), 0, 0.6, (0, 0, 255), 2)
+        if debug:
+            print(f"Quadrant {i + 1} [{camera.q_row}, {camera.q_col}] - Count: {camera.count} x=[{camera.start_x}, {camera.end_x}] - y=[{camera.start_y}, {camera.end_y}]")
 
     def update_map(self):
         height = 500
@@ -159,21 +172,40 @@ class SwarmAPP():
         self.cv2.circle(map_canvas, (int(height/2), int(width/2)), Constants.outer_radius, (0, 0, 0), 2)
         self.cv2.imshow("SWARM map", map_canvas)
 
+    def draw_graph(self, canvas, debug=True, offset_x=20, offset_y=200):
+        for i in range(0, len(self.cameras)):
+            camera = self.cameras[i]
+            camera.people_graph.calculate_edges()
+            camera.people_graph.cv_draw_nodes(self.cv2, canvas)
+            camera.people_graph.cv_draw_edges(self.cv2, canvas, dfebug=False)
+            if debug:
+                camera.people_graph.cv_draw_debug(self.cv2, canvas, camera.start_x, camera.start_y, offset_x, offset_y, debug=debug, prefix=i)
+
     def run(self):
         while True:
             result, frame = self.capture0.read()
             self.arduino.update_status()
-            self.cv2.putText(frame, self.arduino.debug_string(), (20, 70), 0, 0.4, (255, 255, 0), 1)
+            offset_y = 50
 
             tracks, frame_updated = self.input.update_trackers(frame)
-            if frame_updated is not None:
+            if Constants.draw_openpose and frame_updated is not None:
                 frame = frame_updated
+
             self.update_tracks(tracks, frame, debug=False)
-            self.update_behavior(frame, debug=False)
+            if Constants.draw_cameras_data:
+                self.draw_camera_debug(frame, debug=False, offset_y=-15)
+            if Constants.draw_graph:
+                offset_y += 20
+                self.draw_graph(frame, offset_y=offset_y, debug=False)
+
+            self.update_action(debug=False)
+            if Constants.draw_behavior_data:
+                offset_y += 20
+                self.draw_behavior_debug(frame, offset_y=offset_y)
 
             self.scene.update(self.cv2.cvtColor(frame, self.cv2.COLOR_BGR2RGB))
             # self.scene.update(frame)
 
-            # self.update_map()
-
+            if Constants.draw_map:
+                self.update_map()
             self.cv2.waitKey(1)

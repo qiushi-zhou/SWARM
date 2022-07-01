@@ -26,6 +26,7 @@ while True:
     except Exception as e:
         print(f"Exception opening VideoCapture {capture_index}, stopping...")
         sys.exit()
+
 while True:
     vc.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
     vc.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
