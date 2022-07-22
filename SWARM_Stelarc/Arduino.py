@@ -8,23 +8,22 @@ import getopt
 import Constants
 import serial
 
+
 class Arduino():
-    start_marker = b"$"
-    end_marker = b"#"
-    wait_timeout = 10
+    start_marker = "$"
+    end_marker = "#"
+    prefix="run"
+    wait_timeout = 60 # Seconds, the longest command takes 48s
+    statuses = ['Command SENT SUCCESFULLY', "Command ALREADY SENT", "Arduino is BUSY", "Arduino NOT CONNECTED"]
+
     commands = {
-        "pulse_0":   "$run,pulse,0#",
-        "pulse_1":   "$run,pulse,1#",
-        "undulate_0":"$run,undulate,0#",
-        "undulate_1":"$run,undulate,1#",
-        "glitch_0":  "$run,glitch,0#",
-        "glitch_1":  "$run,glitch,1#",
-        "quiver_0":  "$run,quiver,0#",
-        "quiver_1":  "$run,quiver,1#",
-        "seq_0":     "$run,seq,0#",
-        "seq_1":     "$run,seq,1#",
-        "stop":      "$stop#",
-        "done":      "$done#"
+        "breathe":  "breathe",
+        "undulate": "undulate",
+        "glitch":   "glitch",
+        "quiver":   "quiver",
+        "default":  "default",
+        "stop":     "stop",
+        "done":     "runcomp"
     }
 
     def __init__(self, port="COM4", bps=115200, p_1=8, p_2="N", p_3=1, wait=True):
@@ -35,8 +34,9 @@ class Arduino():
         self.p_2 = p_2
         self.p_3 = p_3
         self.is_connected = False
-        self.last_command = ""
+        self.last_command = "NO COMMAND SENT"
         self.is_ready = False
+        self.arduino_status = "STATUS UNKNOWN"
 
         self.ser = serial.Serial()
         self.ser.baudrate = self.bps
@@ -60,6 +60,14 @@ class Arduino():
         # except Exception as e:
         #     print(f"Error opening serial port: {e}")
 
+    def build_command_str(self, command, loop=False):
+        if command == 'stop':
+            cmd_string = f"{self.start_marker}{command}{self.end_marker}"
+        else:
+            loop = 1 if loop else 0
+            cmd_string = f"{self.start_marker}{self.prefix},{command},{loop}{self.end_marker}"
+        return cmd_string
+        
     def subscribe(self, observer):
         self._observers.append(observer)
 
@@ -91,24 +99,24 @@ class Arduino():
         else:
             return f"Arduino NOT found on {self.port}: bps={self.bps}, {self.p_1}/{self.p_2}/{self.p_3}"
 
-    def send_command(self, command):
+    def send_command(self, command, loop=False, debug=True):
         if self.is_connected:
+        # if True:
             if self.is_ready:
+            # if True:
               if command == self.last_command:
-                  print(f"command {command} already sent")
-                  return 2
+                self.is_ready = False
+                return f"{self.last_command} + {self.statuses[1]}"
               else:
-                  self.send(Arduino.commands[command])
-                  self.last_command = command
-                  self.is_ready = False
-              return 0
-            return 3
-        return 1
-
-    def send_seq(self):
-        print("Sending command")
-        self.ser.write(b'$run,seq,0#')
-        self.ser.flush()
+                cmd_string = self.build_command_str(command, loop)
+                if debug:
+                    print(f"Sending string: {cmd_string}")
+                self.send(cmd_string)
+                self.last_command = command
+                self.is_ready = False
+              return f"{self.last_command} + {self.statuses[0]}"
+            return self.statuses[2]
+        return self.statuses[3]
 
     def send(self, string):
         if(self.is_connected):
@@ -120,24 +128,32 @@ class Arduino():
 
     def update_status(self):
         if self.is_connected:
-            received = self.receive()
-            if received == Arduino.done:
-                self.is_ready = True
+            try:
+                received = self.receive()
+                print(f"Received: {str(received)}")
+                if "runcomp" in received:
+                    print(f"Command Completed!")
+                    self.is_ready = True
+                    return self.is_ready
+                # if received == Arduino.done:
+                    # self.is_ready = True
+            except serial.serialutil.SerialException:
+                return self.is_ready
+        self.is_ready = False
         return self.is_ready
 
     def receive(self):
-        ck = ""
-        x = "z" # any value that is not an end- or Arduino.start_marker
-        byte_count = -1 # to allow for the fact that the last increment will be one too many
+        # byte_count = -1 # to allow for the fact that the last increment will be one too many
 
-        # wait for the start character
-        while ord(x) != Arduino.start_marker:
-            x = self.ser.read()
+        # # wait for the start character
+        # while ord(x) != Arduino.start_marker:
+        #     x = self.ser.read()
 
-        # save data until the end marker is found
-        while ord(x) != Arduino.end_marker:
-            if ord(x) != Arduino.start_marker:
-              ck = ck + x
-              byte_count += 1
-            x = self.ser.read()
-        return(ck)
+        # # save data until the end marker is found
+        # while ord(x) != Arduino.end_marker:
+        #     if ord(x) != Arduino.start_marker:
+        #       ck = ck + x
+        #       byte_count += 1
+        #     x = self.ser.read()
+        ret = self.ser.readline()
+        return(str(ret))
