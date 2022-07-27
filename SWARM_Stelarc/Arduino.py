@@ -7,6 +7,7 @@ import sys
 import getopt
 import Constants
 import serial
+from serial.tools import list_ports
 
 
 class Arduino():
@@ -27,27 +28,21 @@ class Arduino():
     }
 
     def __init__(self, port="COM4", bps=115200, p_1=8, p_2="N", p_3=1, wait=True):
-        self._observers = []
         self.port = port
+        self._observers = []
         self.bps = bps
         self.p_1 = p_1
         self.p_2 = p_2
         self.p_3 = p_3
         self.is_connected = False
         self.last_command = "NO COMMAND SENT"
+        self.status = "STATUS UNKNOWN"
         self.is_ready = False
-        self.arduino_status = "STATUS UNKNOWN"
 
         self.ser = serial.Serial()
         self.ser.baudrate = self.bps
         self.ser.port = self.port
-        try:
-            self.ser.open()
-            self.is_connected = True
-            time.sleep(1)
-            self.is_ready = True
-        except Exception as e:
-            print(f"Error opening port {self.port} for Arduino: {e}")
+        self.init()
 
         print(self.debug_string())
         # try:
@@ -59,6 +54,41 @@ class Arduino():
         #         self.is_connected = True
         # except Exception as e:
         #     print(f"Error opening serial port: {e}")
+        
+    def find_port(self):                
+        prompt = "\n\nSelect Arduino port:\n"
+        choice = -1
+        ports = list(list_ports.comports())
+        for i in range(0, len(ports)):
+            prompt += f"{i}: {ports[i].device}\n"
+        while choice < 0 or choice >= len(ports):
+            try:
+                choice = int(input(f"{prompt}\n"))
+                port = ports[int(choice)].device
+            except KeyboardInterrupt:
+                sys.exit()
+            except:
+                print("Please select one of the choices above!")
+        return port
+    
+    def init(self):
+        while not self.is_ready:
+            if self.port is None:
+                self.port = self.find_port()
+            try:
+                self.ser = serial.Serial()
+                self.ser.baudrate = self.bps
+                self.ser.port = self.port
+                print(f"Initializing Arduino on port {self.port}")
+                self.ser.open()
+                self.is_connected = True
+                time.sleep(1)
+                self.is_ready = True
+            except Exception as e:
+                self.is_connected = False
+                self.is_ready = False
+                print(f"Error opening port {self.port} for Arduino: {e}")
+                self.port = None
 
     def build_command_str(self, command, loop=False):
         if command == 'stop':
@@ -106,7 +136,8 @@ class Arduino():
             # if True:
               if command == self.last_command:
                 self.is_ready = False
-                return f"{self.last_command} + {self.statuses[1]}"
+                self.status = f"{self.last_command} + {self.statuses[1]}"
+                return self.status
               else:
                 cmd_string = self.build_command_str(command, loop)
                 if debug:
@@ -114,9 +145,12 @@ class Arduino():
                 self.send(cmd_string)
                 self.last_command = command
                 self.is_ready = False
-              return f"{self.last_command} + {self.statuses[0]}"
-            return self.statuses[2]
-        return self.statuses[3]
+                self.status = f"{self.last_command} + {self.statuses[0]}"
+              return self.status
+            self.status = self.statuses[2]
+            return self.status
+        self.status = self.statuses[3]
+        return self.status
 
     def send(self, string):
         if(self.is_connected):

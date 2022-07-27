@@ -16,17 +16,8 @@ def send_wait(cmd_string):
   while not arduino.is_ready:
     arduino.update_status()
   print(arduino.debug_string())
-  
-from serial.tools import list_ports
-port_str = "\n\nSelect Arduino port:\n"
-ports = list(list_ports.comports())
-for i in range(0, len(ports)):
-  port_str += f"{i}: {ports[i].device}\n"
-
-choice = input(f"{port_str}\n")
-    
-print("Initializing Arduino")
-arduino = Arduino(port=ports[int(choice)].device, wait=False)
+      
+arduino = Arduino(port=None, wait=False)
 
 choice = ""
 help_str = '\n\nSelect a command to send:\n'

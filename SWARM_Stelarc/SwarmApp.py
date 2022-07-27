@@ -70,8 +70,6 @@ class SwarmAPP():
         self.scene = Scene(screen)
 
         self.arduino = Arduino(port=arduino_port, wait=False)
-        self.last_arduino_command = "NO COMMAND SENT"
-        self.arduino_status = "STATUS UNKNOWN"
         self.n_cameras = n_cameras
         self.cameras = []
         self.total_people = 0
@@ -121,36 +119,22 @@ class SwarmAPP():
     def update_action(self, debug=True):
         arduino = self.arduino
         if self.total_people == 0:
-            arduino.send_command("stop")
-            command = "pulse_1"
+            command = commands[0]
         if self.total_people == 1:
-            arduino.send_command("stop")
-            command = "quiver_1"
+            command =  commands[1]
         if self.total_people == 2:
-            arduino.send_command("stop")
-            command = "undulate_1"
+            command =  commands[2]
         if self.total_people == 3:
-            arduino.send_command("stop")
-            command = "glitch_1"
+            command =  commands[3]
+        if self.total_people == 4:
+            command =  commands[4]
+        res = arduino.send_command(commands["stop"])
         res = arduino.send_command(command)
-
-        log_str = "Arduino UNKNOWN ERROR"
-        if res <= 0:
-            log_str = f"{command} sent"
-        elif res == 1:
-            log_str = "Arduino NOT CONNECTED"
-        elif res == 2:
-            log_str = "Command ALREADY SENT"
-        elif res == 3:
-            log_str = "Arduino is BUSY"
-
-        self.last_arduino_command = command
-        self.arduino_status = log_str
 
     def draw_behavior_debug(self, frame, debug=True, offset_x=20, offset_y=300):
         text_x = int(0 + offset_x)
         text_y = int(0 + offset_y)
-        self.cv2.putText(frame, self.arduino_status, (text_x, text_y), 0, 0.6, (0, 0, 255), 2)
+        self.cv2.putText(frame, self.arduino.status, (text_x, text_y), 0, 0.6, (0, 0, 255), 2)
         self.cv2.putText(frame, self.arduino.debug_string(), (text_x, text_y+20), 0, 0.4, (255, 255, 0), 1)
 
     def draw_camera_debug(self, frame, debug=True, offset_x=20, offset_y=-20):

@@ -14,6 +14,7 @@ import pygame
 import serial
 
 if __name__ == "__main__":
+    log_dir = "./logs"
     options, remainder = getopt.getopt(sys.argv[1:], 's:x:')
     for opt, arg in options:
         if opt in ('-s'):
@@ -23,8 +24,9 @@ if __name__ == "__main__":
 
     startTime = re.sub("\s+", "-", str(time.ctime()).strip())
     startTime = re.sub(":", "-", startTime.strip())
-
-    with open(startTime+'data.csv', 'w', newline='') as csvfile:
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    with open(f"{log_dir}/{startTime}-data.csv", 'w', newline='') as csvfile:
         spamwriter = csv.writer(csvfile, delimiter=',', quotechar=' ', quoting=csv.QUOTE_MINIMAL)
         spamwriter.writerow(["Timestamp","PoseId", "Nose.x", "Nose.y", "Neck.x", "Neck.y",
                              "RShoulder.x", "RShoulder.y", "RElbow.x", "RElbow.y", "RWrist.x", "RWrist.y",
