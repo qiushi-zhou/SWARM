@@ -28,6 +28,7 @@ class Camera:
 
 class SwarmAPP():
     def __init__(self, n_cameras=4, observable=None, arduino_port="COM4"):
+        self.arduino = Arduino(port=arduino_port, wait=False)
         if observable:
             observable.subscribe(self)
         self.cv2 = cv2
@@ -68,7 +69,6 @@ class SwarmAPP():
         screen = pygame.display.get_surface()
         self.scene = Scene(screen)
 
-        self.arduino = Arduino(port=arduino_port, wait=False)
         self.n_cameras = n_cameras
         self.cameras = []
         self.total_people = 0
@@ -118,16 +118,16 @@ class SwarmAPP():
     def update_action(self, debug=True):
         arduino = self.arduino
         if self.total_people == 0:
-            command = commands[0]
+            command = arduino.commands["breathe"]
         if self.total_people == 1:
-            command =  commands[1]
+            command = arduino.commands["undulate"]
         if self.total_people == 2:
-            command =  commands[2]
+            command = arduino.commands["glitch"]
         if self.total_people == 3:
-            command =  commands[3]
+            command = arduino.commands["quiver"]
         if self.total_people == 4:
-            command =  commands[4]
-        res = arduino.send_command(commands["stop"])
+            command = arduino.commands["default"]
+        res = arduino.send_command(arduino.commands["stop"])
         res = arduino.send_command(command)
 
     def draw_behavior_debug(self, frame, debug=True, offset_x=20, offset_y=300):

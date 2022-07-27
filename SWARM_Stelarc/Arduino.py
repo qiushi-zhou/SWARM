@@ -20,7 +20,7 @@ class Arduino():
         "already_sent": "Command ALREADY SENT",
         "busy": "Arduino is BUSY",
         "not_connected": "Arduino NOT CONNECTED",
-        "debug_mode": "Arduino NOT CONNECCTED (debug mode)"
+        "debug_mode": "Arduino NOT CONNECCTED (debug mode)",
         "ready": "Arduino is ready and waiting"}
 
     commands = {
@@ -97,16 +97,17 @@ class Arduino():
         
     def find_port(self):                
         prompt = "\n\nSelect Arduino port:\n"
-        prompt += "-1: Leave Arduino disconnected (debug)"
-        choice = -1
+        prompt += "-1: Leave Arduino disconnected (debug)\n"
+        choice = -2
+        port = None
         ports = list(list_ports.comports())
         for i in range(0, len(ports)):
             prompt += f"{i}: {ports[i].device}\n"
-        while choice <= -1 or choice >= len(ports):
-            if choice <= -1:
-                port = -1
+        while choice < -1 or choice >= len(ports):
             try:
                 choice = int(input(f"{prompt}\n"))
+                if choice == -1:
+                    return None
                 port = ports[int(choice)].device
             except KeyboardInterrupt:
                 sys.exit()
@@ -118,12 +119,12 @@ class Arduino():
         while not self.is_ready:
             if self.port is None:
                 self.port = self.find_port()
-            if self.port < 0:
-                print("Arduino disconnected (debug mode)")
-                self.is_connected = False
-                self.is_ready = False
-                self.status = self.statuses["debug_mode"]
-                return
+                if self.port is None:
+                    print("Arduino disconnected (debug mode)")
+                    self.is_connected = False
+                    self.is_ready = False
+                    self.status = self.statuses["debug_mode"]
+                    return
             try:
                 self.ser = serial.Serial()
                 self.ser.baudrate = self.bps
@@ -176,6 +177,8 @@ class Arduino():
         if self.is_connected:
             return f"Arduino CONNECTED on {self.port}: bps={self.bps}, {self.p_1}/{self.p_2}/{self.p_3}"
         else:
+            if self.status == self.statuses["debug_mode"]:
+                return f"Arduino NOT CONNECTED (debug mode) on {self.port}: bps={self.bps}, {self.p_1}/{self.p_2}/{self.p_3}"
             return f"Arduino NOT found on {self.port}: bps={self.bps}, {self.p_1}/{self.p_2}/{self.p_3}"
 
     def send_command(self, command, loop=False, debug=True):
