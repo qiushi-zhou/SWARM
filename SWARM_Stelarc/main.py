@@ -26,6 +26,7 @@ if __name__ == "__main__":
     startTime = re.sub(":", "-", startTime.strip())
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
+        
     with open(f"{log_dir}/{startTime}-data.csv", 'w', newline='') as csvfile:
         spamwriter = csv.writer(csvfile, delimiter=',', quotechar=' ', quoting=csv.QUOTE_MINIMAL)
         spamwriter.writerow(["Timestamp","PoseId", "Nose.x", "Nose.y", "Neck.x", "Neck.y",

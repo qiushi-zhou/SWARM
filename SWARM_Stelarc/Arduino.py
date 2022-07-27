@@ -20,6 +20,7 @@ class Arduino():
         "already_sent": "Command ALREADY SENT",
         "busy": "Arduino is BUSY",
         "not_connected": "Arduino NOT CONNECTED",
+        "debug_mode": "Arduino NOT CONNECCTED (debug mode)"
         "ready": "Arduino is ready and waiting"}
 
     commands = {
@@ -96,11 +97,14 @@ class Arduino():
         
     def find_port(self):                
         prompt = "\n\nSelect Arduino port:\n"
+        prompt += "-1: Leave Arduino disconnected (debug)"
         choice = -1
         ports = list(list_ports.comports())
         for i in range(0, len(ports)):
             prompt += f"{i}: {ports[i].device}\n"
-        while choice < 0 or choice >= len(ports):
+        while choice <= -1 or choice >= len(ports):
+            if choice <= -1:
+                port = -1
             try:
                 choice = int(input(f"{prompt}\n"))
                 port = ports[int(choice)].device
@@ -114,6 +118,12 @@ class Arduino():
         while not self.is_ready:
             if self.port is None:
                 self.port = self.find_port()
+            if self.port < 0:
+                print("Arduino disconnected (debug mode)")
+                self.is_connected = False
+                self.is_ready = False
+                self.status = self.statuses["debug_mode"]
+                return
             try:
                 self.ser = serial.Serial()
                 self.ser.baudrate = self.bps
@@ -184,7 +194,7 @@ class Arduino():
                 self.send(cmd_string)
                 self.last_command = command
                 self.is_ready = False
-                self.status = f"{self.last_command} + {self.statuses['command_sent']}"
+                self.status = f"{self.last_command} {self.statuses['command_sent']}"
               return self.status
             self.status = self.statuses['busy']
             return self.status
