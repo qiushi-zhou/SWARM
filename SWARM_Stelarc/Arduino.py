@@ -15,7 +15,12 @@ class Arduino():
     end_marker = "#"
     prefix="run"
     wait_timeout = 60 # Seconds, the longest command takes 48s
-    statuses = ['Command SENT SUCCESFULLY', "Command ALREADY SENT", "Arduino is BUSY", "Arduino NOT CONNECTED"]
+    statuses = {
+        "command_sent": 'Command SENT SUCCESSFULLY, waiting for completion...',
+        "already_sent": "Command ALREADY SENT",
+        "busy": "Arduino is BUSY",
+        "not_connected": "Arduino NOT CONNECTED",
+        "ready": "Arduino is ready and waiting"}
 
     commands = {
         "breathe":  "breathe",
@@ -35,7 +40,7 @@ class Arduino():
         self.p_2 = p_2
         self.p_3 = p_3
         self.is_connected = False
-        self.last_command = "NO COMMAND SENT"
+        self.last_command = None
         self.status = "STATUS UNKNOWN"
         self.is_ready = False
 
@@ -54,6 +59,40 @@ class Arduino():
         #         self.is_connected = True
         # except Exception as e:
         #     print(f"Error opening serial port: {e}")
+    
+    def send_wait(self, cmd_string):
+        res = self.send_command(cmd_string)
+        print(res)
+        print("Waiting for Arduino...")
+        while not self.is_ready:
+            self.update_status()
+        print(self.debug_string())
+        
+    def debug_commands(self):
+        choice = ""
+        help_str = '\n\nSelect a command to send:\n'
+        i = 1
+        for i in range(0, len(self.commands.values())):
+            cmd = list(self.commands.values())[i]
+            help_str += f"{i} - {cmd:<10}:{self.build_command_str(cmd)}\n"
+        help_str += f"\na - all in a loop\n"
+        help_str += f"q - exit\n"
+
+        while choice != 'q':
+            choice = input(f"{help_str}\n")
+            if choice == 'q':
+                return
+            elif choice == 'a':
+                for cmd_i in range(0, len(self.commands.values())):
+                    command = list(self.commands.values())[int(cmd_i)]
+                    self.send_wait(command) 
+            elif int(choice) >= 0 and int(choice) <= len(self.commands.values()):
+                command = list(self.commands.values())[int(choice)]
+                self.send_wait(command)
+                print(self.debug_string())
+            else:
+                print("Invalid choice!")
+
         
     def find_port(self):                
         prompt = "\n\nSelect Arduino port:\n"
@@ -136,7 +175,7 @@ class Arduino():
             # if True:
               if command == self.last_command:
                 self.is_ready = False
-                self.status = f"{self.last_command} + {self.statuses[1]}"
+                self.status = f"{self.last_command} + {self.statuses['already_sent']}"
                 return self.status
               else:
                 cmd_string = self.build_command_str(command, loop)
@@ -145,11 +184,11 @@ class Arduino():
                 self.send(cmd_string)
                 self.last_command = command
                 self.is_ready = False
-                self.status = f"{self.last_command} + {self.statuses[0]}"
+                self.status = f"{self.last_command} + {self.statuses['command_sent']}"
               return self.status
-            self.status = self.statuses[2]
+            self.status = self.statuses['busy']
             return self.status
-        self.status = self.statuses[3]
+        self.status = self.statuses['not_connected']
         return self.status
 
     def send(self, string):
@@ -168,6 +207,8 @@ class Arduino():
                 if "runcomp" in received:
                     print(f"Command Completed!")
                     self.is_ready = True
+                    self.last_command = None
+                    self.status = self.statuses['ready']
                     return self.is_ready
                 # if received == Arduino.done:
                     # self.is_ready = True
