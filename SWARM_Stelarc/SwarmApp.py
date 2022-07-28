@@ -10,22 +10,45 @@ from Arduino import Arduino
 from people_graph import *
 import time
 from sys import platform
+import oyaml as yaml
+from Camera import Camera
 
-class Camera:
-    def __init__(self, start_x, start_y, end_x, end_y, q_row, q_col):
-        self.count = 0
+class BehaviorData():
+    
+    class CamerasData():
+        def __init__(self, cameras):
+            self.num_people = 0
+            self.avg_distance = 0
+            self.total_distance = 0
+            self.update_data(cameras)
+        
+        def update_data(self, canmeras):
+            for camera in cameras:
+                self.num_people += camera.num_people
+                self.total_avg_distance += camera.avg_distance
+            self.avg_distance = self.total_avg_distance / len(cameras)     
+           
+    def __init__(self, buffer_size=10):
+        self.buffer = []
+        self.buffer_size = buffer_size
+        self.curr_i = 0
+        self.num_people = 0
         self.avg_distance = 0
-        self.start_x = start_x
-        self.start_y = start_y
-        self.end_x = end_x
-        self.end_y = end_y
-        self.q_row = q_row
-        self.q_col = q_col
-        self.people_graph = PeopleGraph()
-
-    def is_in_camera(self, x, y):
-        return self.start_x <= x <= self.end_x and self.start_y <= y <= self.end_y
-
+        self.total_distance = 0
+        
+    def add_data(self, cameras):
+        if len(self.buffer) < self.buffer_size:
+            self.buffer.append(CamerasData(cameras))
+            return
+        self.buffer[self.curr_i].update_data(cameras)
+        self.curr_i = self.curr_i + i if len(self.buffer) < self.buffer_size else 0
+        self.calc_data()
+        
+    def calc_data(self):    
+        self.num_people = sum(c.num_people for c in self.buffer)
+        self.total_distance = sum(c.total_avg_distance for c in self.buffer)
+        self.avg_distance = self.total_distance / len(self.buffer)
+        
 class SwarmAPP():
     def __init__(self, n_cameras=4, observable=None, arduino_port="COM4"):
         self.arduino = Arduino(port=arduino_port, wait=False)
@@ -34,6 +57,14 @@ class SwarmAPP():
         self.cv2 = cv2
         self.capture_index = 3
         self.capture0 = None
+        self.config  = {}
+        self.buffer_size = self.config.get("buffer_size", 10)
+        self.behaviors =  self.config.get("behaviors", [])
+        with open(r'./Behaviour_Config.yaml') as file:
+            self.config = yaml.load(file)        
+        self.buffer_size = self.config.get("buffer_size", 10)
+        self.behaviors =  self.config.get("behaviors", [])
+        self.behavior_buffer = BehaviorData(buffer_size)
         while True:
             try:
                 if platform == "win32":
@@ -71,8 +102,6 @@ class SwarmAPP():
 
         self.n_cameras = n_cameras
         self.cameras = []
-        self.total_people = 0
-        self.avg_distance = 0
         self.init_cameras()
 
     def notify(self, observable, *args, **kwargs):
@@ -92,7 +121,7 @@ class SwarmAPP():
     def update_tracks(self, tracks, frame, debug=True):
         for camera in self.cameras:
             camera.people_graph.init_graph()
-            camera.count = 0
+            camera.num_people = 0
 
         for track in tracks:
             color = (255, 255, 255)
@@ -110,27 +139,41 @@ class SwarmAPP():
                 self.cv2.putText(frame, "id%s - ts%s" % (track.track_id, track.time_since_update), (int(bbox[0]), int(bbox[1]) - 20), 0, 0.5, (0, 255, 0), 1)
             for camera in self.cameras:
                 if camera.is_in_camera(min_x, min_y):
-                    camera.count += 1
+                    camera.num_people += 1
                     camera.people_graph.add_node(center_x, center_y, dist_from_camera)
             if debug:
                 print(f"Center: ({center_x:.2f}, {center_y:.2f})")
+    
+    def update_cameras_data(self):
+        for camera in self.cameras:
+            camera.update_camera_data()        
 
     def update_action(self, debug=True):
         arduino = self.arduino
-        if self.total_people == 0:
-            command = arduino.commands["breathe"]
-        if self.total_people == 1:
-            command = arduino.commands["undulate"]
-        if self.total_people == 2:
-            command = arduino.commands["glitch"]
-        if self.total_people == 3:
-            command = arduino.commands["quiver"]
-        if self.total_people == 4:
-            command = arduino.commands["default"]
-        res = arduino.send_command(arduino.commands["stop"])
-        res = arduino.send_command(command)
+        config = self.config
+        self.behavior_buffer.add_data(self.cameras)
+        
+        for behavior in self.behaviors:
+            min_people = behavior.get("min_people", 0)
+            max_people = behavior.get("max_people", 0)
+            num_people = self.behavior_buffer.num_people
+            
+            min_avg_distance = behavior.get("min_avg_distance", 0)
+            max_avg_distance = behavior.get("max_avg_distance", 0)
+            avg_distance = self.behavior_buffer.avg_distance
+            command = behavior.get("arduino_command", "stop")
+            if min_people <= num_people <= max_people and min_avg_distance <= avg_distance <= max_avg_distance:
+                res = arduino.send_command(arduino.commands["stop"])
+                res = arduino.send_command(command)
+                return
 
     def draw_behavior_debug(self, frame, debug=True, offset_x=20, offset_y=300):
+        text_x = int(0 + offset_x)
+        text_y = int(0 + offset_y)
+        self.cv2.putText(frame, self.arduino.debug_string(), (text_x, text_y), 0, 0.4, (255, 255, 0), 1)
+        self.cv2.putText(frame, self.arduino.status, (text_x, text_y+20), 0, 0.6, (0, 0, 255), 2)
+        
+    def draw_arduino_debug(self, frame, debug=True, offset_x=20, offset_y=300):
         text_x = int(0 + offset_x)
         text_y = int(0 + offset_y)
         self.cv2.putText(frame, self.arduino.debug_string(), (text_x, text_y), 0, 0.4, (255, 255, 0), 1)
@@ -142,9 +185,9 @@ class SwarmAPP():
             text_x = int(camera.start_x + offset_x)
             text_y = int(camera.end_y + offset_y)
             self.cv2.rectangle(frame, (int(camera.start_x), int(camera.start_y)), (int(camera.end_x), int(camera.end_y)), (255, 0, 0), 1)
-            self.cv2.putText(frame, f"Q{i + 1}: {camera.count}", (text_x, text_y), 0, 0.6, (0, 0, 255), 2)
+            self.cv2.putText(frame, f"Q{i + 1}: {camera.num_people}", (text_x, text_y), 0, 0.6, (0, 0, 255), 2)
         if debug:
-            print(f"Quadrant {i + 1} [{camera.q_row}, {camera.q_col}] - Count: {camera.count} x=[{camera.start_x}, {camera.end_x}] - y=[{camera.start_y}, {camera.end_y}]")
+            print(f"Quadrant {i + 1} [{camera.q_row}, {camera.q_col}] - Count: {camera.num_people} x=[{camera.start_x}, {camera.end_x}] - y=[{camera.start_y}, {camera.end_y}]")
 
     def update_map(self):
         height = 500
@@ -158,7 +201,6 @@ class SwarmAPP():
     def draw_graph(self, canvas, debug=True, offset_x=20, offset_y=200):
         for i in range(0, len(self.cameras)):
             camera = self.cameras[i]
-            camera.people_graph.calculate_edges()
             camera.people_graph.cv_draw_nodes(self.cv2, canvas)
             camera.people_graph.cv_draw_edges(self.cv2, canvas, debug=debug)
             camera.people_graph.cv_draw_debug(self.cv2, canvas, camera.start_x, camera.start_y, offset_x, offset_y, debug=debug, prefix=i)
@@ -174,6 +216,7 @@ class SwarmAPP():
                 frame = frame_updated
 
             self.update_tracks(tracks, frame, debug=False)
+            self.update_cameras_data()
             if Constants.draw_cameras_data:
                 self.draw_camera_debug(frame, debug=False, offset_y=-15)
             if Constants.draw_graph:
@@ -183,7 +226,7 @@ class SwarmAPP():
             self.update_action(debug=False)
             if Constants.draw_behavior_data:
                 offset_y += 20
-                self.draw_behavior_debug(frame, offset_y=offset_y)
+                self.draw_arduino_debug(frame, offset_y=offset_y)
 
             self.scene.update(self.cv2.cvtColor(frame, self.cv2.COLOR_BGR2RGB))
             # self.scene.update(frame)

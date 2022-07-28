@@ -94,8 +94,7 @@ class Arduino():
             else:
                 print("Invalid choice!")
 
-        
-    def find_port(self):                
+    def find_port(self):          
         prompt = "\n\nSelect Arduino port:\n"
         prompt += "-1: Leave Arduino disconnected (debug)\n"
         choice = -2

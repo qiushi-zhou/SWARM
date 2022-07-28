@@ -1,0 +1,32 @@
+buffer_size: 10 # number of frames to average
+behaviors:
+  - name: breathe
+    arduino_command: breathe
+    min_avg_distance: 1000
+    max_avg_distance: 1000
+    min_people: 10
+    max_people: 10
+  - name: quiver
+    arduino_command: quiver
+    min_avg_distance: 1000
+    max_avg_distance: 1000
+    min_people: 10
+    max_people: 10
+  - name: undulate
+    arduino_command: undulate
+    min_avg_distance: 1000
+    max_avg_distance: 1000
+    min_people: 10
+    max_people: 10
+  - name: default
+    arduino_command: default
+    min_avg_distance: 1000
+    max_avg_distance: 1000
+    min_people: 10
+    max_people: 10
+  - name: glitch
+    arduino_command: glitch
+    min_avg_distance: 1000
+    max_avg_distance: 1000
+    min_people: 10
+    max_people: 10
