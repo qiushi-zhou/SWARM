@@ -2,14 +2,14 @@ buffer_size: 10 # number of frames to average
 behaviors:
   - name: breathe
     arduino_command: breathe
-    min_avg_distance: 200
-    max_avg_distance: 600
+    min_avg_distance: 0
+    max_avg_distance: 70
     min_people: 0
     max_people: 10
   - name: quiver
     arduino_command: quiver
-    min_avg_distance: 601
-    max_avg_distance: 1200
+    min_avg_distance: 71
+    max_avg_distance: 90
     min_people: 1
     max_people: 10
   - name: undulate

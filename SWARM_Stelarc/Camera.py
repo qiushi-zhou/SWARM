@@ -16,6 +16,6 @@ class Camera:
         return self.start_x <= x <= self.end_x and self.start_y <= y <= self.end_y
     
     def update_camera_data(self):
-      self.people_graph.calculate_edges()
-      self.avg_distance = self.people_graph.get_average_distance()
-      self.num_people = len(self.people_graph.get_edges())
+        self.people_graph.calculate_edges()
+        self.avg_distance = self.people_graph.get_average_distance()
+        self.num_people = len(self.people_graph.get_nodes())

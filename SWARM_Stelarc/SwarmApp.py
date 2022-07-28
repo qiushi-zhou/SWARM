@@ -18,16 +18,16 @@ class BehaviorData():
     
     class CamerasData():
         def __init__(self, cameras):
-            self.num_people = 0
+            self.total_people = 0
             self.avg_distance = 0
             self.total_avg_distance = 0
             self.update_data(cameras)
 
         def update_data(self, cameras):
-            self.num_people = 0
+            self.total_people = 0
             self.total_avg_distance = 0
             for camera in cameras:
-                self.num_people += camera.num_people
+                self.total_people += camera.num_people
                 self.total_avg_distance += camera.avg_distance
             self.avg_distance = self.total_avg_distance / len(cameras)     
            
@@ -46,10 +46,10 @@ class BehaviorData():
         self.buffer[self.curr_i].update_data(cameras)
         self.curr_i = self.curr_i + 1 if len(self.buffer) < self.buffer_size else 0
         self.calc_data()
-        
-    def calc_data(self):    
-        self.num_people = sum(c.num_people for c in self.buffer)
-        self.total_distance = sum(c.total_avg_distance for c in self.buffer)
+
+    def calc_data(self):
+        self.num_people = sum(c.total_people for c in self.buffer)/len(self.buffer)
+        self.total_distance = sum(c.total_avg_distance for c in self.buffer)/len(self.buffer)
         self.avg_distance = self.total_distance / len(self.buffer)
         
 class SwarmAPP():
@@ -183,9 +183,9 @@ class SwarmAPP():
                 break
 
         e = datetime.datetime.now()
-        print(f"\n{e.strftime('%Y-%m-%d %H:%M:%S')}\nRunning command {command} from behavior {name}\n"
-              f"avg_distance: {avg_distance}\t[{min_avg_distance}, {max_avg_distance}]\n"
-              f"num_people: {num_people}\t[{min_people}, {max_people}]\n", end="\r")
+        print(f"\r\n{e.strftime('%Y-%m-%d %H:%M:%S')}\nRunning command {command} from behavior {name}\n\r"
+              f"\ravg_distance: {avg_distance}\t[{min_avg_distance}, {max_avg_distance}]\n\r"
+              f"\ravg_num_people: {num_people}\t[{min_people}, {max_people}]\n", end="\r")
 
     def draw_behavior_debug(self, frame, debug=True, offset_x=20, offset_y=300):
         text_x = int(0 + offset_x)
