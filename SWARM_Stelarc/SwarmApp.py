@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from Input import Input
 from Scene import Scene
+import datetime
 import cv2
 import numpy as np
 import Constants
@@ -19,10 +20,12 @@ class BehaviorData():
         def __init__(self, cameras):
             self.num_people = 0
             self.avg_distance = 0
-            self.total_distance = 0
+            self.total_avg_distance = 0
             self.update_data(cameras)
-        
-        def update_data(self, canmeras):
+
+        def update_data(self, cameras):
+            self.num_people = 0
+            self.total_avg_distance = 0
             for camera in cameras:
                 self.num_people += camera.num_people
                 self.total_avg_distance += camera.avg_distance
@@ -38,10 +41,10 @@ class BehaviorData():
         
     def add_data(self, cameras):
         if len(self.buffer) < self.buffer_size:
-            self.buffer.append(CamerasData(cameras))
+            self.buffer.append(self.CamerasData(cameras))
             return
         self.buffer[self.curr_i].update_data(cameras)
-        self.curr_i = self.curr_i + i if len(self.buffer) < self.buffer_size else 0
+        self.curr_i = self.curr_i + 1 if len(self.buffer) < self.buffer_size else 0
         self.calc_data()
         
     def calc_data(self):    
@@ -50,6 +53,16 @@ class BehaviorData():
         self.avg_distance = self.total_distance / len(self.buffer)
         
 class SwarmAPP():
+
+    def update_config(self):
+        self.config = {}
+        try:
+            with open(r'./Behaviour_Config.yaml') as file:
+                self.config = yaml.load(file, Loader=yaml.FullLoader)
+                self.buffer_size = self.config.get("buffer_size", 10)
+                self.behaviors = self.config.get("behaviors", [])
+        except:
+            return
     def __init__(self, n_cameras=4, observable=None, arduino_port="COM4"):
         self.arduino = Arduino(port=arduino_port, wait=False)
         if observable:
@@ -57,14 +70,11 @@ class SwarmAPP():
         self.cv2 = cv2
         self.capture_index = 3
         self.capture0 = None
-        self.config  = {}
-        self.buffer_size = self.config.get("buffer_size", 10)
-        self.behaviors =  self.config.get("behaviors", [])
-        with open(r'./Behaviour_Config.yaml') as file:
-            self.config = yaml.load(file)        
-        self.buffer_size = self.config.get("buffer_size", 10)
-        self.behaviors =  self.config.get("behaviors", [])
-        self.behavior_buffer = BehaviorData(buffer_size)
+        self.config = {}
+        self.buffer_size = 10
+        self.behaviors = []
+        self.update_config()
+        self.behavior_buffer = BehaviorData(self.buffer_size)
         while True:
             try:
                 if platform == "win32":
@@ -150,22 +160,32 @@ class SwarmAPP():
 
     def update_action(self, debug=True):
         arduino = self.arduino
-        config = self.config
         self.behavior_buffer.add_data(self.cameras)
-        
+        self.update_config()
+        name = "unknown"
+        command = "unknown"
+        num_people = self.behavior_buffer.num_people
+        avg_distance = self.behavior_buffer.avg_distance
+        min_people = 0
+        max_people = 0
+        min_avg_distance = 0
+        max_avg_distance = 0
         for behavior in self.behaviors:
             min_people = behavior.get("min_people", 0)
             max_people = behavior.get("max_people", 0)
-            num_people = self.behavior_buffer.num_people
-            
             min_avg_distance = behavior.get("min_avg_distance", 0)
             max_avg_distance = behavior.get("max_avg_distance", 0)
-            avg_distance = self.behavior_buffer.avg_distance
-            command = behavior.get("arduino_command", "stop")
             if min_people <= num_people <= max_people and min_avg_distance <= avg_distance <= max_avg_distance:
+                name = behavior.get("name", "unknown")
+                command = behavior.get("arduino_command", "stop")
                 res = arduino.send_command(arduino.commands["stop"])
                 res = arduino.send_command(command)
-                return
+                break
+
+        e = datetime.datetime.now()
+        print(f"\n{e.strftime('%Y-%m-%d %H:%M:%S')}\nRunning command {command} from behavior {name}\n"
+              f"avg_distance: {avg_distance}\t[{min_avg_distance}, {max_avg_distance}]\n"
+              f"num_people: {num_people}\t[{min_people}, {max_people}]\n", end="\r")
 
     def draw_behavior_debug(self, frame, debug=True, offset_x=20, offset_y=300):
         text_x = int(0 + offset_x)
