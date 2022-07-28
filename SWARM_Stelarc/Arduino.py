@@ -61,15 +61,16 @@ class Arduino():
         # except Exception as e:
         #     print(f"Error opening serial port: {e}")
     
-    def send_wait(self, cmd_string):
+    def send_wait(self, cmd_string, wait=True):
         res = self.send_command(cmd_string)
         print(res)
         print("Waiting for Arduino...")
-        while not self.is_ready:
-            self.update_status()
+        if wait:
+            while not self.is_ready:
+                self.update_status()
         print(self.debug_string())
         
-    def debug_commands(self):
+    def debug_commands(self, wait=True):
         choice = ""
         help_str = '\n\nSelect a command to send:\n'
         i = 1
@@ -86,10 +87,10 @@ class Arduino():
             elif choice == 'a':
                 for cmd_i in range(0, len(self.commands.values())):
                     command = list(self.commands.values())[int(cmd_i)]
-                    self.send_wait(command) 
+                    self.send_wait(command, wait=wait)
             elif int(choice) >= 0 and int(choice) <= len(self.commands.values()):
                 command = list(self.commands.values())[int(choice)]
-                self.send_wait(command)
+                self.send_wait(command,wait=wait)
                 print(self.debug_string())
             else:
                 print("Invalid choice!")

@@ -48,9 +48,9 @@ class BehaviorData():
         self.calc_data()
 
     def calc_data(self):
-        self.num_people = sum(c.total_people for c in self.buffer)/len(self.buffer)
-        self.total_distance = sum(c.total_avg_distance for c in self.buffer)/len(self.buffer)
-        self.avg_distance = self.total_distance / len(self.buffer)
+        self.num_people = sum(c.total_people for c in self.buffer)/sum(1 if c.total_people > 0 else 0 for c in self.buffer)
+        self.total_distance = sum(c.total_avg_distance for c in self.buffer)
+        self.avg_distance = self.total_distance / sum(1 if c.total_avg_distance > 0 else 0 for c in self.buffer)
         
 class SwarmAPP():
 
@@ -96,12 +96,12 @@ class SwarmAPP():
                 print(f"Exception opening VideoCapture {self.capture_index}, stopping...")
                 return
 
-        self.capture0.set(self.cv2.CAP_PROP_FRAME_WIDTH, 1920)
-        self.capture0.set(self.cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+        self.capture0.set(self.cv2.CAP_PROP_FRAME_WIDTH, Constants.SCREEN_WIDTH)
+        self.capture0.set(self.cv2.CAP_PROP_FRAME_HEIGHT, Constants.SCREEN_HEIGHT)
         self.frameSize = (int(self.capture0.get(self.cv2.CAP_PROP_FRAME_WIDTH)),
                           int(self.capture0.get(self.cv2.CAP_PROP_FRAME_HEIGHT)))
-        Constants.SCREEN_WIDTH = self.frameSize[0]
-        Constants.SCREEN_HEIGHT = self.frameSize[1]
+        # Constants.SCREEN_WIDTH = self.frameSize[0]
+        # Constants.SCREEN_HEIGHT = self.frameSize[1]
 
         self.input = Input(self, cv2)
         pygame.init()

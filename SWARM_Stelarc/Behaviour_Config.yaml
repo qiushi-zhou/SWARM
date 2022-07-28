@@ -3,20 +3,20 @@ behaviors:
   - name: breathe
     arduino_command: breathe
     min_avg_distance: 0
-    max_avg_distance: 70
+    max_avg_distance: 20
     min_people: 0
     max_people: 10
   - name: quiver
     arduino_command: quiver
-    min_avg_distance: 71
+    min_avg_distance: 21
     max_avg_distance: 90
     min_people: 1
     max_people: 10
   - name: undulate
     arduino_command: undulate
-    min_avg_distance: 1000
-    max_avg_distance: 1000
-    min_people: 10
+    min_avg_distance: 91
+    max_avg_distance: 300
+    min_people: 1
     max_people: 10
   - name: default
     arduino_command: default
