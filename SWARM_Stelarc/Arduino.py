@@ -232,23 +232,25 @@ class Arduino():
     def close(self):
         self.ser.close()
 
-    def update_status(self, wait_for_completion=False):
+    def update_status(self, wait_for_completion=False, debug=True):
+        if debug:
+            print(f"Updating arduino's status...")
         if not self.is_connected:
             self.is_ready = False
+            self.status = self.statuses['not_connected']
             return self.is_ready
         try:
-            looping = True
-            while looping:
+            while True:
                 received = str(self.receive())
-                print(f"Received: {str(received)}")
+                print(f"Received from Arduino: {str(received)}")
                 if "runcomp" in received:
                     print(f"Command Completed!")
                     self.is_ready = True
                     self.last_command = None
                     self.status = self.statuses['ready']
-                    looping = False
+                    return self.is_ready
                 if not wait_for_completion:
-                    looping = False
+                    return self.is_ready
             return self.is_ready
             # if received == Arduino.done:
                 # self.is_ready = True
@@ -270,6 +272,8 @@ class Arduino():
         #       ck = ck + x
         #       byte_count += 1
         #     x = self.ser.read()
-        ret = self.ser.readline()
+        if self.ser.in_waiting > 0:
+            ret = self.ser.readline()
+            return(ret.decode('ascii'))
+        return ""
         # ret = self.ser.readlines()
-        return(ret.decode('ascii'))

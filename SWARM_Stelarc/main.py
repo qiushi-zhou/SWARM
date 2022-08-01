@@ -41,4 +41,4 @@ if __name__ == "__main__":
                              "RBigToe.x", "RBigToe.y", "RSmallToe.x", "RSmallToe.y", "RHeel.x", "RHeel.y"])
 
         swarm = SwarmAPP(arduino_port="COM4")
-        swarm.run()
+        swarm.run(debug=False)
