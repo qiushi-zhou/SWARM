@@ -48,9 +48,17 @@ class BehaviorData():
         self.calc_data()
 
     def calc_data(self):
-        self.num_people = sum(c.total_people for c in self.buffer)/sum(1 if c.total_people > 0 else 0 for c in self.buffer)
+        total_people = sum(1 if c.total_people > 0 else 0 for c in self.buffer)
+        if total_people > 0:
+            self.num_people = sum(c.total_people for c in self.buffer)
+        else:
+            self.num_people = 0
         self.total_distance = sum(c.total_avg_distance for c in self.buffer)
-        self.avg_distance = self.total_distance / sum(1 if c.total_avg_distance > 0 else 0 for c in self.buffer)
+        total_avg_distance = sum(1 if c.total_avg_distance > 0 else 0 for c in self.buffer)-1
+        if total_avg_distance > 0:
+            self.avg_distance = self.total_distance / total_avg_distance
+        else:
+            self.avg_distance = 0
         
 class SwarmAPP():
 
@@ -68,13 +76,16 @@ class SwarmAPP():
         if observable:
             observable.subscribe(self)
         self.cv2 = cv2
-        self.capture_index = 3
+        self.capture_index = 2
         self.capture0 = None
         self.config = {}
         self.buffer_size = 10
         self.behaviors = []
         self.update_config()
         self.behavior_buffer = BehaviorData(self.buffer_size)
+        self.current_behavior="None"
+        self.num_people = -1
+        self.avg_distance = -1
         while True:
             try:
                 if platform == "win32":
@@ -162,10 +173,11 @@ class SwarmAPP():
         arduino = self.arduino
         self.behavior_buffer.add_data(self.cameras)
         self.update_config()
+        self.current_behavior="None"
         name = "unknown"
         command = "unknown"
-        num_people = self.behavior_buffer.num_people
-        avg_distance = self.behavior_buffer.avg_distance
+        self.num_people = self.behavior_buffer.num_people
+        self.avg_distance = self.behavior_buffer.avg_distance
         min_people = 0
         max_people = 0
         min_avg_distance = 0
@@ -175,7 +187,7 @@ class SwarmAPP():
             max_people = behavior.get("max_people", 0)
             min_avg_distance = behavior.get("min_avg_distance", 0)
             max_avg_distance = behavior.get("max_avg_distance", 0)
-            if min_people <= num_people <= max_people and min_avg_distance <= avg_distance <= max_avg_distance:
+            if min_people <= self.num_people <= max_people and min_avg_distance <= self.avg_distance <= max_avg_distance:
                 name = behavior.get("name", "unknown")
                 command = behavior.get("arduino_command", "stop")
                 res = arduino.send_command(arduino.commands["stop"])
@@ -184,15 +196,14 @@ class SwarmAPP():
 
         e = datetime.datetime.now()
         print(f"\r\n{e.strftime('%Y-%m-%d %H:%M:%S')}\nRunning command {command} from behavior {name}\n\r"
-              f"\ravg_distance: {avg_distance}\t[{min_avg_distance}, {max_avg_distance}]\n\r"
-              f"\ravg_num_people: {num_people}\t[{min_people}, {max_people}]\n", end="\r")
+              f"\ravg_distance: {self.avg_distance}\t[{min_avg_distance}, {max_avg_distance}]\n\r"
+              f"\ravg_num_people: {self.num_people}\t[{min_people}, {max_people}]\n", end="\r")
 
     def draw_behavior_debug(self, frame, debug=True, offset_x=20, offset_y=300):
         text_x = int(0 + offset_x)
         text_y = int(0 + offset_y)
-        self.cv2.putText(frame, self.arduino.debug_string(), (text_x, text_y), 0, 0.4, (255, 255, 0), 1)
-        self.cv2.putText(frame, self.arduino.status, (text_x, text_y+20), 0, 0.6, (0, 0, 255), 2)
-        
+        self.cv2.putText(frame, f"Running {self.current_behavior}, People: {self.num_people}, Avg Dist: {self.avg_distance}" , (text_x, text_y), 0, 0.4, (0, 0, 0), 1)
+
     def draw_arduino_debug(self, frame, debug=True, offset_x=20, offset_y=300):
         text_x = int(0 + offset_x)
         text_y = int(0 + offset_y)
