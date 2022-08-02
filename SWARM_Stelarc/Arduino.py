@@ -228,7 +228,7 @@ class Arduino():
         elif self.status.id == self.statuses['command_sent'].id:
             if (datetime.datetime.now() - self.last_sent_command_time).seconds >= self.max_feedback_wait:
                 print(f"Max wait time waiting for feedback reached...")
-                self.status = self.statuses['ready']
+                self.status = self.statuses['command_received']
             else:
                 try:
                     received = self.receive(debug=debug, prefix="Waiting for received command msg")
@@ -242,7 +242,8 @@ class Arduino():
         elif self.status.id == self.statuses['command_received'].id:
             if (datetime.datetime.now() - self.last_sent_command_time).seconds >= self.max_execution_wait:
                 print(f"Max wait time between commands reached...")
-                self.status = self.statuses['ready']
+                self.status = self.statuses['cooling_down']
+                self.last_completed_command_time = datetime.datetime.now()
             else:
                 while True:
                     try:

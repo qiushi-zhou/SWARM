@@ -21,17 +21,18 @@ class BehaviorData():
             self.total_people = 0
             self.avg_distance = 0
             self.total_avg_distance = 0
-            self.total_avg_distance_from_machine = 0
             self.avg_distance_from_machine = 0
+            self.total_avg_distance_from_machine = 0
             self.update_data(cameras)
 
         def update_data(self, cameras):
             self.total_people = 0
             self.total_avg_distance = 0
+            self.total_avg_distance_from_machine = 0
             for camera in cameras:
                 self.total_people += camera.num_people
                 self.total_avg_distance += camera.avg_distance
-                self.total_avg_distance_from_machine = camera.avg_distance_from_machine
+                self.total_avg_distance_from_machine += camera.avg_distance_from_machine
             self.avg_distance = self.total_avg_distance / len(cameras)
             self.avg_distance_from_machine = self.total_avg_distance_from_machine / len(cameras)
            
@@ -39,7 +40,7 @@ class BehaviorData():
         self.buffer = []
         self.buffer_size = buffer_size
         self.curr_i = 0
-        self.num_people = 0
+        self.total_people = 0
         self.avg_distance = 0
         self.avg_distance_from_machine = 0
         self.total_avg_distance = 0
@@ -54,27 +55,23 @@ class BehaviorData():
         self.calc_data()
 
     def calc_data(self):
-        total_people = sum(1 if c.total_people > 0 else 0 for c in self.buffer)
-        if total_people > 0:
-            self.num_people = sum(c.total_people for c in self.buffer)
-        else:
-            self.num_people = 0
+        self.total_people = sum(c.total_people for c in self.buffer)
+
         self.total_avg_distance = sum(c.total_avg_distance for c in self.buffer)
-        num_of_datapoints = sum(1 if c.total_avg_distance > 0 else 0 for c in self.buffer)-1
+        num_of_datapoints = sum(1 if c.total_avg_distance > 0 else 0 for c in self.buffer)
         if num_of_datapoints > 0:
             self.avg_distance = self.total_avg_distance / num_of_datapoints
         else:
             self.avg_distance = 0
 
-        num_of_datapoints = sum(1 if c.total_avg_distance_from_machine > 0 else 0 for c in self.buffer)-1
-        self.total_avg_distance_from_machine = sum(1 if c.total_avg_distance_from_machine > 0 else 0 for c in self.buffer)-1
+        self.total_avg_distance_from_machine = sum(c.total_avg_distance_from_machine for c in self.buffer)
+        num_of_datapoints = sum(1 if c.total_avg_distance_from_machine > 0 else 0 for c in self.buffer)
         if num_of_datapoints > 0:
             self.avg_distance_from_machine = self.total_avg_distance_from_machine / num_of_datapoints
         else:
             self.avg_distance_from_machine = 0
         
 class SwarmAPP():
-
     def update_config(self):
         self.config = {}
         try:
@@ -97,8 +94,8 @@ class SwarmAPP():
         self.behaviors = []
         self.update_config()
         self.behavior_buffer = BehaviorData(self.buffer_size)
-        self.current_behavior="None"
-        self.num_people = -1
+        self.current_behavior = None
+        self.total_people = -1
         self.avg_distance = -1
         self.avg_distance_from_machine = -1
         while True:
@@ -200,42 +197,48 @@ class SwarmAPP():
         arduino = self.arduino
         self.behavior_buffer.add_data(self.cameras)
         self.update_config()
-        self.current_behavior="None"
-        name = "unknown"
-        command = "unknown"
-        self.num_people = self.behavior_buffer.num_people
+        self.current_behavior = None
+        self.total_people = self.behavior_buffer.total_people
         self.avg_distance = self.behavior_buffer.avg_distance
         self.avg_distance_from_machine = self.behavior_buffer.avg_distance_from_machine
-        min_people = 0
-        max_people = 0
-        min_avg_distance = 0
-        max_avg_distance = 0
         for behavior in self.behaviors:
+            print(f"Checking Behaviour: {behavior}")
+            enabled = behavior.get("enabled", True)
+            if not enabled:
+                continue
+            name = behavior.get("name", "unknown")
+            command = behavior.get("arduino_command", "")
             min_people = behavior.get("min_people", 0)
-            max_people = behavior.get("max_people", 0)
+            max_people = behavior.get("max_people", 10000)
             min_avg_distance = behavior.get("min_avg_distance", 0)
-            max_avg_distance = behavior.get("max_avg_distance", 0)
+            max_avg_distance = behavior.get("max_avg_distance", 10000)
+            min_avg_distance_from_machine = behavior.get("min_avg_distance_from_machine", 0)
+            max_avg_distance_from_machine = behavior.get("max_avg_distance_from_machine", 10000)
             print(f"\r\ncommand {command} from behavior {name}\r\t"
                   f"\ravg_distance: {self.avg_distance}\t[{min_avg_distance}, {max_avg_distance}]\n\r"
-                  f"\ravg_distance_from_machine: {self.avg_distance_from_machine}\t[{min_avg_distance}, {max_avg_distance}]\n\r"
-                  f"\ravg_num_people: {self.num_people}\t[{min_people}, {max_people}]\n", end="\r")
-            if min_people <= self.num_people <= max_people and min_avg_distance <= self.avg_distance <= max_avg_distance:
-                name = behavior.get("name", "unknown")
-                command = behavior.get("arduino_command", "")
+                  f"\ravg_distance_from_machine: {self.avg_distance_from_machine}\t[{min_avg_distance_from_machine}, {max_avg_distance_from_machine}]\n\r"
+                  f"\ravg_num_people: {self.total_people}\t[{min_people}, {max_people}]\n", end="\r")
+            if(min_people <= self.total_people <= max_people and
+                min_avg_distance <= self.avg_distance <= max_avg_distance and
+                min_avg_distance_from_machine <= self.avg_distance_from_machine <= max_avg_distance_from_machine):
+                self.current_behavior = behavior
                 print(f"Action updated: {name} ({command})")
                 # arduino.send_command(arduino.commands["stop"])
                 arduino.send_command(command, testing_command=self.mockup_commands)
+                print(f"\r\nNew ACTION: Running command {command} from behavior {name}\n\r")
                 break
-        print(f"\r\nNew ACTION: Running command {command} from behavior {name}\n\r")
 
     def draw_behavior_debug(self, frame, debug=True, offset_x=20, offset_y=300):
         if debug:
             print(f"Drawing behavior debug")
         text_x = int(0 + offset_x)
         text_y = int(0 + offset_y)
-        self.cv2.putText(frame, f"Running {self.current_behavior}, Avg People: {self.num_people}", (text_x, text_y), 0, 0.4, (255, 0, 0), 2)
+        behavior_dbg = "None"
+        if self.current_behavior is not None:
+            behavior_dbg = self.current_behavior["name"]
+        self.cv2.putText(frame, f"Running {behavior_dbg}, Avg People: {self.total_people}", (text_x, text_y), 0, 0.4, (255, 0, 0), 2)
         text_y += 20
-        self.cv2.putText(frame, f"Buffer size: {self.behavior_buffer.buffer_size}, Avg Dist: {self.avg_distance:.2f},Avg Dist_m: {self.avg_distance_from_machine:.2f}", (text_x, text_y), 0, 0.4, (255, 0, 0), 2)
+        self.cv2.putText(frame, f"Buffer size: {self.behavior_buffer.buffer_size}, Avg Dist: {self.avg_distance:.2f}, Avg Dist_m: {self.avg_distance_from_machine:.2f}", (text_x, text_y), 0, 0.4, (255, 0, 0), 2)
 
     def draw_arduino_debug(self, frame, debug=True, offset_x=20, offset_y=300):
         if debug:
@@ -243,19 +246,24 @@ class SwarmAPP():
         text_x = int(0 + offset_x)
         text_y = int(0 + offset_y)
         arduino_cmd_dbg = f"Last Command: {self.arduino.last_command} sent at {self.arduino.last_sent_command_time.strftime('%Y-%m-%d %H:%M:%S')}"
-        arduino_status_dbg = f"Arduino Status: {self.arduino.status.name}. "
+        arduino_status_dbg = f"Arduino Status: "
         if self.arduino.status.id == self.arduino.statuses['cooling_down'].id:
+            arduino_status_dbg += f"{self.arduino.status.name}. "
             elapsed = (datetime.datetime.now() - self.arduino.last_completed_command_time).seconds
             arduino_status_dbg += f" Cooldown: {self.arduino.time_between_commands - elapsed} s"
         elif self.arduino.status.id == self.arduino.statuses['command_received'].id:
+            arduino_status_dbg += f"{self.arduino.status.name} {self.arduino.last_command}. "
             elapsed = (datetime.datetime.now() - self.arduino.last_sent_command_time).seconds
             arduino_status_dbg += f"Awaiting completion: {self.arduino.max_execution_wait-elapsed}s"
             # arduino_status_dbg += f" (max wait: {self.arduino.max_execution_wait}s)"
         elif self.arduino.status.id == self.arduino.statuses['command_sent'].id:
+            arduino_status_dbg += f"{self.arduino.status.name} {self.arduino.last_command}. "
             elapsed = (datetime.datetime.now() - self.arduino.last_sent_command_time).seconds
             arduino_status_dbg += f"Awaiting ACK: {self.arduino.max_feedback_wait-elapsed}s"
             # arduino_status_dbg += f"(max wait: {self.arduino.max_feedback_wait}s)"
         # self.cv2.putText(frame, self.arduino.debug_string(), (text_x, text_y), 0, 0.4, (0, 0, 255), 2)
+        else:
+            arduino_status_dbg += f"{self.arduino.status.name}. "
         self.cv2.putText(frame, arduino_cmd_dbg, (text_x, text_y), 0, 0.4, (0, 0, 255), 2)
         text_y += 20
         self.cv2.putText(frame, arduino_status_dbg, (text_x, text_y), 0, 0.4, (0, 0, 255), 2)
