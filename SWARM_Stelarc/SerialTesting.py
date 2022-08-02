@@ -3,7 +3,7 @@
 from Arduino import Arduino
 
 arduino = Arduino(port=None)
-arduino.debug_commands(manual_update=1)
+arduino.debug_commands(manual_update=0, debug=True)
 
 
 

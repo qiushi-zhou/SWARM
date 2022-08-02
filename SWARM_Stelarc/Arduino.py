@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import csv
+import datetime
 import re
 import time
 import sys
@@ -9,20 +10,17 @@ import Constants
 import serial
 from serial.tools import list_ports
 
+class ArduinoStatus():
+
+    def __init__(self, status_id, name, description):
+        self.id = status_id
+        self.name = name
+        self.description = description
 
 class Arduino():
     start_marker = "$"
     end_marker = "#"
-    prefix="run"
-    wait_timeout = 60 # Seconds, the longest command takes 48s
-    statuses = {
-        "command_sent": 'Command SENT SUCCESSFULLY, waiting for completion...',
-        "already_sent": "Command ALREADY SENT",
-        "busy": "Arduino is BUSY",
-        "not_connected": "Arduino NOT CONNECTED",
-        "debug_mode": "Arduino NOT CONNECCTED (debug mode)",
-        "ready": "Arduino is ready and waiting"}
-
+    prefix = "run"
     commands = {
         "breathe":  "breathe",
         "undulate": "undulate",
@@ -32,6 +30,15 @@ class Arduino():
         "stop":     "stop",
         "done":     "runcomp"
     }
+    statuses = {
+        'not_initialized':  ArduinoStatus(-1, 'not_initialized', 'Arduino not initialized'),
+        'command_sent':     ArduinoStatus(0,  'command_sent',    'Command SENT SUCCESSFULLY, waiting for completion...'),
+        'cooling_down':     ArduinoStatus(1,  'cooling_down',    'Arduino is cooling down between commands'),
+        'already_sent':     ArduinoStatus(2,  'already_sent',    'Command ALREADY SENT'),
+        'not_connected':    ArduinoStatus(3,  'not_connected',   'Arduino NOT CONNECTED'),
+        'debug_mode':       ArduinoStatus(4,  'debug_mode',      'Arduino NOT CONNECTED (debug mode)'),
+        'ready':            ArduinoStatus(5,  'ready',           'Arduino is ready to start a new command!')
+    }
 
     def __init__(self, port="COM4", bps=115200, p_1=8, p_2="N", p_3=1):
         self.port = port
@@ -40,52 +47,40 @@ class Arduino():
         self.p_1 = p_1
         self.p_2 = p_2
         self.p_3 = p_3
-        self.is_connected = False
         self.last_command = None
-        self.status = "STATUS UNKNOWN"
-        self.is_ready = False
-
+        self.last_completed_command_time =  datetime.datetime.now()
+        self.last_sent_command_time = datetime.datetime.now()
+        self.last_status_update_time = datetime.datetime.now()
+        self.time_between_commands = 5  # Seconds
+        self.max_wait = 60  # Seconds, the longest command takes 48s
+        self.status = self.statuses['not_initialized']
         self.ser = serial.Serial()
         self.ser.baudrate = self.bps
         self.ser.port = self.port
-        self.init()
-
-        print(self.debug_string())
-        # try:
-        #     self.ser.open()
-        #     self.is_connected = True
-        #     if wait:
-        #         self.wait_for_connection(Arduino.wait_timeout if wait else 0)
-        #     else:
-        #         self.is_connected = True
-        # except Exception as e:
-        #     print(f"Error opening serial port: {e}")
+        self.update_status()
     
-    def send_wait(self, cmd_string, manual_update=0):
-        res = self.send_command(cmd_string)
-        print(res)
-        print("Waiting for Arduino...")
+    def debug_send_wait(self, cmd_string, manual_update=0, debug=True):
+        self.send_command(cmd_string, debug=debug)
         if manual_update <= 0:
-            while not self.is_ready:
-                self.update_status()
+            print(f"Waiting for Arduino to be ready...")
+            while self.status.id != self.statuses['ready'].id:
+                self.update_status(debug=debug)
         else:
             help_str = f"\n\nManual update is on..."
             help_str += f"\nAny key - update arduino status"
             help_str += f"\nq - go back to previous menu"
             choice = ""
-            while not self.is_ready and choice != 'q':
-                self.update_status()
+            while self.status.id != self.statuses['ready'].id and choice != 'q':
                 choice = input(f"{help_str}\n")
                 if choice == 'q':
                     return
+                self.update_status(debug=debug)
             print("\nArduino is ready! Going back to previous menu!\n")
-
-        print(self.debug_string())
+        return
         
-    def debug_commands(self, manual_update=0):
+    def debug_commands(self, manual_update=0, debug=True):
         choice = ""
         help_str = '\n\nSelect a command to send:\n'
-        i = 1
         for i in range(0, len(self.commands.values())):
             cmd = list(self.commands.values())[i]
             help_str += f"{i} - {cmd:<10}:{self.build_command_str(cmd)}\n"
@@ -100,20 +95,21 @@ class Arduino():
                 if choice == 'q':
                     return
                 elif choice == 'a':
+                    print(self.debug_string())
                     for cmd_i in range(0, len(self.commands.values())):
                         command = list(self.commands.values())[int(cmd_i)]
-                        self.send_wait(command, manual_update=manual_update)
+                        self.debug_send_wait(command, manual_update=manual_update, debug=debug)
                 elif choice == 'u':
-                    self.update_status()
-                elif int(choice) >= 0 and int(choice) <= len(self.commands.values()):
-                    command = list(self.commands.values())[int(choice)]
-                    self.send_wait(command, manual_update=manual_update)
                     print(self.debug_string())
+                    self.update_status()
+                elif 0 <= int(choice) <= len(self.commands.values()):
+                    print(self.debug_string())
+                    command = list(self.commands.values())[int(choice)]
+                    self.debug_send_wait(command, manual_update=manual_update, debug=debug)
                 else:
                     print("Invalid choice!")
             except Exception as e:
                 print(f"Error! : {e}")
-
 
     def find_port(self):          
         prompt = "\n\nSelect Arduino port:\n"
@@ -136,29 +132,34 @@ class Arduino():
         return port
 
     def init(self):
-        while not self.is_ready:
+        print(f'Initializing Arduino...')
+        if self.port is None:
+            self.port = self.find_port()
             if self.port is None:
-                self.port = self.find_port()
-                if self.port is None:
-                    print("Arduino disconnected (debug mode)")
-                    self.is_connected = False
-                    self.is_ready = False
-                    self.status = self.statuses["debug_mode"]
-                    return
-            try:
-                self.ser = serial.Serial()
-                self.ser.baudrate = self.bps
-                self.ser.port = self.port
-                print(f"Initializing Arduino on port {self.port}")
-                self.ser.open()
-                self.is_connected = True
-                time.sleep(1)
-                self.is_ready = True
-            except Exception as e:
-                self.is_connected = False
-                self.is_ready = False
-                print(f"Error opening port {self.port} for Arduino: {e}")
-                self.port = None
+                print("Arduino disconnected (debug mode)")
+                self.status = self.statuses["debug_mode"]
+                return
+        try:
+            self.ser = serial.Serial()
+            self.ser.baudrate = self.bps
+            self.ser.port = self.port
+            print(f"Initializing Arduino on port {self.port}, baud rate: {self.bps}")
+            self.ser.open()
+            time.sleep(1)
+            # Flushing initial setup
+            initial_string = ""
+            while True:
+                received = self.receive()
+                if received is None:
+                    break
+                initial_string += received
+            if len(initial_string) > 1:
+                print(f"Flushed initial string: {initial_string}")
+            self.status = self.statuses['ready']
+        except Exception as e:
+            print(f"Error opening port {self.port} for Arduino: {e}")
+            self.status = self.statuses['not_initialized']
+            self.port = None
 
     def build_command_str(self, command, loop=False):
         if command == 'stop':
@@ -178,102 +179,73 @@ class Arduino():
     def unsubscribe(self, observer):
         self._observers.remove(observer)
 
-    def wait_for_connection(self, timeout=wait_timeout):
-        # wait until the Arduino sends 'Arduino Ready' - allows time for Arduino reset
-        # it also ensures that any bytes left over from a previous message are discarded
-        msg = ""
-        start_time = time.time()
-        while msg.find("ready") == -1:
-            print(f"Waiting for Arduino on {self.port}: bps={self.bps}, {self.p_1}/{self.p_2}/{self.p_3}")
-            while self.ser.inWaiting() == 0:
-                if time.time() - start_time >= timeout:
-                    print(f"No reply after {self.wait_timeout} seconds")
-                    return
-            msg = self.receive()
-        print(f"Connected to Arduino on {self.port}: bps={self.bps}, {self.p_1}/{self.p_2}/{self.p_3}")
-        self.is_connected = True
-
     def debug_string(self):
-        if self.is_connected:
+        if self.status.id != self.statuses['not_connected'].id:
             return f"Arduino CONNECTED on {self.port}: bps={self.bps}, {self.p_1}/{self.p_2}/{self.p_3}"
         else:
-            if self.status == self.statuses["debug_mode"]:
+            if self.status.id == self.statuses["debug_mode"].id:
                 return f"Arduino NOT CONNECTED (debug mode) on {self.port}: bps={self.bps}, {self.p_1}/{self.p_2}/{self.p_3}"
             return f"Arduino NOT found on {self.port}: bps={self.bps}, {self.p_1}/{self.p_2}/{self.p_3}"
 
     def send_command(self, command, loop=False, debug=True):
-        if self.is_connected:
-        # if True:
-            if self.is_ready:
-            # if True:
-              if command == self.last_command:
-                self.is_ready = False
-                self.status = f"{self.last_command} + {self.statuses['already_sent']}"
-                return self.status
-              else:
-                cmd_string = self.build_command_str(command, loop)
-                if debug:
-                    print(f"Sending string: {cmd_string}")
-                self.send(cmd_string)
-                self.last_command = command
-                self.is_ready = False
-                self.status = f"{self.last_command} {self.statuses['command_sent']}"
-              return self.status
-            self.status = self.statuses['busy']
-            return self.status
-        self.status = self.statuses['not_connected']
+        if self.status.id == self.statuses['ready'].id:
+            cmd_string = self.build_command_str(command, loop)
+            if debug:
+                print(f"Sending command string: {cmd_string}")
+            self.send(cmd_string)
+            self.last_command = command
+            self.last_sent_command_time = datetime.datetime.now()
+            self.status = self.statuses['command_sent']
+            print(f"{self.last_command} Sent!")
+        else:
+            print(f"Arduino not ready to receive commands!")
         return self.status
 
     def send(self, string):
-        if(self.is_connected):
-            self.ser.write((string+"\n").encode())
-            self.ser.flush()
+        self.ser.write((string+"\n").encode())
+        self.ser.flush()
 
     def close(self):
         self.ser.close()
 
-    def update_status(self, wait_for_completion=False, debug=True):
-        if debug:
-            print(f"Updating arduino's status...")
-        if not self.is_connected:
-            self.is_ready = False
-            self.status = self.statuses['not_connected']
-            return self.is_ready
-        try:
-            while True:
-                received = str(self.receive())
-                print(f"Received from Arduino: {str(received)}")
-                if "runcomp" in received:
-                    print(f"Command Completed!")
-                    self.is_ready = True
-                    self.last_command = None
-                    self.status = self.statuses['ready']
-                    return self.is_ready
-                if not wait_for_completion:
-                    return self.is_ready
-            return self.is_ready
-            # if received == Arduino.done:
-                # self.is_ready = True
-        except serial.serialutil.SerialException:
-            return self.is_ready
-        self.is_ready = False
-        return self.is_ready
+    def update_status(self, blocking_wait=False, debug=True):
+        while self.status.id == self.statuses['not_initialized'].id:
+            self.init()
+        if self.status.id == self.statuses['not_connected'].id:
+            return self.status
+        elif self.status.id == self.statuses['cooling_down'].id:
+            elapsed = (datetime.datetime.now() - self.last_completed_command_time).seconds
+            if elapsed >= self.time_between_commands:
+                self.status = self.statuses['ready']
+                self.last_status_update_time = datetime.datetime.now()
+            else:
+                print(f"Arduino is cooling down. Wait another {self.time_between_commands - elapsed} (Time between commands is set to {self.time_between_commands}s)")
+        elif self.status.id == self.statuses['command_sent'].id:
+            if (datetime.datetime.now() - self.last_sent_command_time).seconds >= self.max_wait:
+                self.status = self.statuses['ready']
+            else:
+                while True:
+                    try:
+                        received = self.receive(debug=debug)
+                        if received is None:
+                            received = ""
+                    except serial.serialutil.SerialException:
+                        received = ""
+                    if "runcomp" in received:
+                        print(f"Command Completed!")
+                        self.last_completed_command_time = datetime.datetime.now()
+                        self.last_command = None
+                        self.status = self.statuses['cooling_down']
+                        self.last_status_update_time = datetime.datetime.now()
+                        break
+                    if not blocking_wait:
+                        break
+        return self.status
 
-    def receive(self):
-        # byte_count = -1 # to allow for the fact that the last increment will be one too many
-
-        # # wait for the start character
-        # while ord(x) != Arduino.start_marker:
-        #     x = self.ser.read()
-
-        # # save data until the end marker is found
-        # while ord(x) != Arduino.end_marker:
-        #     if ord(x) != Arduino.start_marker:
-        #       ck = ck + x
-        #       byte_count += 1
-        #     x = self.ser.read()
+    def receive(self, debug=False):
+        ret = None
         if self.ser.in_waiting > 0:
-            ret = self.ser.readline()
-            return(ret.decode('ascii'))
-        return ""
-        # ret = self.ser.readlines()
+            ret = self.ser.readline().decode('ascii')
+            if debug:
+                print(f"Received from Arduino: {ret}", end="")
+        return ret
