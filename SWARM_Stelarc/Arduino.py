@@ -31,7 +31,7 @@ class Arduino():
         "done":     "runcomp"
     }
 
-    def __init__(self, port="COM4", bps=115200, p_1=8, p_2="N", p_3=1, time_between_commands=5, max_feedback_wait=10, max_execution_wait=60):
+    def __init__(self, port="COM4", bps=115200, p_1=8, p_2="N", p_3=1, time_between_commands=5, max_feedback_wait=10, max_execution_wait=60, mockup_commands=True):
         self.port = port
         self._observers = []
         self.bps = bps
@@ -45,6 +45,7 @@ class Arduino():
         self.time_between_commands = time_between_commands  # Seconds
         self.max_feedback_wait = max_feedback_wait  # Seconds, the longest command takes 48s
         self.max_execution_wait = max_execution_wait  # Seconds, the longest command takes 48s
+        self.mockup_commands = mockup_commands
 
         self.statuses = {
             'not_initialized': ArduinoStatus(-1, 'Not Initialized', 'Arduino not initialized'),
