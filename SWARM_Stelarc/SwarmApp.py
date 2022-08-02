@@ -62,14 +62,14 @@ class BehaviorData():
             self.total_avg_people = self.total_avg_people / num_of_datapoints
 
         self.avg_distance = 0
-        self.total_avg_distance = sum(c.total_avg_distance for c in self.buffer)
-        num_of_datapoints = sum(1 if c.total_avg_distance > 0 else 0 for c in self.buffer)
+        self.total_avg_distance = sum(c.avg_distance for c in self.buffer)
+        num_of_datapoints = sum(1 if c.avg_distance > 0 else 0 for c in self.buffer)
         if num_of_datapoints > 0:
             self.avg_distance = self.total_avg_distance / num_of_datapoints
 
         self.avg_distance_from_machine = 0
-        self.total_avg_distance_from_machine = sum(c.total_avg_distance_from_machine for c in self.buffer)
-        num_of_datapoints = sum(1 if c.total_avg_distance_from_machine > 0 else 0 for c in self.buffer)
+        self.total_avg_distance_from_machine = sum(c.avg_distance_from_machine for c in self.buffer)
+        num_of_datapoints = sum(1 if c.avg_distance_from_machine > 0 else 0 for c in self.buffer)
         if num_of_datapoints > 0:
             self.avg_distance_from_machine = self.total_avg_distance_from_machine / num_of_datapoints
 

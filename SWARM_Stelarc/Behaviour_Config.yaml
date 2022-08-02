@@ -20,7 +20,7 @@ behaviors:
     max_avg_distance: 150
     min_avg_distance_from_machine: 10
     max_avg_distance_from_machine: 150
-    min_people: 1
+    min_people: 0
     max_people: 1
   - name: default
     enabled: true
