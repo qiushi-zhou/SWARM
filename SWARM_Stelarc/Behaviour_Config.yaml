@@ -9,7 +9,7 @@ behaviors:
 #    arduino_command: none
 #    min_avg_distance: 0
 #    max_avg_distance: 0
-#    min_avg_distance_from_machine: 0
+#    min_avg_distance_from_machine: 10
 #    max_avg_distance_from_machine: 0
 #    min_people: 0
 #    max_people: 0
@@ -17,26 +17,26 @@ behaviors:
     enabled: true
     arduino_command: breathe
     min_avg_distance: 0
-    max_avg_distance: 130
-    min_avg_distance_from_machine: 0
-    max_avg_distance_from_machine: 100
-    min_people: 0
+    max_avg_distance: 150
+    min_avg_distance_from_machine: 10
+    max_avg_distance_from_machine: 150
+    min_people: 1
     max_people: 1
   - name: default
     enabled: true
     arduino_command: default
     min_avg_distance: 0
     max_avg_distance: 400
-    min_avg_distance_from_machine: 100
-    max_avg_distance_from_machine: 200
-    min_people: 0
-    max_people: 1
+    min_avg_distance_from_machine: 150
+    max_avg_distance_from_machine: 300
+    min_people: 1
+    max_people: 3
 #  - name: quiver
 #    enabled: true
 #    arduino_command: quiver
 #    min_avg_distance: 21
 #    max_avg_distance: 90
-#    min_avg_distance_from_machine: 0
+#    min_avg_distance_from_machine: 10
 #    max_avg_distance_from_machine: 100000
 #    min_people: 1
 #    max_people: 10
@@ -45,7 +45,7 @@ behaviors:
 #    arduino_command: undulate
 #    min_avg_distance: 91
 #    max_avg_distance: 300
-#    min_avg_distance_from_machine: 0
+#    min_avg_distance_from_machine: 10
 #    max_avg_distance_from_machine: 100000
 #    min_people: 1
 #    max_people: 10
@@ -54,7 +54,7 @@ behaviors:
 #    arduino_command: glitch
 #    min_avg_distance: 1000
 #    max_avg_distance: 1000
-#    min_avg_distance_from_machine: 0
+#    min_avg_distance_from_machine: 10
 #    max_avg_distance_from_machine: 100000
 #    min_people: 10
 #    max_people: 10

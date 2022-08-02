@@ -201,7 +201,7 @@ class Arduino():
             self.last_sent_command_time = datetime.datetime.now()
             prev_status = self.status
             self.status = self.statuses['command_sent']
-            print(f"{'(Testing)' if testing_command else ''}Command '{self.last_command}' sent! Status updated: {prev_status.name} -> {self.status.name}!")
+            print(f"{'(Testing)' if testing_command else ''} Command '{self.last_command}' sent! Status updated: {prev_status.name} -> {self.status.name}!")
         else:
             print(f"Arduino not ready to receive command {command}, status {self.status.name}: {self.status.description}!")
         return self.status

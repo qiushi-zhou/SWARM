@@ -40,6 +40,8 @@ if __name__ == "__main__":
                              "LBigToe.x", "LBigToe.y", "LSmallToe.x", "LSmallToe.y", "LHeel.x", "LHeel.y",
                              "RBigToe.x", "RBigToe.y", "RSmallToe.x", "RSmallToe.y", "RHeel.x", "RHeel.y"])
 
+        # swarm = SwarmAPP(arduino_port="COM4", cameras_padding=0.05, time_between_commands=10,
+        #                  max_feedback_wait=5, max_execution_wait=10, mockup_commands=True)
         swarm = SwarmAPP(arduino_port="COM4", cameras_padding=0.05, time_between_commands=10,
-                         max_feedback_wait=5, max_execution_wait=10, mockup_commands=True)
+                         max_feedback_wait=5, max_execution_wait=90, mockup_commands=False)
         swarm.run(debug=False)

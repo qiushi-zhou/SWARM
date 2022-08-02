@@ -196,13 +196,13 @@ class SwarmAPP():
             print(f"Updating Action!")
         arduino = self.arduino
         self.behavior_buffer.add_data(self.cameras)
-        self.update_config()
+        # self.update_config()
         self.current_behavior = None
         self.total_people = self.behavior_buffer.total_people
         self.avg_distance = self.behavior_buffer.avg_distance
         self.avg_distance_from_machine = self.behavior_buffer.avg_distance_from_machine
         for behavior in self.behaviors:
-            print(f"Checking Behaviour: {behavior}")
+            # print(f"Checking Behaviour: {behavior}")
             enabled = behavior.get("enabled", True)
             if not enabled:
                 continue
@@ -217,7 +217,7 @@ class SwarmAPP():
             print(f"\r\ncommand {command} from behavior {name}\r\t"
                   f"\ravg_distance: {self.avg_distance}\t[{min_avg_distance}, {max_avg_distance}]\n\r"
                   f"\ravg_distance_from_machine: {self.avg_distance_from_machine}\t[{min_avg_distance_from_machine}, {max_avg_distance_from_machine}]\n\r"
-                  f"\ravg_num_people: {self.total_people}\t[{min_people}, {max_people}]\n", end="\r")
+                  f"\rnum_people: {self.total_people}\t[{min_people}, {max_people}]\n", end="\r")
             if(min_people <= self.total_people <= max_people and
                 min_avg_distance <= self.avg_distance <= max_avg_distance and
                 min_avg_distance_from_machine <= self.avg_distance_from_machine <= max_avg_distance_from_machine):
@@ -245,7 +245,9 @@ class SwarmAPP():
             print(f"Drawing arduino debug")
         text_x = int(0 + offset_x)
         text_y = int(0 + offset_y)
-        arduino_cmd_dbg = f"Last Command: {self.arduino.last_command} sent at {self.arduino.last_sent_command_time.strftime('%Y-%m-%d %H:%M:%S')}"
+        arduino_cmd_dbg = f"Last Command: {self.arduino.last_command}"
+        if self.arduino.last_command is not None:
+            arduino_cmd_dbg += f" sent at {self.arduino.last_sent_command_time.strftime('%Y-%m-%d %H:%M:%S')}"
         arduino_status_dbg = f"Arduino Status: "
         if self.arduino.status.id == self.arduino.statuses['cooling_down'].id:
             arduino_status_dbg += f"{self.arduino.status.name}. "
