@@ -71,8 +71,8 @@ class SwarmAPP():
                 self.behaviors = self.config.get("behaviors", [])
         except:
             return
-    def __init__(self, n_cameras=4, observable=None, arduino_port="COM4"):
-        self.arduino = Arduino(port=arduino_port)
+    def __init__(self, n_cameras=4, observable=None, arduino_port="COM4", time_between_commands=5):
+        self.arduino = Arduino(port=arduino_port, time_between_commands=time_between_commands)
         if observable:
             observable.subscribe(self)
         self.cv2 = cv2
@@ -198,10 +198,10 @@ class SwarmAPP():
                   f"\ravg_num_people: {self.num_people}\t[{min_people}, {max_people}]\n", end="\r")
             if min_people <= self.num_people <= max_people and min_avg_distance <= self.avg_distance <= max_avg_distance:
                 name = behavior.get("name", "unknown")
-                command = behavior.get("arduino_command", "stop")
+                command = behavior.get("arduino_command", "")
                 print(f"Action updated: {name} ({command})")
-                res = arduino.send_command(arduino.commands["stop"])
-                res = arduino.send_command(command)
+                # arduino.send_command(arduino.commands["stop"])
+                arduino.send_command(command)
                 break
         print(f"\r\nNew ACTION: Running command {command} from behavior {name}\n\r")
 
@@ -218,7 +218,7 @@ class SwarmAPP():
         text_x = int(0 + offset_x)
         text_y = int(0 + offset_y)
         self.cv2.putText(frame, self.arduino.debug_string(), (text_x, text_y), 0, 0.4, (255, 255, 0), 1)
-        self.cv2.putText(frame, self.arduino.status, (text_x, text_y+20), 0, 0.6, (0, 0, 255), 2)
+        self.cv2.putText(frame, self.arduino.status.description, (text_x, text_y+20), 0, 0.6, (0, 0, 255), 2)
 
     def draw_camera_debug(self, frame, debug=True, offset_x=20, offset_y=-20):
         if debug:

@@ -30,17 +30,8 @@ class Arduino():
         "stop":     "stop",
         "done":     "runcomp"
     }
-    statuses = {
-        'not_initialized':  ArduinoStatus(-1, 'not_initialized', 'Arduino not initialized'),
-        'command_sent':     ArduinoStatus(0,  'command_sent',    'Command SENT SUCCESSFULLY, waiting for completion...'),
-        'cooling_down':     ArduinoStatus(1,  'cooling_down',    'Arduino is cooling down between commands'),
-        'already_sent':     ArduinoStatus(2,  'already_sent',    'Command ALREADY SENT'),
-        'not_connected':    ArduinoStatus(3,  'not_connected',   'Arduino NOT CONNECTED'),
-        'debug_mode':       ArduinoStatus(4,  'debug_mode',      'Arduino NOT CONNECTED (debug mode)'),
-        'ready':            ArduinoStatus(5,  'ready',           'Arduino is ready to start a new command!')
-    }
 
-    def __init__(self, port="COM4", bps=115200, p_1=8, p_2="N", p_3=1):
+    def __init__(self, port="COM4", bps=115200, p_1=8, p_2="N", p_3=1, time_between_commands=5):
         self.port = port
         self._observers = []
         self.bps = bps
@@ -51,8 +42,19 @@ class Arduino():
         self.last_completed_command_time =  datetime.datetime.now()
         self.last_sent_command_time = datetime.datetime.now()
         self.last_status_update_time = datetime.datetime.now()
-        self.time_between_commands = 5  # Seconds
+        self.time_between_commands = time_between_commands  # Seconds
         self.max_wait = 60  # Seconds, the longest command takes 48s
+
+        self.statuses = {
+            'not_initialized': ArduinoStatus(-1, 'not_initialized', 'Arduino not initialized'),
+            'command_sent': ArduinoStatus(0, 'command_sent', 'Command SENT SUCCESSFULLY, waiting for completion...'),
+            'command_received': ArduinoStatus(1, 'command_received', 'Command received by Arduino'),
+            'cooling_down': ArduinoStatus(2, 'cooling_down', f'Arduino is cooling down between commands {self.time_between_commands}'),
+            'already_sent': ArduinoStatus(3, 'already_sent', 'Command ALREADY SENT'),
+            'not_connected': ArduinoStatus(4, 'not_connected', 'Arduino NOT CONNECTED'),
+            'debug_mode': ArduinoStatus(5, 'debug_mode', 'Arduino NOT CONNECTED (debug mode)'),
+            'ready': ArduinoStatus(6, 'ready', f'Arduino is ready to start a new command! Port {self.port}')
+        }
         self.status = self.statuses['not_initialized']
         self.ser = serial.Serial()
         self.ser.baudrate = self.bps
@@ -149,7 +151,7 @@ class Arduino():
             # Flushing initial setup
             initial_string = ""
             while True:
-                received = self.receive()
+                received = self.receive(prefix="Flushing init data...")
                 if received is None:
                     break
                 initial_string += received
@@ -195,10 +197,11 @@ class Arduino():
             self.send(cmd_string)
             self.last_command = command
             self.last_sent_command_time = datetime.datetime.now()
+            prev_status = self.status
             self.status = self.statuses['command_sent']
-            print(f"{self.last_command} Sent!")
+            print(f"Command '{self.last_command}' sent! Status updated: {prev_status.name} -> {self.status.name}!")
         else:
-            print(f"Arduino not ready to receive commands!")
+            print(f"Arduino not ready to receive command {command}, status {self.status.name}: {self.status.description}!")
         return self.status
 
     def send(self, string):
@@ -218,21 +221,32 @@ class Arduino():
             if elapsed >= self.time_between_commands:
                 self.status = self.statuses['ready']
                 self.last_status_update_time = datetime.datetime.now()
-            else:
-                print(f"Arduino is cooling down. Wait another {self.time_between_commands - elapsed} (Time between commands is set to {self.time_between_commands}s)")
+            # else:
+            #     print(f"Arduino is cooling down. Wait another {self.time_between_commands - elapsed} (Time between commands is set to {self.time_between_commands}s)")
         elif self.status.id == self.statuses['command_sent'].id:
+            try:
+                received = self.receive(debug=debug, prefix="Waiting for received command msg")
+                if received is None:
+                    received = ""
+            except serial.serialutil.SerialException:
+                received = ""
+            if "received" in received.lower():
+                print(f"Received feedback from Arduino!")
+                self.status = self.statuses['command_received']
+        elif self.status.id == self.statuses['command_received'].id:
             if (datetime.datetime.now() - self.last_sent_command_time).seconds >= self.max_wait:
+                print(f"Max wait time between commands reached...")
                 self.status = self.statuses['ready']
             else:
                 while True:
                     try:
-                        received = self.receive(debug=debug)
+                        received = self.receive(debug=debug, prefix="Waiting for completiong msg")
                         if received is None:
                             received = ""
                     except serial.serialutil.SerialException:
                         received = ""
                     if "runcomp" in received:
-                        print(f"Command Completed!")
+                        print(f"Command Completed! Cooling down for {self.time_between_commands} seconds...")
                         self.last_completed_command_time = datetime.datetime.now()
                         self.last_command = None
                         self.status = self.statuses['cooling_down']
@@ -242,10 +256,10 @@ class Arduino():
                         break
         return self.status
 
-    def receive(self, debug=False):
+    def receive(self, prefix="Received from Arduino", debug=False):
         ret = None
         if self.ser.in_waiting > 0:
             ret = self.ser.readline().decode('ascii')
             if debug:
-                print(f"Received from Arduino: {ret}", end="")
+                print(f"{prefix}: {ret}", end="")
         return ret
