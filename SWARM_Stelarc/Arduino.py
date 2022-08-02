@@ -31,7 +31,7 @@ class Arduino():
         "done":     "runcomp"
     }
 
-    def __init__(self, port="COM4", bps=115200, p_1=8, p_2="N", p_3=1, time_between_commands=5):
+    def __init__(self, port="COM4", bps=115200, p_1=8, p_2="N", p_3=1, time_between_commands=5, max_feedback_wait=10, max_execution_wait=60):
         self.port = port
         self._observers = []
         self.bps = bps
@@ -43,17 +43,18 @@ class Arduino():
         self.last_sent_command_time = datetime.datetime.now()
         self.last_status_update_time = datetime.datetime.now()
         self.time_between_commands = time_between_commands  # Seconds
-        self.max_wait = 60  # Seconds, the longest command takes 48s
+        self.max_feedback_wait = max_feedback_wait  # Seconds, the longest command takes 48s
+        self.max_execution_wait = max_execution_wait  # Seconds, the longest command takes 48s
 
         self.statuses = {
-            'not_initialized': ArduinoStatus(-1, 'not_initialized', 'Arduino not initialized'),
-            'command_sent': ArduinoStatus(0, 'command_sent', 'Command SENT SUCCESSFULLY, waiting for completion...'),
-            'command_received': ArduinoStatus(1, 'command_received', 'Command received by Arduino'),
-            'cooling_down': ArduinoStatus(2, 'cooling_down', f'Arduino is cooling down between commands {self.time_between_commands}'),
-            'already_sent': ArduinoStatus(3, 'already_sent', 'Command ALREADY SENT'),
-            'not_connected': ArduinoStatus(4, 'not_connected', 'Arduino NOT CONNECTED'),
-            'debug_mode': ArduinoStatus(5, 'debug_mode', 'Arduino NOT CONNECTED (debug mode)'),
-            'ready': ArduinoStatus(6, 'ready', f'Arduino is ready to start a new command! Port {self.port}')
+            'not_initialized': ArduinoStatus(-1, 'Not Initialized', 'Arduino not initialized'),
+            'command_sent': ArduinoStatus(0, 'Command Sent', 'Command SENT SUCCESSFULLY, waiting for feedback...'),
+            'command_received': ArduinoStatus(1, 'Executing Command', 'Command received by Arduino, waiting for completion...'),
+            'cooling_down': ArduinoStatus(2, 'Cooling Down', f'Arduino is cooling down between commands {self.time_between_commands}'),
+            'already_sent': ArduinoStatus(3, 'Command already sent', 'Command ALREADY SENT'),
+            'not_connected': ArduinoStatus(4, 'NOT CONNECTED', 'Arduino NOT CONNECTED'),
+            'debug_mode': ArduinoStatus(5, 'DEBUG MODE', 'Arduino NOT CONNECTED (debug mode)'),
+            'ready': ArduinoStatus(6, 'READY', f'Arduino is ready to start a new command! Port {self.port}')
         }
         self.status = self.statuses['not_initialized']
         self.ser = serial.Serial()
@@ -62,7 +63,7 @@ class Arduino():
         self.update_status()
     
     def debug_send_wait(self, cmd_string, manual_update=0, debug=True):
-        self.send_command(cmd_string, debug=debug)
+        self.send_command(cmd_string, debug=debug, testing_command=self.mockup_commands)
         if manual_update <= 0:
             print(f"Waiting for Arduino to be ready...")
             while self.status.id != self.statuses['ready'].id:
@@ -189,17 +190,18 @@ class Arduino():
                 return f"Arduino NOT CONNECTED (debug mode) on {self.port}: bps={self.bps}, {self.p_1}/{self.p_2}/{self.p_3}"
             return f"Arduino NOT found on {self.port}: bps={self.bps}, {self.p_1}/{self.p_2}/{self.p_3}"
 
-    def send_command(self, command, loop=False, debug=True):
+    def send_command(self, command, loop=False, debug=True, testing_command=True):
         if self.status.id == self.statuses['ready'].id:
             cmd_string = self.build_command_str(command, loop)
             if debug:
                 print(f"Sending command string: {cmd_string}")
-            self.send(cmd_string)
+            if not testing_command:
+                self.send(cmd_string)
             self.last_command = command
             self.last_sent_command_time = datetime.datetime.now()
             prev_status = self.status
             self.status = self.statuses['command_sent']
-            print(f"Command '{self.last_command}' sent! Status updated: {prev_status.name} -> {self.status.name}!")
+            print(f"{'(Testing)' if testing_command else ''}Command '{self.last_command}' sent! Status updated: {prev_status.name} -> {self.status.name}!")
         else:
             print(f"Arduino not ready to receive command {command}, status {self.status.name}: {self.status.description}!")
         return self.status
@@ -224,17 +226,21 @@ class Arduino():
             # else:
             #     print(f"Arduino is cooling down. Wait another {self.time_between_commands - elapsed} (Time between commands is set to {self.time_between_commands}s)")
         elif self.status.id == self.statuses['command_sent'].id:
-            try:
-                received = self.receive(debug=debug, prefix="Waiting for received command msg")
-                if received is None:
+            if (datetime.datetime.now() - self.last_sent_command_time).seconds >= self.max_feedback_wait:
+                print(f"Max wait time waiting for feedback reached...")
+                self.status = self.statuses['ready']
+            else:
+                try:
+                    received = self.receive(debug=debug, prefix="Waiting for received command msg")
+                    if received is None:
+                        received = ""
+                except serial.serialutil.SerialException:
                     received = ""
-            except serial.serialutil.SerialException:
-                received = ""
-            if "received" in received.lower():
-                print(f"Received feedback from Arduino!")
-                self.status = self.statuses['command_received']
+                if "received" in received.lower():
+                    print(f"Received feedback from Arduino!")
+                    self.status = self.statuses['command_received']
         elif self.status.id == self.statuses['command_received'].id:
-            if (datetime.datetime.now() - self.last_sent_command_time).seconds >= self.max_wait:
+            if (datetime.datetime.now() - self.last_sent_command_time).seconds >= self.max_execution_wait:
                 print(f"Max wait time between commands reached...")
                 self.status = self.statuses['ready']
             else:

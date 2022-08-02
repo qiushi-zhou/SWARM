@@ -16,10 +16,10 @@ class Person:
     def get_pos(self):
         return tuple(self.pos)
 
-    def get_distance(self, node):
-        if self.pos.size != node.pos.size:
+    def get_distance(self, pos):
+        if self.pos.size != pos.size:
             print(f"Cannot calculate distance between 2D and 3D points")
-        squared_dist = np.sum((self.pos-node.pos)**2, axis=0)
+        squared_dist = np.sum((self.pos-pos)**2, axis=0)
         return np.sqrt(squared_dist)
         
     def update_location(self, tracks):
@@ -34,12 +34,16 @@ class PeopleGraph:
         self.max_weight = -1
         self.min_weight = 9999
         self.edges_calculated = False
+        self.avg_distance = -1
+        self.avg_distance_from_machine = -1
 
     def init_graph(self):
         self.nx_graph = nx.Graph()
         self.max_weight = -1
         self.min_weight = 9999
         self.edges_calculated = False
+        self.avg_distance = -1
+        self.avg_distance_from_machine = -1
 
     def get_nodes(self):
         return self.nx_graph.nodes()
@@ -53,7 +57,7 @@ class PeopleGraph:
         return node.get_pos()
 
     def add_edge(self, from_node, to_node):
-        w = from_node.get_distance(to_node)
+        w = from_node.get_distance(to_node.pos)
         self.nx_graph.add_edge(from_node, to_node, weight=w)
         return w
 
@@ -74,7 +78,17 @@ class PeopleGraph:
             sum_of_edges = 0
             for i, j, w in self.nx_graph.edges(data=True):
                 sum_of_edges += w['weight']
-            return sum_of_edges/self.nx_graph.number_of_nodes()
+                self.avg_distance = sum_of_edges/self.nx_graph.number_of_nodes()
+            return self.avg_distance
+        return 0
+
+    def get_average_distance_from_machine(self, mx, my):
+        if self.edges_calculated and self.nx_graph.number_of_nodes() > 0:
+            total_distance_from_machine = 0
+            for node, node_data in self.nx_graph.nodes(data=True):
+                total_distance_from_machine += node.get_distance(np.array([mx, my]))
+            self.avg_distance_from_machine = total_distance_from_machine/self.nx_graph.number_of_nodes()
+            return self.avg_distance_from_machine
         return 0
 
     def get_average_clustering(self):
@@ -104,10 +118,17 @@ class PeopleGraph:
     def cv_draw_edges(self, cv2, canvas, debug=True):
         if self.edges_calculated:
             for i, j, w in self.nx_graph.edges(data=True):
-                thickness = int((self.normalize_weight(w['weight'])+1) * 2)
+                # thickness = int((self.normalize_weight(w['weight'])+1) * 2)
+                thickness = 1
                 cv2.line(canvas, (int(i.pos[0]), int(i.pos[1])), (int(j.pos[0]), int(j.pos[1])), (0, 0, 255), thickness)
                 if debug:
                     print(f"thickness (max: {self.min_weight}, min: {self.max_weight}, Original: {w['weight']} Normalized: {thickness}")
+
+    def cv_draw_dist_from_machine(self, cv2, canvas, mx, my, debug=True):
+        cv2.circle(canvas, (int(mx), int(my)), 3, (255, 255, 255), 3)
+        for node, node_data in self.nx_graph.nodes(data=True):
+            thickness = 1
+            cv2.line(canvas, (int(node.pos[0]), int(node.pos[1])), (int(mx), int(my)), (255, 0, 0), thickness)
 
     def cv_draw_debug(self, cv2, canvas, text_x=0, text_y=0, offset_x=20, offset_y=100, debug=True, prefix=""):
         nodes_data = ""
@@ -121,9 +142,9 @@ class PeopleGraph:
         edges_data = f"[{edges_data}]"
         text_x = int(text_x+offset_x)
         text_y = int(text_y+offset_y)
-        cv2.putText(canvas, f"Nodes {self.nx_graph.number_of_nodes()}: {nodes_data}", (text_x, text_y), 0, 0.5, (255, 255, 0), 2)
-        cv2.putText(canvas, f"Edges {self.nx_graph.number_of_edges()}: {edges_data}", (text_x, text_y+20), 0, 0.5, (255, 255, 0), 2)
-        cv2.putText(canvas, f"Avg Distance: {self.get_average_distance()}\tAvg Clustering: {self.get_average_clustering()}", (text_x, text_y+40), 0, 0.5, (255, 255, 0), 2)
+        cv2.putText(canvas, f"Nodes {self.nx_graph.number_of_nodes()}: {nodes_data}", (text_x, text_y), 0, 0.4, (255, 255, 0), 2)
+        cv2.putText(canvas, f"Edges {self.nx_graph.number_of_edges()}: {edges_data}", (text_x, text_y+20), 0, 0.4, (255, 255, 0), 2)
+        cv2.putText(canvas, f"Avg dist: {self.avg_distance:.2f} Avg_m: {self.avg_distance_from_machine:.2f}", (text_x, text_y+40), 0, 0.4, (255, 255, 0), 2)
         if debug:
             print(f"Camera {prefix:<2} - Nodes: {self.nx_graph.number_of_nodes():<3} Edges: {self.nx_graph.number_of_edges():<3}")
 

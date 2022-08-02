@@ -13,7 +13,9 @@ class Scene():
         pgImg = pygame.image.frombuffer(frame.tostring(), frame.shape[1::-1], "RGB")
         self.screen.blit(pgImg, (0,0))
 
-    def update(self, frame):
+    def update(self, frame, debug=False):
+        if debug:
+            print(f"Updating scene...")
         self.screen_delay = self.sceneClock.tick()
         self.screen.fill(self.backgroundColor)
         self.render(frame)

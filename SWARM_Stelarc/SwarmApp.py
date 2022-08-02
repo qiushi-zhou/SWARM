@@ -21,6 +21,8 @@ class BehaviorData():
             self.total_people = 0
             self.avg_distance = 0
             self.total_avg_distance = 0
+            self.total_avg_distance_from_machine = 0
+            self.avg_distance_from_machine = 0
             self.update_data(cameras)
 
         def update_data(self, cameras):
@@ -29,7 +31,9 @@ class BehaviorData():
             for camera in cameras:
                 self.total_people += camera.num_people
                 self.total_avg_distance += camera.avg_distance
-            self.avg_distance = self.total_avg_distance / len(cameras)     
+                self.total_avg_distance_from_machine = camera.avg_distance_from_machine
+            self.avg_distance = self.total_avg_distance / len(cameras)
+            self.avg_distance_from_machine = self.total_avg_distance_from_machine / len(cameras)
            
     def __init__(self, buffer_size=10):
         self.buffer = []
@@ -37,7 +41,9 @@ class BehaviorData():
         self.curr_i = 0
         self.num_people = 0
         self.avg_distance = 0
-        self.total_distance = 0
+        self.avg_distance_from_machine = 0
+        self.total_avg_distance = 0
+        self.total_avg_distance_from_machine = 0
         
     def add_data(self, cameras):
         if len(self.buffer) < self.buffer_size:
@@ -53,12 +59,19 @@ class BehaviorData():
             self.num_people = sum(c.total_people for c in self.buffer)
         else:
             self.num_people = 0
-        self.total_distance = sum(c.total_avg_distance for c in self.buffer)
-        total_avg_distance = sum(1 if c.total_avg_distance > 0 else 0 for c in self.buffer)-1
-        if total_avg_distance > 0:
-            self.avg_distance = self.total_distance / total_avg_distance
+        self.total_avg_distance = sum(c.total_avg_distance for c in self.buffer)
+        num_of_datapoints = sum(1 if c.total_avg_distance > 0 else 0 for c in self.buffer)-1
+        if num_of_datapoints > 0:
+            self.avg_distance = self.total_avg_distance / num_of_datapoints
         else:
             self.avg_distance = 0
+
+        num_of_datapoints = sum(1 if c.total_avg_distance_from_machine > 0 else 0 for c in self.buffer)-1
+        self.total_avg_distance_from_machine = sum(1 if c.total_avg_distance_from_machine > 0 else 0 for c in self.buffer)-1
+        if num_of_datapoints > 0:
+            self.avg_distance_from_machine = self.total_avg_distance_from_machine / num_of_datapoints
+        else:
+            self.avg_distance_from_machine = 0
         
 class SwarmAPP():
 
@@ -71,10 +84,11 @@ class SwarmAPP():
                 self.behaviors = self.config.get("behaviors", [])
         except:
             return
-    def __init__(self, n_cameras=4, observable=None, arduino_port="COM4", time_between_commands=5):
-        self.arduino = Arduino(port=arduino_port, time_between_commands=time_between_commands)
+    def __init__(self, n_cameras=4, cameras_padding=1, observable=None, arduino_port="COM4", time_between_commands=5, max_feedback_wait=20, max_execution_wait=60, mockup_commands=True):
+        self.arduino = Arduino(port=arduino_port, time_between_commands=time_between_commands, max_feedback_wait=max_feedback_wait, max_execution_wait=max_execution_wait)
         if observable:
             observable.subscribe(self)
+        self.mockup_commands = mockup_commands
         self.cv2 = cv2
         self.capture_index = 2
         self.capture0 = None
@@ -86,6 +100,7 @@ class SwarmAPP():
         self.current_behavior="None"
         self.num_people = -1
         self.avg_distance = -1
+        self.avg_distance_from_machine = -1
         while True:
             try:
                 if platform == "win32":
@@ -122,6 +137,7 @@ class SwarmAPP():
         self.scene = Scene(screen)
 
         self.n_cameras = n_cameras
+        self.cameras_padding = cameras_padding
         self.cameras = []
         self.init_cameras()
 
@@ -137,6 +153,11 @@ class SwarmAPP():
                 end_x = Constants.SCREEN_WIDTH / 2 if q_col <= 0 else Constants.SCREEN_WIDTH
                 start_y = 0 if q_row <= 0 else Constants.SCREEN_HEIGHT / 2
                 end_y = Constants.SCREEN_HEIGHT / 2 if q_row <= 0 else Constants.SCREEN_HEIGHT
+
+                start_x += Constants.SCREEN_WIDTH * self.cameras_padding
+                end_x -= Constants.SCREEN_WIDTH * self.cameras_padding
+                start_y += Constants.SCREEN_HEIGHT * self.cameras_padding
+                end_y -= Constants.SCREEN_HEIGHT * self.cameras_padding
                 self.cameras.append(Camera(start_x, start_y, end_x, end_y, q_row, q_col))
 
     def update_tracks(self, tracks, frame, debug=True):
@@ -156,14 +177,14 @@ class SwarmAPP():
             chest_offset_x = 0
             chest_offset_y = 0
             center_x, center_y = (min_x + ((bbox[2]-bbox[0])/2) + chest_offset_x, min_y + ((bbox[3]-bbox[1])/2) + chest_offset_y) # ((x1+x2)/2, (y1+y2)/2).
-            dist_from_camera = -1
+            dist_from_machine = -1
             if Constants.draw_openpose:
                 self.cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2)
-                self.cv2.putText(frame, "id%s - ts%s" % (track.track_id, track.time_since_update), (int(bbox[0]), int(bbox[1]) - 20), 0, 0.5, (0, 255, 0), 1)
+                self.cv2.putText(frame, "id%s - ts%s" % (track.track_id, track.time_since_update), (int(bbox[0]), int(bbox[1]) - 20), 0, 0.4, (0, 255, 0), 2)
             for camera in self.cameras:
                 if camera.is_in_camera(min_x, min_y):
                     camera.num_people += 1
-                    camera.people_graph.add_node(center_x, center_y, dist_from_camera)
+                    camera.people_graph.add_node(center_x, center_y, dist_from_machine)
             if debug:
                 print(f"Center: ({center_x:.2f}, {center_y:.2f})")
     
@@ -184,6 +205,7 @@ class SwarmAPP():
         command = "unknown"
         self.num_people = self.behavior_buffer.num_people
         self.avg_distance = self.behavior_buffer.avg_distance
+        self.avg_distance_from_machine = self.behavior_buffer.avg_distance_from_machine
         min_people = 0
         max_people = 0
         min_avg_distance = 0
@@ -195,13 +217,14 @@ class SwarmAPP():
             max_avg_distance = behavior.get("max_avg_distance", 0)
             print(f"\r\ncommand {command} from behavior {name}\r\t"
                   f"\ravg_distance: {self.avg_distance}\t[{min_avg_distance}, {max_avg_distance}]\n\r"
+                  f"\ravg_distance_from_machine: {self.avg_distance_from_machine}\t[{min_avg_distance}, {max_avg_distance}]\n\r"
                   f"\ravg_num_people: {self.num_people}\t[{min_people}, {max_people}]\n", end="\r")
             if min_people <= self.num_people <= max_people and min_avg_distance <= self.avg_distance <= max_avg_distance:
                 name = behavior.get("name", "unknown")
                 command = behavior.get("arduino_command", "")
                 print(f"Action updated: {name} ({command})")
                 # arduino.send_command(arduino.commands["stop"])
-                arduino.send_command(command)
+                arduino.send_command(command, testing_command=self.mockup_commands)
                 break
         print(f"\r\nNew ACTION: Running command {command} from behavior {name}\n\r")
 
@@ -210,15 +233,32 @@ class SwarmAPP():
             print(f"Drawing behavior debug")
         text_x = int(0 + offset_x)
         text_y = int(0 + offset_y)
-        self.cv2.putText(frame, f"Running {self.current_behavior}, People: {self.num_people}, Avg Dist: {self.avg_distance}" , (text_x, text_y), 0, 0.4, (0, 0, 0), 1)
+        self.cv2.putText(frame, f"Running {self.current_behavior}, Avg People: {self.num_people}", (text_x, text_y), 0, 0.4, (255, 0, 0), 2)
+        text_y += 20
+        self.cv2.putText(frame, f"Buffer size: {self.behavior_buffer.buffer_size}, Avg Dist: {self.avg_distance:.2f},Avg Dist_m: {self.avg_distance_from_machine:.2f}", (text_x, text_y), 0, 0.4, (255, 0, 0), 2)
 
     def draw_arduino_debug(self, frame, debug=True, offset_x=20, offset_y=300):
         if debug:
             print(f"Drawing arduino debug")
         text_x = int(0 + offset_x)
         text_y = int(0 + offset_y)
-        self.cv2.putText(frame, self.arduino.debug_string(), (text_x, text_y), 0, 0.4, (255, 255, 0), 1)
-        self.cv2.putText(frame, self.arduino.status.description, (text_x, text_y+20), 0, 0.6, (0, 0, 255), 2)
+        arduino_cmd_dbg = f"Last Command: {self.arduino.last_command} sent at {self.arduino.last_sent_command_time.strftime('%Y-%m-%d %H:%M:%S')}"
+        arduino_status_dbg = f"Arduino Status: {self.arduino.status.name}. "
+        if self.arduino.status.id == self.arduino.statuses['cooling_down'].id:
+            elapsed = (datetime.datetime.now() - self.arduino.last_completed_command_time).seconds
+            arduino_status_dbg += f" Cooldown: {self.arduino.time_between_commands - elapsed} s"
+        elif self.arduino.status.id == self.arduino.statuses['command_received'].id:
+            elapsed = (datetime.datetime.now() - self.arduino.last_sent_command_time).seconds
+            arduino_status_dbg += f"Awaiting completion: {self.arduino.max_execution_wait-elapsed}s"
+            # arduino_status_dbg += f" (max wait: {self.arduino.max_execution_wait}s)"
+        elif self.arduino.status.id == self.arduino.statuses['command_sent'].id:
+            elapsed = (datetime.datetime.now() - self.arduino.last_sent_command_time).seconds
+            arduino_status_dbg += f"Awaiting ACK: {self.arduino.max_feedback_wait-elapsed}s"
+            # arduino_status_dbg += f"(max wait: {self.arduino.max_feedback_wait}s)"
+        # self.cv2.putText(frame, self.arduino.debug_string(), (text_x, text_y), 0, 0.4, (0, 0, 255), 2)
+        self.cv2.putText(frame, arduino_cmd_dbg, (text_x, text_y), 0, 0.4, (0, 0, 255), 2)
+        text_y += 20
+        self.cv2.putText(frame, arduino_status_dbg, (text_x, text_y), 0, 0.4, (0, 0, 255), 2)
 
     def draw_camera_debug(self, frame, debug=True, offset_x=20, offset_y=-20):
         if debug:
@@ -227,8 +267,8 @@ class SwarmAPP():
             camera = self.cameras[i]
             text_x = int(camera.start_x + offset_x)
             text_y = int(camera.end_y + offset_y)
-            self.cv2.rectangle(frame, (int(camera.start_x), int(camera.start_y)), (int(camera.end_x), int(camera.end_y)), (255, 0, 0), 1)
-            self.cv2.putText(frame, f"Q{i + 1}: {camera.num_people}", (text_x, text_y), 0, 0.6, (0, 0, 255), 2)
+            self.cv2.rectangle(frame, (int(camera.start_x), int(camera.start_y)), (int(camera.end_x), int(camera.end_y)), (255, 0, 0), 2)
+            self.cv2.putText(frame, f"Q{i + 1}: {camera.num_people}", (text_x, text_y), 0, 0.4, (0, 0, 255), 2)
         if debug:
             print(f"Quadrant {i + 1} [{camera.q_row}, {camera.q_col}] - Count: {camera.num_people} x=[{camera.start_x}, {camera.end_x}] - y=[{camera.start_y}, {camera.end_y}]")
 
@@ -249,6 +289,7 @@ class SwarmAPP():
             camera.people_graph.cv_draw_nodes(self.cv2, canvas)
             camera.people_graph.cv_draw_edges(self.cv2, canvas, debug=debug)
             camera.people_graph.cv_draw_debug(self.cv2, canvas, camera.start_x, camera.start_y, offset_x, offset_y, debug=debug, prefix=i)
+            camera.people_graph.cv_draw_dist_from_machine(self.cv2, canvas, camera.machine_x, camera.machine_y, debug=debug)
 
     def run(self, debug=False):
         while True:
@@ -275,12 +316,13 @@ class SwarmAPP():
 
             self.update_action(debug=True)
             if Constants.draw_behavior_data:
-                offset_y += 60
+                offset_y = 150
+                self.draw_behavior_debug(frame,offset_y=offset_y, debug=debug)
+                offset_y += 40
                 self.draw_arduino_debug(frame, offset_y=offset_y, debug=debug)
-            if debug:
-                print(f"Updating scene...")
-            self.scene.update(self.cv2.cvtColor(frame, self.cv2.COLOR_BGR2RGB))
-            # self.scene.update(frame)
+
+            self.scene.update(self.cv2.cvtColor(frame, self.cv2.COLOR_BGR2RGB), debug=debug)
+            # self.scene.update(frame, debug=debug)
 
             if Constants.draw_map:
                 if debug:
