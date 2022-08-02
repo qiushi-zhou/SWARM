@@ -81,7 +81,14 @@ class SwarmAPP():
                 self.behaviors = self.config.get("behaviors", [])
         except:
             return
-    def __init__(self, n_cameras=4, cameras_padding=1, observable=None, arduino_port="COM4", time_between_commands=5, max_feedback_wait=20, max_execution_wait=60, mockup_commands=True):
+    def __init__(self, n_cameras=4, cameras_padding=1, observable=None, arduino_port="COM4", time_between_commands=-1, max_feedback_wait=-1, max_execution_wait=-1, mockup_commands=True):
+        if max_feedback_wait < 0:
+            max_feedback_wait = 5 if mockup_commands else 5
+        if max_execution_wait < 0:
+            max_execution_wait = 10 if mockup_commands else 90
+        if time_between_commands < 0:
+            time_between_commands = 5 if mockup_commands else 5
+
         self.arduino = Arduino(port=arduino_port, time_between_commands=time_between_commands, max_feedback_wait=max_feedback_wait, max_execution_wait=max_execution_wait)
         if observable:
             observable.subscribe(self)
