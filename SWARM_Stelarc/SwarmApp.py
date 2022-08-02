@@ -40,7 +40,7 @@ class BehaviorData():
         self.buffer = []
         self.buffer_size = buffer_size
         self.curr_i = 0
-        self.total_people = 0
+        self.total_avg_people = 0
         self.avg_distance = 0
         self.avg_distance_from_machine = 0
         self.total_avg_distance = 0
@@ -55,21 +55,26 @@ class BehaviorData():
         self.calc_data()
 
     def calc_data(self):
-        self.total_people = sum(c.total_people for c in self.buffer)
+        self.total_avg_people = 0
+        self.total_avg_people = sum(c.total_people for c in self.buffer)
+        num_of_datapoints = sum(1 if c.total_people > 0 else 0 for c in self.buffer)
+        if num_of_datapoints > 0:
+            self.total_avg_people = self.total_avg_people / num_of_datapoints
 
+        self.avg_distance = 0
         self.total_avg_distance = sum(c.total_avg_distance for c in self.buffer)
         num_of_datapoints = sum(1 if c.total_avg_distance > 0 else 0 for c in self.buffer)
         if num_of_datapoints > 0:
             self.avg_distance = self.total_avg_distance / num_of_datapoints
-        else:
-            self.avg_distance = 0
 
+        self.avg_distance_from_machine = 0
         self.total_avg_distance_from_machine = sum(c.total_avg_distance_from_machine for c in self.buffer)
         num_of_datapoints = sum(1 if c.total_avg_distance_from_machine > 0 else 0 for c in self.buffer)
         if num_of_datapoints > 0:
             self.avg_distance_from_machine = self.total_avg_distance_from_machine / num_of_datapoints
-        else:
-            self.avg_distance_from_machine = 0
+
+    def size(self):
+        return len(self.buffer)
         
 class SwarmAPP():
     def update_config(self):
@@ -102,7 +107,7 @@ class SwarmAPP():
         self.update_config()
         self.behavior_buffer = BehaviorData(self.buffer_size)
         self.current_behavior = None
-        self.total_people = -1
+        self.avg_total_people = -1
         self.avg_distance = -1
         self.avg_distance_from_machine = -1
         while True:
@@ -205,7 +210,7 @@ class SwarmAPP():
         self.behavior_buffer.add_data(self.cameras)
         # self.update_config()
         self.current_behavior = None
-        self.total_people = self.behavior_buffer.total_people
+        self.avg_total_people = self.behavior_buffer.total_avg_people
         self.avg_distance = self.behavior_buffer.avg_distance
         self.avg_distance_from_machine = self.behavior_buffer.avg_distance_from_machine
         for behavior in self.behaviors:
@@ -224,8 +229,8 @@ class SwarmAPP():
             print(f"\r\ncommand {command} from behavior {name}\r\t"
                   f"\ravg_distance: {self.avg_distance}\t[{min_avg_distance}, {max_avg_distance}]\n\r"
                   f"\ravg_distance_from_machine: {self.avg_distance_from_machine}\t[{min_avg_distance_from_machine}, {max_avg_distance_from_machine}]\n\r"
-                  f"\rnum_people: {self.total_people}\t[{min_people}, {max_people}]\n", end="\r")
-            if(min_people <= self.total_people <= max_people and
+                  f"\ravg_people: {self.avg_total_people}\t[{min_people}, {max_people}]\n", end="\r")
+            if(min_people <= self.avg_total_people <= max_people and
                 min_avg_distance <= self.avg_distance <= max_avg_distance and
                 min_avg_distance_from_machine <= self.avg_distance_from_machine <= max_avg_distance_from_machine):
                 self.current_behavior = behavior
@@ -243,9 +248,9 @@ class SwarmAPP():
         behavior_dbg = "None"
         if self.current_behavior is not None:
             behavior_dbg = self.current_behavior["name"]
-        self.cv2.putText(frame, f"Running {behavior_dbg}, Avg People: {self.total_people}", (text_x, text_y), 0, 0.4, (255, 0, 0), 2)
+        self.cv2.putText(frame, f"Running {behavior_dbg}, Buffer size: {self.behavior_buffer.size()}", (text_x, text_y), 0, 0.4, (255, 0, 0), 2)
         text_y += 20
-        self.cv2.putText(frame, f"Buffer size: {self.behavior_buffer.buffer_size}, Avg Dist: {self.avg_distance:.2f}, Avg Dist_m: {self.avg_distance_from_machine:.2f}", (text_x, text_y), 0, 0.4, (255, 0, 0), 2)
+        self.cv2.putText(frame, f"Avg People: {self.avg_total_people:.2f}, Avg Dist: {self.avg_distance:.2f}, Avg Dist_m: {self.avg_distance_from_machine:.2f}", (text_x, text_y), 0, 0.4, (255, 0, 0), 2)
 
     def draw_arduino_debug(self, frame, debug=True, offset_x=20, offset_y=300):
         if debug:
