@@ -22,7 +22,7 @@ class Point():
         if point.is_2d() != self.is_2d():
             print(f"Cannot calculate distance between 2D and 3D points")
         
-        squared_dist = np.sum((self.pos-pos)**2, axis=0)
+        squared_dist = np.sum((self.pos-point.pos)**2, axis=0)
         return np.sqrt(squared_dist)
         
     

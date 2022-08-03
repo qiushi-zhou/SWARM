@@ -27,7 +27,7 @@ class PeopleGraph:
         return node.pos
 
     def add_edge(self, from_node, to_node, max_dist=-1):
-        dist = from_node.distance_from(m_pos)
+        dist = from_node.distance_from(to_node)
         if max_dist > 0:
             if dist <= max_dist:
                 self.nx_graph.add_edge(from_node, to_node, weight=dist)
@@ -91,26 +91,41 @@ class PeopleGraph:
             normalized = 1
         return normalized
 
-    def cv_draw_nodes(self, cv2, canvas):
+    def draw_nodes(self, drawer, canvas, draw_type='cv', debug=False):
+        color = (255, 255, 255)
         for node, node_data in self.nx_graph.nodes(data=True):
-            cv2.circle(canvas, (int(node.pos[0]), int(node.pos[1])), 3, (255, 255, 255), 3)
+            if draw_type.lower() == 'cv':
+                drawer.circle(canvas, (int(node.pos[0]), int(node.pos[1])), 3, color, 3)
+            else:
+                drawer.draw.circle(canvas, color=color, center=(int(node.pos[0]), int(node.pos[1])), radius=3, width=3)
 
-    def cv_draw_edges(self, cv2, canvas, debug=True):
+    def draw_edges(self, drawer, canvas, draw_type='cv', debug=False):
         if self.edges_calculated:
-            for i, j, w in self.nx_graph.edges(data=True):
+            color = (0, 0, 255)
+            thickness = 1
                 # thickness = int((self.normalize_weight(w['weight'])+1) * 2)
-                thickness = 1
-                cv2.line(canvas, (int(i.pos[0]), int(i.pos[1])), (int(j.pos[0]), int(j.pos[1])), (0, 0, 255), thickness)
+            for i, j, w in self.nx_graph.edges(data=True):
+                if draw_type.lower() == 'cv':
+                    drawer.line(canvas, (int(i.pos[0]), int(i.pos[1])), (int(j.pos[0]), int(j.pos[1])), color, thickness)
+                else:
+                    drawer.draw.line(canvas, color=color, start_pos=(int(i.pos[0]), int(i.pos[1])), end_pos=(int(j.pos[0]), int(j.pos[1])), width=thickness)
                 if debug:
                     print(f"thickness (max: {self.min_weight}, min: {self.max_weight}, Original: {w['weight']} Normalized: {thickness}")
 
-    def cv_draw_dist_from_machine(self, cv2, canvas, mx, my, debug=True):
-        cv2.circle(canvas, (int(mx), int(my)), 3, (255, 255, 255), 3)
+    def draw_dist_from_machine(self, drawer, canvas, mx, my, draw_type='cv', debug=True):
+        if draw_type.lower() == 'cv':
+            drawer.circle(canvas, (int(mx), int(my)), 3, (255, 255, 255), 3)
+        else:
+            drawer.draw.circle(canvas, color=(255, 255, 255), center=(int(mx), int(my)), radius=3, width=3)
+        thickness = 1
+        color = (255, 0, 0)
         for node, node_data in self.nx_graph.nodes(data=True):
-            thickness = 1
-            cv2.line(canvas, (int(node.pos[0]), int(node.pos[1])), (int(mx), int(my)), (255, 0, 0), thickness)
+            if draw_type.lower() == 'cv':
+                drawer.line(canvas, (int(node.pos[0]), int(node.pos[1])), (int(mx), int(my)), color, thickness)
+            else:
+                drawer.draw.line(canvas, color=color, start_pos=(int(node.pos[0]), int(node.pos[1])), end_pos=(int(mx), int(my)), width=thickness)
 
-    def cv_draw_debug(self, cv2, canvas, text_x=0, text_y=0, offset_x=20, offset_y=100, debug=True, prefix=""):
+    def draw_debug(self, drawer, canvas, text_x=0, text_y=0, offset_x=20, offset_y=100, draw_type='cv', debug=True, prefix=""):
         nodes_data = ""
         for node in self.nx_graph.nodes():
             nodes_data = f"{nodes_data}, ({node.pos[0]:.2f}, {node.pos[1]:.2f})"
@@ -122,9 +137,19 @@ class PeopleGraph:
         edges_data = f"[{edges_data}]"
         text_x = int(text_x+offset_x)
         text_y = int(text_y+offset_y)
-        cv2.putText(canvas, f"Nodes {self.nx_graph.number_of_nodes()}: {nodes_data}", (text_x, text_y), 0, 0.4, (255, 255, 0), 2)
-        cv2.putText(canvas, f"Edges {self.nx_graph.number_of_edges()}: {edges_data}", (text_x, text_y+20), 0, 0.4, (255, 255, 0), 2)
-        cv2.putText(canvas, f"Avg dist: {self.avg_people_distance:.2f} Avg_m: {self.avg_machine_distance:.2f}", (text_x, text_y+40), 0, 0.4, (255, 255, 0), 2)
+
+        nodes_str = f"Nodes {self.nx_graph.number_of_nodes()}: {nodes_data}"
+        edges_str = f"Edges {self.nx_graph.number_of_edges()}: {edges_data}"
+        data_str = f"Avg dist: {self.avg_people_distance:.2f} Avg_m: {self.avg_machine_distance:.2f}"
+        color = (255, 255, 0)
+        if draw_type.lower() == 'cv':
+            drawer.putText(canvas, nodes_str, (text_x, text_y), 0, 0.4, color, 2)
+            drawer.putText(canvas, edges_str, (text_x, text_y+20), 0, 0.4, color, 2)
+            drawer.putText(canvas, data_str, (text_x, text_y+40), 0, 0.4, color, 2)
+        else:
+            canvas.blit(drawer.render(nodes_str, True, color), (text_x, text_y))
+            canvas.blit(drawer.render(edges_str, True, color), (text_x, text_y+20))
+            canvas.blit(drawer.render(data_str, True, color), (text_x, text_y+40))
         if debug:
             print(f"Camera {prefix:<2} - Nodes: {self.nx_graph.number_of_nodes():<3} Edges: {self.nx_graph.number_of_edges():<3}")
 

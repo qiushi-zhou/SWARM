@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import os.path
+
 from Input import Input
 from Scene import Scene
 import datetime
@@ -18,24 +20,6 @@ from utils import Point
 
         
 class SwarmAPP():
-    def update_config(self):
-        self.behavior_config = {}
-        try:
-            with open(r'./Behaviour_Config.yaml') as file:
-                self.behavior_config = yaml.load(file, Loader=yaml.FullLoader)
-                self.buffer_size = self.behavior_config.get("buffer_size", 10)
-                self.behaviors = self.behavior_config.get("behaviors", [])
-        except:
-            return
-        
-        self.cameras_config = {}
-        try:
-            with open(r'./CamerasConfig.yaml') as file:
-                self.cameras_config = yaml.load(file, Loader=yaml.FullLoader)
-                self.cameras_config = self.cameras_config.get("cameras", [])
-        except:
-            return
-        
     def __init__(self, observable=None, arduino_port="COM4", time_between_commands=-1, max_feedback_wait=-1, max_execution_wait=-1, mockup_commands=True):
         if max_feedback_wait < 0:
             max_feedback_wait = 5 if mockup_commands else 5
@@ -51,12 +35,15 @@ class SwarmAPP():
         self.cv2 = cv2
         self.capture_index = 2
         self.capture0 = None
-        self.behavior_config = {}
-        self.cameras_config = {}
-        self.buffer_size = 10
+        self.frame = None
+
+        self.cameras_config = None
+        self.behavior_config = None
         self.behaviors = []
-        self.update_config()
-        self.frame_buffer = FrameBuffer(self.buffer_size)
+        self.cameras = []
+        self.update_cameras_config()
+        self.update_behaviors_config()
+        self.frame_buffer = FrameBuffer(self.behavior_config.get('buffer_size', 10))
         self.current_behavior = None
         while True:
             try:
@@ -90,18 +77,42 @@ class SwarmAPP():
         pygame.init()
         pygame.display.set_mode((Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT))
         pygame.display.set_caption("SWARM")
+        # if you want to use this module.
+        self.font = pygame.font.SysFont('Cascadia', 20)
         screen = pygame.display.get_surface()
         self.scene = Scene(screen)
-        self.cameras = []
-        self.init_cameras()
 
     def notify(self, observable, *args, **kwargs):
         print('Got', args, kwargs, 'From', observable)
 
-    def init_cameras(self):
-        for i in range(0, len(self.cameras_config)):
-            camera_config = self.cameras_config[i]
-            self.cameras.append(Camera(Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, camera_config))
+    def update_behaviors_config(self):
+        file_path = r'./Behaviour_Config.yaml'
+        if self.behavior_config is None or (self.behavior_config['last_modified_time'] < os.path.getmtime(file_path)):
+            print(f"Updating Behaviors configuration from file...")
+            try:
+                with open(file_path) as file:
+                    self.behavior_config = yaml.load(file, Loader=yaml.FullLoader)
+                    self.behaviors = self.behavior_config.get("behaviors", [])
+                self.behavior_config['last_modified_time'] = os.path.getmtime(file_path)
+            except:
+                return
+
+    def update_cameras_config(self):
+        file_path = r'./CamerasConfig.yaml'
+        if self.cameras_config is None or (self.cameras_config['last_modified_time'] < os.path.getmtime(file_path)):
+            print(f"Updating Cameras configuration from file...")
+            try:
+                with open(file_path) as file:
+                    self.cameras_config = yaml.load(file, Loader=yaml.FullLoader)
+            except:
+                return
+            cameras_data = self.cameras_config.get("cameras", [])
+            for i in range(0, len(cameras_data)):
+                if len(self.cameras) <= i:
+                    self.cameras.append(Camera(Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, cameras_data[i]))
+                else:
+                    self.cameras[i].update_config(Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, cameras_data[i])
+            self.cameras_config['last_modified_time'] = os.path.getmtime(file_path)
 
     def update_tracks(self, tracks, frame, debug=True):
         if debug:
@@ -130,13 +141,13 @@ class SwarmAPP():
         if debug:
             print(f"Updating Cameras data")
         for camera in self.cameras:
-            camera.update_graph()
+            if camera.enabled:
+                camera.update_graph()
 
     def update_action(self, debug=True):
         if debug:
             print(f"Updating Action!")
         arduino = self.arduino
-        # self.update_config()
         self.current_behavior = None
         self.frame_buffer.add_frame_data(self.cameras)
         avg_total_people = self.frame_buffer.people_data.avg
@@ -171,26 +182,32 @@ class SwarmAPP():
                 print(f"\r\nNew ACTION: Running command {command} from behavior {name}\n\r")
                 break
 
-    def draw_behavior_debug(self, frame, debug=True, offset_x=20, offset_y=300):
+    def draw_behavior_debug(self, drawer, canvas, draw_type='cv', debug=True, text_x=0, text_y=0, offset_x=20, offset_y=300):
         if debug:
             print(f"Drawing behavior debug")
         avg_total_people = self.frame_buffer.people_data.avg
         avg_distance = self.frame_buffer.distance_data.avg
         avg_distance_from_machine = self.frame_buffer.machine_distance_data.avg
-        text_x = int(0 + offset_x)
-        text_y = int(0 + offset_y)
+        text_x = int(text_x + offset_x)
+        text_y = int(text_y + offset_y)
         behavior_dbg = "None"
         if self.current_behavior is not None:
             behavior_dbg = self.current_behavior["name"]
-        self.cv2.putText(frame, f"Running {behavior_dbg}, Buffer size: {self.frame_buffer.size()}", (text_x, text_y), 0, 0.4, (255, 0, 0), 2)
-        text_y += 20
-        self.cv2.putText(frame, f"Avg People: {avg_total_people:.2f}, Avg Dist: {avg_distance:.2f}, Avg Dist_m: {avg_distance_from_machine:.2f}", (text_x, text_y), 0, 0.4, (255, 0, 0), 2)
+        behavior_dbg1 = f"Running {behavior_dbg}, Buffer size: {self.frame_buffer.size()}"
+        behavior_dbg2 = f"Avg People: {avg_total_people:.2f}, Avg Dist: {avg_distance:.2f}, Avg Dist_m: {avg_distance_from_machine:.2f}"
+        color = (255, 0, 0)
+        if draw_type.lower() == 'cv':
+            drawer.putText(canvas, behavior_dbg1, (text_x, text_y), 0, 0.4, color, 2)
+            drawer.putText(canvas, behavior_dbg2, (text_x, text_y+20), 0, 0.4, color, 2)
+        else:
+            canvas.blit(drawer.render(behavior_dbg1, True, color), (text_x, text_y))
+            canvas.blit(drawer.render(behavior_dbg2, True, color), (text_x, text_y+20))
 
-    def draw_arduino_debug(self, frame, debug=True, offset_x=20, offset_y=300):
+    def draw_arduino_debug(self, drawer, canvas, draw_type='cv', debug=True, text_x=0, text_y=0, offset_x=20, offset_y=300):
         if debug:
             print(f"Drawing arduino debug")
-        text_x = int(0 + offset_x)
-        text_y = int(0 + offset_y)
+        text_x = int(text_x + offset_x)
+        text_y = int(text_y + offset_y)
         arduino_cmd_dbg = f"Last Command: {self.arduino.last_command}"
         if self.arduino.last_command is not None:
             arduino_cmd_dbg += f" sent at {self.arduino.last_sent_command_time.strftime('%Y-%m-%d %H:%M:%S')}"
@@ -212,27 +229,34 @@ class SwarmAPP():
         # self.cv2.putText(frame, self.arduino.debug_string(), (text_x, text_y), 0, 0.4, (0, 0, 255), 2)
         else:
             arduino_status_dbg += f"{self.arduino.status.name}. "
-        self.cv2.putText(frame, arduino_cmd_dbg, (text_x, text_y), 0, 0.4, (0, 0, 255), 2)
-        text_y += 20
-        self.cv2.putText(frame, arduino_status_dbg, (text_x, text_y), 0, 0.4, (0, 0, 255), 2)
+        color = (0, 0, 255)
+        if draw_type.lower() == 'cv':
+            drawer.putText(canvas, arduino_cmd_dbg, (text_x, text_y), 0, 0.4, color, 2)
+            drawer.putText(canvas, arduino_status_dbg, (text_x, text_y+20), 0, 0.4, color, 2)
+        else:
+            canvas.blit(drawer.render(arduino_cmd_dbg, True, color), (text_x, text_y))
+            canvas.blit(drawer.render(arduino_status_dbg, True, color), (text_x, text_y+20))
 
-    def draw_camera_debug(self, frame, debug=True, offset_x=20, offset_y=-20):
+    def draw_camera_debug(self, drawer, canvas, draw_type='cv', debug=True, offset_x=20, offset_y=-20):
         if debug:
             print(f"Drawing camera debug")
         for i in range(0, len(self.cameras)):
             camera = self.cameras[i]
-            # text_x = int(camera.start_x + offset_x)
-            # text_y = int(camera.end_y + offset_y)
-            if len(camera.path_vertices) > 0:
-                for j in range(0, len(camera.path_vertices)-1):
-                    p1 = camera.path_vertices[j]
-                    p2 = camera.path_vertices[j+1]
-                    self.cv2.line(frame, (int(p1.x), int(p1.y)), (int(p2.x), int(p2.y)), camera.color, 2)
-                p1 = camera.path_vertices[0]
-                p2 = camera.path_vertices[len(camera.path_vertices)-1]
-                self.cv2.line(frame, (int(p1.x), int(p1.y)), (int(p2.x), int(p2.y)), camera.color, 2)
-            # self.cv2.rectangle(frame, (int(camera.start_x), int(camera.start_y)), (int(camera.end_x), int(camera.end_y)), (255, 0, 0), 2)
-            # self.cv2.putText(frame, f"Q{i + 1}: {camera.num_people}", (text_x, text_y), 0, 0.4, (0, 0, 255), 2)
+            if camera.enabled:
+                # text_x = int(camera.start_x + offset_x)
+                # text_y = int(camera.end_y + offset_y)
+                if len(camera.path_vertices) > 0:
+                    for j in range(0, len(camera.path_vertices)-1):
+                        p1 = camera.path_vertices[j]
+                        p2 = camera.path_vertices[j+1]
+                        thickness = 2
+                        if draw_type.lower() == 'cv':
+                            drawer.line(canvas, (int(p1.x), int(p1.y)), (int(p2.x), int(p2.y)), camera.color, thickness)
+                        else:
+                            drawer.draw.line(self.scene.screen, color=camera.color, start_pos=(int(p1.x), int(p1.y)), end_pos=(int(p2.x), int(p2.y)), width=thickness)
+
+                # self.cv2.rectangle(frame, (int(camera.start_x), int(camera.start_y)), (int(camera.end_x), int(camera.end_y)), (255, 0, 0), 2)
+                # self.cv2.putText(frame, f"Q{i + 1}: {camera.num_people}", (text_x, text_y), 0, 0.4, (0, 0, 255), 2)
         # if debug:
         #     print(f"Quadrant {i + 1} [{camera.q_row}, {camera.q_col}] - Count: {camera.num_people} x=[{camera.start_x}, {camera.end_x}] - y=[{camera.start_y}, {camera.end_y}]")
 
@@ -245,48 +269,69 @@ class SwarmAPP():
         self.cv2.circle(map_canvas, (int(height/2), int(width/2)), Constants.outer_radius, (0, 0, 0), 2)
         self.cv2.imshow("SWARM map", map_canvas)
 
-    def draw_graph(self, canvas, debug=True, offset_x=20, offset_y=200):
+    def draw_graph(self, drawer, font_drawer, canvas, draw_type='cv', debug=True, offset_x=20, offset_y=200):
         if debug:
             print(f"Drawing graph debug")
         for i in range(0, len(self.cameras)):
             camera = self.cameras[i]
-            camera.p_graph.cv_draw_nodes(self.cv2, canvas)
-            camera.p_graph.cv_draw_edges(self.cv2, canvas, debug=debug)
-            camera.p_graph.cv_draw_debug(self.cv2, canvas, camera.min_point.x, camera.min_point.y, offset_x, offset_y, debug=debug, prefix=i)
-            camera.p_graph.cv_draw_dist_from_machine(self.cv2, canvas, camera.machine_position.x, camera.machine_position.y, debug=debug)
+            if camera.enabled:
+                camera.p_graph.draw_nodes(drawer, canvas, draw_type=draw_type)
+                camera.p_graph.draw_edges(drawer, canvas, draw_type=draw_type, debug=debug)
+                camera.p_graph.draw_dist_from_machine(drawer, canvas, camera.machine_position.x, camera.machine_position.y, draw_type=draw_type, debug=debug)
+                camera.p_graph.draw_debug(font_drawer, canvas, camera.text_position.x, camera.text_position.y, 10, 10, draw_type=draw_type, debug=debug, prefix=i)
 
     def run(self, debug=False):
         while True:
             print(f"--- Start loop ---")
             e = datetime.datetime.now()
             print(f"\r\n{e.strftime('%Y-%m-%d %H:%M:%S')}", end="\r")
-            result, frame = self.capture0.read()
+            draw_type = 'pygame'
+            result, self.frame = self.capture0.read()
+            if draw_type == 'cv':
+                drawer = self.cv2
+                font_drawer = self.cv2
+                canvas = self.frame
+            else:
+                drawer = pygame
+                font_drawer = self.font
+                self.scene.update(self.cv2.cvtColor(self.frame, self.cv2.COLOR_BGR2RGB), debug=debug)
+                canvas = self.scene.screen
+
             self.arduino.update_status(debug=debug)
             if debug:
                 print(f"Arduino status updated!")
             offset_y = 0
 
-            tracks, frame_updated = self.input.update_trackers(frame)
+            tracks, frame_updated = self.input.update_trackers(self.frame)
             if Constants.draw_openpose and frame_updated is not None:
-                frame = frame_updated
+                self.frame = frame_updated
 
-            self.update_tracks(tracks, frame, debug=debug)
+            self.update_tracks(tracks, self.frame, debug=debug)
+
+            self.update_cameras_config()
             self.update_cameras_data(debug=debug)
+
             if Constants.draw_cameras_data:
-                self.draw_camera_debug(frame, debug=debug, offset_y=-15)
+                self.draw_camera_debug(drawer, canvas, draw_type=draw_type, debug=debug, offset_y=-15)
+
             if Constants.draw_graph:
                 offset_y += 20
-                self.draw_graph(frame, offset_y=offset_y, debug=debug)
+                self.draw_graph(drawer, font_drawer, canvas, draw_type=draw_type, offset_y=offset_y, debug=debug)
 
+            self.update_behaviors_config()
             self.update_action(debug=True)
             if Constants.draw_behavior_data:
-                offset_y = 150
-                self.draw_behavior_debug(frame,offset_y=offset_y, debug=debug)
+                text_x = Constants.SCREEN_WIDTH*0.5
+                text_y = Constants.SCREEN_HEIGHT*0.5
+                offset_x = 10
+                offset_y = 10
+                self.draw_behavior_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y, offset_x=offset_x, offset_y=offset_y, debug=debug)
                 offset_y += 40
-                self.draw_arduino_debug(frame, offset_y=offset_y, debug=debug)
+                self.draw_arduino_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y, offset_x=offset_x, offset_y=offset_y, debug=debug)
 
-            self.scene.update(self.cv2.cvtColor(frame, self.cv2.COLOR_BGR2RGB), debug=debug)
-            # self.scene.update(frame, debug=debug)
+            if draw_type.lower() == 'cv':
+                self.scene.update(self.cv2.cvtColor(canvas, self.cv2.COLOR_BGR2RGB), debug=debug)
+            self.scene.render()
 
             if Constants.draw_map:
                 if debug:

@@ -3,50 +3,36 @@ from matplotlib import path
 from utils import Point
 
 class Camera:
-    def __init__(self, screen_w, screen_h, config_data):
+    def __init__(self, screen_w, screen_h, config_data, init_graph=True):
+        if init_graph:
+            self.p_graph = PeopleGraph()
         self.screen_w = screen_w
         self.screen_h = screen_h
-        self.p_graph = PeopleGraph()
         self.enabled = config_data.get("enabled", False)
-        origin_data = config_data.get("origin", {'x': 0, 'y': 0})
-        self.origin = Point(origin_data['x'], origin_data['y'])
         self.anchor = config_data.get("anchor", 'top')
         self.color = config_data.get('color', [0, 0, 255])
-
         self.path_points = config_data.get("path", [])
-        self.path_vertices = []
-        debug_str = f"Camera Vertices: [ "
-        for p in self.path_points:
-            x = 0
-            y = 0
-            try:
-                x = int(p['x'])
-            except:
-                try:
-                    expr = str(p['x']).lower().split('*')
-                    if 'w' in expr[0]:
-                        x = self.screen_w * float(expr[1])
-                    else:
-                        x = self.screen_h * float(expr[1])
-                except:
-                    x = 0
-
-            try:
-                y = float(p['y'])
-            except:
-                try:
-                    expr = str(p['y']).lower().split('*')
-                    if 'w' in expr[0]:
-                        y = self.screen_w * float(expr[1])
-                    else:
-                        y = self.screen_h * float(expr[1])
-                except:
-                    y = 0
-            debug_str += f"[{x}, {y}], "
-            self.path_vertices.append(Point(x, y))
-        print(f"{debug_str} ]")
+        origin_data = config_data.get("origin", {'x': 0, 'y': 0})
+        ox, oy = self.parse_point(origin_data)
+        self.origin = Point(ox, oy)
         self.path = path.Path([(0,0)])
-        self.build_path()
+        if len(self.path_points) > 0:
+            self.path_vertices = []
+            debug_str = f"Camera Vertices: [ "
+            for p in self.path_points:
+                x,y = self.parse_point(p)
+                debug_str += f"[{x}, {y}], "
+                self.path_vertices.append(Point(x+self.origin.x, y+self.origin.y))
+            x,y = self.parse_point(self.path_points[0])
+            self.path_vertices.append(Point(x+self.origin.x, y+self.origin.y))
+            x,y = self.parse_point(self.path_points[len(self.path_points)-1])
+            self.path_vertices.append(Point(x+self.origin.x, y+self.origin.y))
+
+            print(f"{debug_str} ]")
+            self.build_path()
+        text_position = config_data.get("text_position", origin_data)
+        tx, ty = self.parse_point(text_position)
+        self.text_position = Point(tx, ty)
 
         self.min_point = Point(screen_w, screen_h)
         self.max_point = Point(-1, -1)
@@ -70,8 +56,36 @@ class Camera:
         # start_y += Constants.SCREEN_HEIGHT * self.cameras_padding
         # end_y -= Constants.SCREEN_HEIGHT * self.cameras_padding
 
-    def update_config(self, config_data):
-        Camera.__init__(self, config_data)
+    def parse_point(self, p):
+        x = 0
+        y = 0
+        try:
+            x = int(p['x'])
+        except:
+            try:
+                expr = str(p['x']).lower().split('*')
+                if 'w' in expr[0]:
+                    x = self.screen_w * float(expr[1])
+                else:
+                    x = self.screen_h * float(expr[1])
+            except:
+                x = 0
+
+        try:
+            y = float(p['y'])
+        except:
+            try:
+                expr = str(p['y']).lower().split('*')
+                if 'w' in expr[0]:
+                    y = self.screen_w * float(expr[1])
+                else:
+                    y = self.screen_h * float(expr[1])
+            except:
+                y = 0
+        return x,y
+
+    def update_config(self, screen_w, screen_h, config_data, reset_graph=False):
+        Camera.__init__(self, screen_w, screen_h, config_data, init_graph=reset_graph)
 
     def build_path(self):
         vertices = [[v.x, v.y] for v in self.path_vertices]
@@ -89,6 +103,8 @@ class Camera:
                 self.min_point.y = vertex.y
     
     def check_track(self, min_p, chest_p):
+        if not self.enabled:
+            return
         if self.is_in_camera(min_p.x, min_p.y):
             self.p_graph.add_node(x=chest_p.x, y=chest_p.y)
         
@@ -97,4 +113,6 @@ class Camera:
         # return self.start_x <= x <= self.end_x and self.start_y <= y <= self.end_y
     
     def update_graph(self):
+        if not self.enabled:
+            return
         self.p_graph.update_graph(machine_pos=self.machine_position)

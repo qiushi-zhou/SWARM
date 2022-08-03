@@ -50,7 +50,7 @@ cameras:
     anchor: bottomRight # top, bottom, left, right
     unit: ratio # ratio (between 0 and 1), or px for absolute positioning
     origin: { x: w*0.3, y: 0}
-    text_position: { x: w*0.5, y: h*0.5}
+    text_position: { x: w*0.5, y: 0}
     shape: square
     padding: 1 # Between 0 and 1
     color: [255, 0, 255]
