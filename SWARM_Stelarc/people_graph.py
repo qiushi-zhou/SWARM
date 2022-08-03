@@ -11,6 +11,7 @@ class PeopleGraph:
         self.nx_graph = nx.Graph()
         self.edges_calculated = False
         self.n_people = 0
+        self.n_edges = 0
         self.n_groups = 0
         self.clusters = []
         self.avg_people_distance = 0
@@ -40,6 +41,8 @@ class PeopleGraph:
         self.calculate_edges()
         self.update_avg_distance()
         self.update_avg_machine_distance(machine_pos=machine_pos)
+        self.n_people = self.nx_graph.number_of_nodes()
+        self.n_edges = self.nx_graph.number_of_edges()
 
     def calculate_edges(self):
         for i in self.nx_graph.nodes():

@@ -18,7 +18,7 @@ from Camera import Camera
 from FrameBufferData import FrameBuffer
 from utils import Point
 
-        
+
 class SwarmAPP():
     def __init__(self, observable=None, arduino_port="COM4", time_between_commands=-1, max_feedback_wait=-1, max_execution_wait=-1, mockup_commands=True):
         if max_feedback_wait < 0:
@@ -135,10 +135,11 @@ class SwarmAPP():
                 self.cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2)
                 self.cv2.putText(frame, "id%s - ts%s" % (track.track_id, track.time_since_update), (int(bbox[0]), int(bbox[1]) - 20), 0, 0.4, (0, 255, 0), 2)
             for camera in self.cameras:
-                camera.check_track([p1,p2], center_p)
+                # camera.check_track([p1,p2], center_p)
+                camera.check_track([center_p], center_p)
             if debug:
                 print(f"Center: ({center_x:.2f}, {center_y:.2f})")
-    
+
     def update_cameras_data(self, debug=True):
         if debug:
             print(f"Updating Cameras data")
@@ -156,7 +157,7 @@ class SwarmAPP():
         avg_total_groups = self.frame_buffer.distance_data.avg
         avg_distance = self.frame_buffer.distance_data.avg
         avg_distance_from_machine = self.frame_buffer.machine_distance_data.avg
-        
+
         for behavior in self.behaviors:
             # print(f"Checking Behaviour: {behavior}")
             enabled = behavior.get("enabled", True)
@@ -187,28 +188,34 @@ class SwarmAPP():
     def draw_behavior_debug(self, drawer, canvas, draw_type='cv', debug=True, text_x=0, text_y=0, offset_x=20, offset_y=300):
         if debug:
             print(f"Drawing behavior debug")
-        avg_total_people = self.frame_buffer.people_data.avg
-        avg_distance = self.frame_buffer.distance_data.avg
-        avg_distance_from_machine = self.frame_buffer.machine_distance_data.avg
+        p_data = self.frame_buffer.people_data
+        d_data = self.frame_buffer.distance_data
+        dm_data = self.frame_buffer.machine_distance_data
         text_x = int(text_x + offset_x)
         text_y = int(text_y + offset_y)
         behavior_dbg = "None"
         curr_behavior_name = "None"
         if self.current_behavior is not None:
             behavior_dbg = self.current_behavior["name"]
-            curr_behavior_name =  self.current_behavior["name"]
-        behavior_dbg1 = f"Running {behavior_dbg}, Buffer size: {self.frame_buffer.size()}"
-        behavior_dbg2 = f"Avg People: {avg_total_people:.2f}, Avg Dist: {avg_distance:.2f}, Avg Dist_m: {avg_distance_from_machine:.2f}"
+            curr_behavior_name = self.current_behavior["name"]
+        action_dbg = f"Running Action {behavior_dbg}"
+        p_dbg = f"People - avg: {p_data.avg:.2f}, minmax: [{p_data.min:.2f}, {p_data.max:.2f}], n_sample: {p_data.non_zeroes}/{self.frame_buffer.size()}"
+        d_dbg = f"Distance - avg: {d_data.avg:.2f}, minmax: [{d_data.min:.2f}, {d_data.max:.2f}], n_sample: {d_data.non_zeroes}/{self.frame_buffer.size()}"
+        dm_dbg = f"Distance_m - avg: {dm_data.avg:.2f}, minmax: [{dm_data.min:.2f}, {dm_data.max:.2f}], n_sample: {dm_data.non_zeroes}/{self.frame_buffer.size()}"
         color = (255, 0, 0)
+        b_color = (255, 255, 255) if behavior_dbg == "None" else (255, 255, 0)
         if draw_type.lower() == 'cv':
-            drawer.putText(canvas, behavior_dbg1, (text_x, text_y), 0, 0.4, color, 2)
-            drawer.putText(canvas, behavior_dbg2, (text_x, text_y+20), 0, 0.4, color, 2)
+            drawer.putText(canvas, action_dbg, (text_x, text_y), 0, 0.4, b_color, 2); text_y+=30
+            drawer.putText(canvas, p_dbg, (text_x, text_y), 0, 0.4, color, 2); text_y+=20
+            drawer.putText(canvas, d_dbg, (text_x, text_y), 0, 0.4, color, 2); text_y+=20
+            drawer.putText(canvas, dm_dbg, (text_x, text_y), 0, 0.4, color, 2); text_y+=20
         else:
-            canvas.blit(drawer.render(behavior_dbg1, True, color), (text_x, text_y))
-            canvas.blit(drawer.render(behavior_dbg2, True, color), (text_x, text_y+20))
-        text_y += 20
+            canvas.blit(drawer.render(action_dbg, True, b_color), (text_x, text_y)); text_y+=30
+            canvas.blit(drawer.render(p_dbg, True, color), (text_x, text_y)); text_y+=20
+            canvas.blit(drawer.render(d_dbg, True, color), (text_x, text_y)); text_y+=20
+            canvas.blit(drawer.render(dm_dbg, True, color), (text_x, text_y)); text_y+=20
+        text_y += 10
         for behavior in self.behaviors:
-            text_y += 20
             enabled = behavior.get("enabled", True)
             name = behavior.get("name", "unknown")
             min_people = behavior.get("min_people", 0)
@@ -217,12 +224,14 @@ class SwarmAPP():
             max_avg_distance = behavior.get("max_avg_distance", 10000)
             min_avg_distance_from_machine = behavior.get("min_avg_distance_from_machine", 0)
             max_avg_distance_from_machine = behavior.get("max_avg_distance_from_machine", 10000)
-            behavior_dbg = f"{name} ({'enabled' if enabled else 'disabled'} - People: [{min_people}, {max_people}, People dist: [{min_avg_distance}, {max_avg_distance}] Machine dist: [{min_avg_distance_from_machine}, {max_avg_distance_from_machine}]"
+            behavior_dbg = f"{name} ({'enabled' if enabled else 'disabled'}) - People: [{min_people}, {max_people}], People dist: [{min_avg_distance}, {max_avg_distance}], Machine dist: [{min_avg_distance_from_machine}, {max_avg_distance_from_machine}]"
             color = (255, 0, 0) if name == curr_behavior_name else (255, 0, 255)
+            behavior_dbg = f"> {behavior_dbg}" if name == curr_behavior_name else behavior_dbg
             if draw_type.lower() == 'cv':
                 drawer.putText(canvas, behavior_dbg, (text_x, text_y), 0, 0.4, color, 2)
             else:
                 canvas.blit(drawer.render(behavior_dbg, True, color), (text_x, text_y))
+            text_y += 20
         return text_y
 
     def draw_arduino_debug(self, drawer, canvas, draw_type='cv', debug=True, text_x=0, text_y=0, offset_x=20, offset_y=300):
