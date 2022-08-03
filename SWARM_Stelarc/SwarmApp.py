@@ -200,10 +200,10 @@ class SwarmAPP():
             curr_behavior_name = self.current_behavior["name"]
         action_dbg = f"Running Action {behavior_dbg}"
         p_dbg = f"People - avg: {p_data.avg:.2f}, minmax: [{p_data.min:.2f}, {p_data.max:.2f}], n_sample: {p_data.non_zeroes}/{self.frame_buffer.size()}"
-        d_dbg = f"Distance - avg: {d_data.avg:.2f}, minmax: [{d_data.min:.2f}, {d_data.max:.2f}], n_sample: {d_data.non_zeroes}/{self.frame_buffer.size()}"
-        dm_dbg = f"Distance_m - avg: {dm_data.avg:.2f}, minmax: [{dm_data.min:.2f}, {dm_data.max:.2f}], n_sample: {dm_data.non_zeroes}/{self.frame_buffer.size()}"
-        color = (255, 0, 0)
-        b_color = (255, 255, 255) if behavior_dbg == "None" else (255, 255, 0)
+        d_dbg = f"P_Distance - avg: {d_data.avg:.2f}, minmax: [{d_data.min:.2f}, {d_data.max:.2f}], n_sample: {d_data.non_zeroes}/{self.frame_buffer.size()}"
+        dm_dbg = f"M_Distance - avg: {dm_data.avg:.2f}, minmax: [{dm_data.min:.2f}, {dm_data.max:.2f}], n_sample: {dm_data.non_zeroes}/{self.frame_buffer.size()}"
+        color = (255, 50, 0)
+        b_color = (150, 150, 150) if behavior_dbg == "None" else (255, 255, 0)
         if draw_type.lower() == 'cv':
             drawer.putText(canvas, action_dbg, (text_x, text_y), 0, 0.4, b_color, 2); text_y+=30
             drawer.putText(canvas, p_dbg, (text_x, text_y), 0, 0.4, color, 2); text_y+=20
@@ -224,13 +224,28 @@ class SwarmAPP():
             max_avg_distance = behavior.get("max_avg_distance", 10000)
             min_avg_distance_from_machine = behavior.get("min_avg_distance_from_machine", 0)
             max_avg_distance_from_machine = behavior.get("max_avg_distance_from_machine", 10000)
-            behavior_dbg = f"{name} ({'enabled' if enabled else 'disabled'}) - People: [{min_people}, {max_people}], People dist: [{min_avg_distance}, {max_avg_distance}], Machine dist: [{min_avg_distance_from_machine}, {max_avg_distance_from_machine}]"
-            color = (255, 0, 0) if name == curr_behavior_name else (255, 0, 255)
-            behavior_dbg = f"> {behavior_dbg}" if name == curr_behavior_name else behavior_dbg
-            if draw_type.lower() == 'cv':
-                drawer.putText(canvas, behavior_dbg, (text_x, text_y), 0, 0.4, color, 2)
+            behavior_dbg = ""
+            if name == curr_behavior_name:
+                color = (255, 0, 200)
+                lines = []
+                lines.append(f"> {name}")
+                lines.append(f"  P: {min_people} < {p_data.avg:.2f} < {max_people}")
+                lines.append(f"  P_dist: {min_avg_distance} < {d_data.avg:.2f} < {max_avg_distance}")
+                lines.append(f"  M_dist: {min_avg_distance_from_machine:} < {dm_data.avg:.2f} < {max_avg_distance_from_machine}")
             else:
-                canvas.blit(drawer.render(behavior_dbg, True, color), (text_x, text_y))
+                color = (140, 0, 140)
+                behavior_dbg += f"{'-' if enabled else 'x'} {name},  "
+                behavior_dbg += f"P: [{min_people}, {max_people}], "
+                behavior_dbg += f"P_dist: [{min_avg_distance}, {max_avg_distance}], "
+                behavior_dbg += f"M_dist: [{min_avg_distance_from_machine}, {max_avg_distance_from_machine}]"
+                lines = [behavior_dbg]
+            for line in lines:
+                if draw_type.lower() == 'cv':
+                    drawer.putText(canvas, line, (text_x, text_y), 0, 0.4, color, 2)
+                else:
+                    canvas.blit(drawer.render(line, True, color), (text_x, text_y))
+                if len(lines) > 1:
+                    text_y+=20
             text_y += 20
         return text_y
 
@@ -262,11 +277,11 @@ class SwarmAPP():
             arduino_status_dbg += f"{self.arduino.status.name}. "
         color = (0, 0, 255)
         if draw_type.lower() == 'cv':
-            drawer.putText(canvas, arduino_cmd_dbg, (text_x, text_y), 0, 0.4, color, 2)
-            drawer.putText(canvas, arduino_status_dbg, (text_x, text_y+20), 0, 0.4, color, 2)
+            drawer.putText(canvas, arduino_cmd_dbg, (text_x, text_y), 0, 0.4, color, 2); text_y+=20
+            drawer.putText(canvas, arduino_status_dbg, (text_x, text_y), 0, 0.4, color, 2)
         else:
-            canvas.blit(drawer.render(arduino_cmd_dbg, True, color), (text_x, text_y))
-            canvas.blit(drawer.render(arduino_status_dbg, True, color), (text_x, text_y+20))
+            canvas.blit(drawer.render(arduino_cmd_dbg, True, color), (text_x, text_y)); text_y+=20
+            canvas.blit(drawer.render(arduino_status_dbg, True, color), (text_x, text_y))
 
         return text_y
 
@@ -358,9 +373,8 @@ class SwarmAPP():
                 text_y = Constants.SCREEN_HEIGHT*0.5
                 offset_x = 10
                 offset_y = 10
-                text_y = self.draw_behavior_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y, offset_x=offset_x, offset_y=offset_y, debug=debug)
-                text_y += 40
-                self.draw_arduino_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y, offset_x=offset_x, offset_y=offset_y, debug=debug)
+                text_y = self.draw_arduino_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y, offset_x=offset_x, offset_y=offset_y, debug=debug)
+                text_y = self.draw_behavior_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y+10, offset_x=offset_x, offset_y=offset_y, debug=debug)
 
             if draw_type.lower() == 'cv':
                 self.scene.update(self.cv2.cvtColor(canvas, self.cv2.COLOR_BGR2RGB), debug=debug)
