@@ -102,12 +102,14 @@ class Camera:
             if vertex.y < self.min_point.y:
                 self.min_point.y = vertex.y
     
-    def check_track(self, min_p, chest_p):
+    def check_track(self, points, chest_p):
         if not self.enabled:
             return
-        if self.is_in_camera(min_p.x, min_p.y):
-            self.p_graph.add_node(x=chest_p.x, y=chest_p.y)
-        
+        for p in points:
+            if self.is_in_camera(p.x, p.y):
+                self.p_graph.add_node(x=chest_p.x, y=chest_p.y)
+                return
+
     def is_in_camera(self, x=-1, y=-1):
         return self.path.contains_point([x, y])
         # return self.start_x <= x <= self.end_x and self.start_y <= y <= self.end_y

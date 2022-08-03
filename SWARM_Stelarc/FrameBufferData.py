@@ -8,21 +8,22 @@ class SingleFrameData():
         self.avg_people_distance = 0
         self.avg_machine_distance = 0
         if cameras is not None:
-          total_avg_distance = 0
-          total_avg_machine_distance = 0
-          total_cameras = 0
-          for camera in cameras:
-              if camera.enabled:
-                  total_cameras += 1
-                  self.people_in_frame += camera.p_graph.n_people
-                  self.groups_in_frame += camera.p_graph.n_groups
-                  total_avg_distance += camera.p_graph.avg_people_distance
-                  total_avg_machine_distance += camera.p_graph.avg_machine_distance
-          self.avg_people_distance = total_avg_distance / total_cameras
-          self.avg_machine_distance = total_avg_machine_distance / total_cameras
+            total_avg_distance = 0
+            total_avg_machine_distance = 0
+            total_cameras = 0
+            for camera in cameras:
+                if camera.enabled:
+                    total_cameras += 1
+                    self.people_in_frame += camera.p_graph.n_people
+                    self.groups_in_frame += camera.p_graph.n_groups
+                    total_avg_distance += camera.p_graph.avg_people_distance
+                    total_avg_machine_distance += camera.p_graph.avg_machine_distance
+            self.avg_people_distance = total_avg_distance / total_cameras
+            self.avg_machine_distance = total_avg_machine_distance / total_cameras
 
     def update_frame_data(self, cameras=None):
         SingleFrameData.__init__(self, cameras)
+
 
 class FramesData():
     def __init__(self, total_d=0, avg_d=0, non_zeroes=0, min_d=1000000, max_d=0):

@@ -13,9 +13,9 @@ class PeopleGraph:
         self.n_people = 0
         self.n_groups = 0
         self.clusters = []
-        self.avg_people_distance = -1
-        self.avg_machine_distance = -1
-        self.max_weight = -1
+        self.avg_people_distance = 0
+        self.avg_machine_distance = 0
+        self.max_weight = 0
         self.min_weight = 9999
 
     def init_graph(self):

@@ -125,15 +125,17 @@ class SwarmAPP():
             if not track.is_confirmed():
                 color = (0, 0, 255)
             bbox = track.to_tlbr()
-            min_p = Point(min(int(bbox[0]), int(bbox[2])), min(int(bbox[1]), int(bbox[3])))
+            p1 = Point(int(bbox[0]), int(bbox[1]))
+            p2 = Point(int(bbox[2]), int(bbox[3]))
+            min_p = Point(min(p1.x, p2.x), min(p1.y, p2.y))
             chest_offset = Point(0, 0)
-            center_x, center_y = (min_p.x + ((bbox[2]-bbox[0])/2) + chest_offset.x, min_p.y + ((bbox[3]-bbox[1])/2) + chest_offset.y) # ((x1+x2)/2, (y1+y2)/2).
+            center_x, center_y = (min_p.x + ((p2.x-p1.x)/2) + chest_offset.x, min_p.y + ((p2.y-p1.y)/2) + chest_offset.y) # ((x1+x2)/2, (y1+y2)/2).
             center_p = Point(center_x, center_y)
             if Constants.draw_openpose:
                 self.cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2)
                 self.cv2.putText(frame, "id%s - ts%s" % (track.track_id, track.time_since_update), (int(bbox[0]), int(bbox[1]) - 20), 0, 0.4, (0, 255, 0), 2)
             for camera in self.cameras:
-                camera.check_track(min_p, center_p)
+                camera.check_track([p1,p2], center_p)
             if debug:
                 print(f"Center: ({center_x:.2f}, {center_y:.2f})")
     
