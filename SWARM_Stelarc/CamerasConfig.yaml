@@ -1,0 +1,47 @@
+cameras:
+  - id: 0
+    name: "Camera1"
+    enable: True
+    anchor: top # top, bottom, left, right
+    unit: ratio # ratio (between 0 and 1), or px for absolute positioning
+    origin: { x: 0, y : 0}
+    shape: square
+    padding: 1 # Between 0 and 1
+    path:
+      - { x: 0, y : 0}
+      - { x: 0, y : 0}
+      - { x: 0, y : 0}
+      - { x: 0, y : 0}
+  - id: 1
+    name: "Camera2"
+    enable: True
+    anchor: top # top, bottom, left, right
+    unit: ratio # ratio (between 0 and 1), or px for absolute positioning
+    origin: { x: 0, y : 0}
+    path:
+      - { x: 0, y : 0}
+      - { x: 0, y : 0}
+      - { x: 0, y : 0}
+      - { x: 0, y : 0}
+  - id: 2
+    name: "Camera3"
+    enable: True
+    anchor: top # top, bottom, left, right
+    unit: ratio # ratio (between 0 and 1), or px for absolute positioning
+    origin: { x: 0, y : 0}
+    path:
+      - { x: 0, y : 0}
+      - { x: 0, y : 0}
+      - { x: 0, y : 0}
+      - { x: 0, y : 0}
+  - id: 3
+    name: "Camera4"
+    enable: False
+    anchor: top # top, bottom, left, right
+    unit: ratio # ratio (between 0 and 1), or px for absolute positioning
+    origin: { x: 0, y : 0}
+    path:
+      - { x: 0, y : 0}
+      - { x: 0, y : 0}
+      - { x: 0, y : 0}
+      - { x: 0, y : 0}

@@ -2,6 +2,31 @@ import numpy as np
 from numba import jit
 import itertools
 
+class Point():
+    def __init__(self, x, y, z=None):
+        self.id = id
+        self.x = x
+        self.y = y
+        self.z = z
+        if self.z is None:
+            self.pos = np.array([self.x, self.y])
+        else:
+            self.pos = np.array([self.x, self.y, self.z])
+        
+    def is_2d(self):
+        if self.z is None:
+            return True
+        return False
+    
+    def distance_from(self, point):
+        if point.is_2d() != self.is_2d():
+            print(f"Cannot calculate distance between 2D and 3D points")
+        
+        squared_dist = np.sum((self.pos-pos)**2, axis=0)
+        return np.sqrt(squared_dist)
+        
+    
+
 def pairwise(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
     a, b = itertools.tee(iterable)
