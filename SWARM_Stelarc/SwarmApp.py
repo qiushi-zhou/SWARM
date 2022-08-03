@@ -107,7 +107,7 @@ class SwarmAPP():
         if debug:
             print(f"Updating tracks")
         for camera in self.cameras:
-            camera.people_graph.init_graph()
+            camera.p_graph.init_graph()
 
         for track in tracks:
             color = (255, 255, 255)
@@ -130,7 +130,7 @@ class SwarmAPP():
         if debug:
             print(f"Updating Cameras data")
         for camera in self.cameras:
-            camera.update_camera_data()        
+            camera.update_graph()
 
     def update_action(self, debug=True):
         if debug:
@@ -159,7 +159,7 @@ class SwarmAPP():
             max_avg_distance_from_machine = behavior.get("max_avg_distance_from_machine", 10000)
             print(f"\r\ncommand {command} from behavior {name}\r\t"
                   f"\ravg_distance: {avg_distance}\t[{min_avg_distance}, {max_avg_distance}]\n\r"
-                  f"\ravg_distance_from_machine: {self.avg_distance_from_machine}\t[{min_avg_distance_from_machine}, {max_avg_distance_from_machine}]\n\r"
+                  f"\ravg_distance_from_machine: {avg_distance_from_machine}\t[{min_avg_distance_from_machine}, {max_avg_distance_from_machine}]\n\r"
                   f"\ravg_people: {avg_total_people}\t[{min_people}, {max_people}]\n", end="\r")
             if(min_people <= avg_total_people <= max_people and
                 min_avg_distance <= avg_distance <= max_avg_distance and
@@ -174,9 +174,9 @@ class SwarmAPP():
     def draw_behavior_debug(self, frame, debug=True, offset_x=20, offset_y=300):
         if debug:
             print(f"Drawing behavior debug")
-        avg_total_people = self.frame_buffer.total_avg_people
-        avg_distance = self.frame_buffer.avg_distance
-        avg_distance_from_machine = self.frame_buffer.avg_distance_from_machine
+        avg_total_people = self.frame_buffer.people_data.avg
+        avg_distance = self.frame_buffer.distance_data.avg
+        avg_distance_from_machine = self.frame_buffer.machine_distance_data.avg
         text_x = int(0 + offset_x)
         text_y = int(0 + offset_y)
         behavior_dbg = "None"
@@ -221,12 +221,20 @@ class SwarmAPP():
             print(f"Drawing camera debug")
         for i in range(0, len(self.cameras)):
             camera = self.cameras[i]
-            text_x = int(camera.start_x + offset_x)
-            text_y = int(camera.end_y + offset_y)
-            self.cv2.rectangle(frame, (int(camera.start_x), int(camera.start_y)), (int(camera.end_x), int(camera.end_y)), (255, 0, 0), 2)
-            self.cv2.putText(frame, f"Q{i + 1}: {camera.num_people}", (text_x, text_y), 0, 0.4, (0, 0, 255), 2)
-        if debug:
-            print(f"Quadrant {i + 1} [{camera.q_row}, {camera.q_col}] - Count: {camera.num_people} x=[{camera.start_x}, {camera.end_x}] - y=[{camera.start_y}, {camera.end_y}]")
+            # text_x = int(camera.start_x + offset_x)
+            # text_y = int(camera.end_y + offset_y)
+            if len(camera.path_vertices) > 0:
+                for j in range(0, len(camera.path_vertices)-1):
+                    p1 = camera.path_vertices[j]
+                    p2 = camera.path_vertices[j+1]
+                    self.cv2.line(frame, (int(p1.x), int(p1.y)), (int(p2.x), int(p2.y)), camera.color, 2)
+                p1 = camera.path_vertices[0]
+                p2 = camera.path_vertices[len(camera.path_vertices)-1]
+                self.cv2.line(frame, (int(p1.x), int(p1.y)), (int(p2.x), int(p2.y)), camera.color, 2)
+            # self.cv2.rectangle(frame, (int(camera.start_x), int(camera.start_y)), (int(camera.end_x), int(camera.end_y)), (255, 0, 0), 2)
+            # self.cv2.putText(frame, f"Q{i + 1}: {camera.num_people}", (text_x, text_y), 0, 0.4, (0, 0, 255), 2)
+        # if debug:
+        #     print(f"Quadrant {i + 1} [{camera.q_row}, {camera.q_col}] - Count: {camera.num_people} x=[{camera.start_x}, {camera.end_x}] - y=[{camera.start_y}, {camera.end_y}]")
 
     def update_map(self):
         height = 500
@@ -242,10 +250,10 @@ class SwarmAPP():
             print(f"Drawing graph debug")
         for i in range(0, len(self.cameras)):
             camera = self.cameras[i]
-            camera.people_graph.cv_draw_nodes(self.cv2, canvas)
-            camera.people_graph.cv_draw_edges(self.cv2, canvas, debug=debug)
-            camera.people_graph.cv_draw_debug(self.cv2, canvas, camera.start_x, camera.start_y, offset_x, offset_y, debug=debug, prefix=i)
-            camera.people_graph.cv_draw_dist_from_machine(self.cv2, canvas, camera.machine_x, camera.machine_y, debug=debug)
+            camera.p_graph.cv_draw_nodes(self.cv2, canvas)
+            camera.p_graph.cv_draw_edges(self.cv2, canvas, debug=debug)
+            camera.p_graph.cv_draw_debug(self.cv2, canvas, camera.min_point.x, camera.min_point.y, offset_x, offset_y, debug=debug, prefix=i)
+            camera.p_graph.cv_draw_dist_from_machine(self.cv2, canvas, camera.machine_position.x, camera.machine_position.y, debug=debug)
 
     def run(self, debug=False):
         while True:

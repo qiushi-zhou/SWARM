@@ -8,9 +8,6 @@ from utils import Point
 
 class PeopleGraph:
     def __init__(self):
-        self.init_graph()
-
-    def init_graph(self):
         self.nx_graph = nx.Graph()
         self.edges_calculated = False
         self.n_people = 0
@@ -20,6 +17,9 @@ class PeopleGraph:
         self.avg_machine_distance = -1
         self.max_weight = -1
         self.min_weight = 9999
+
+    def init_graph(self):
+        PeopleGraph.__init__(self)
 
     def add_node(self, x, y, z=None):
         node = Point(x,y,z)
@@ -38,7 +38,7 @@ class PeopleGraph:
     
     def update_graph(self, machine_pos=None):
         self.calculate_edges()
-        self.update_avg_distance()()
+        self.update_avg_distance()
         self.update_avg_machine_distance(machine_pos=machine_pos)
 
     def calculate_edges(self):
@@ -59,8 +59,8 @@ class PeopleGraph:
             total_distance = 0
             for i, j, w in self.nx_graph.edges(data=True):
                 total_distance += w['weight']
-                self.avg_distance = total_distance/n_edges
-            return self.avg_distance
+                self.avg_people_distance = total_distance/n_edges
+            return self.avg_people_distance
         return 0
 
     def update_avg_machine_distance(self, machine_pos=None):
@@ -124,7 +124,7 @@ class PeopleGraph:
         text_y = int(text_y+offset_y)
         cv2.putText(canvas, f"Nodes {self.nx_graph.number_of_nodes()}: {nodes_data}", (text_x, text_y), 0, 0.4, (255, 255, 0), 2)
         cv2.putText(canvas, f"Edges {self.nx_graph.number_of_edges()}: {edges_data}", (text_x, text_y+20), 0, 0.4, (255, 255, 0), 2)
-        cv2.putText(canvas, f"Avg dist: {self.avg_distance:.2f} Avg_m: {self.avg_machine_distance:.2f}", (text_x, text_y+40), 0, 0.4, (255, 255, 0), 2)
+        cv2.putText(canvas, f"Avg dist: {self.avg_people_distance:.2f} Avg_m: {self.avg_machine_distance:.2f}", (text_x, text_y+40), 0, 0.4, (255, 255, 0), 2)
         if debug:
             print(f"Camera {prefix:<2} - Nodes: {self.nx_graph.number_of_nodes():<3} Edges: {self.nx_graph.number_of_edges():<3}")
 

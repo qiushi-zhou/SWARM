@@ -1,46 +1,56 @@
 cameras:
   - id: 0
     name: "Camera1"
-    enable: True
+    enabled: True
     anchor: top # top, bottom, left, right
     unit: ratio # ratio (between 0 and 1), or px for absolute positioning
     origin: { x: 0, y : 0}
     shape: square
     padding: 1 # Between 0 and 1
-    path:
+    color: [0, 0, 255]
+    path: # point in px or use height/width (also h and w)
       - { x: 0, y : 0}
-      - { x: 0, y : 0}
-      - { x: 0, y : 0}
-      - { x: 0, y : 0}
+      - { x: w*0.5, y : 0}
+      - { x: w*0.5, y : h*0.5}
+      - { x: 0, y : h*0.5}
   - id: 1
     name: "Camera2"
-    enable: True
+    enabled: True
     anchor: top # top, bottom, left, right
     unit: ratio # ratio (between 0 and 1), or px for absolute positioning
     origin: { x: 0, y : 0}
-    path:
+    shape: square
+    padding: 1 # Between 0 and 1
+    color: [0, 255, 0]
+    path: # point in px or use height/width (also h and w)
       - { x: 0, y : 0}
-      - { x: 0, y : 0}
-      - { x: 0, y : 0}
-      - { x: 0, y : 0}
+      - { x: 100, y : 0}
+      - { x: 100, y : 50}
+      - { x: 150, y : 50}
+      - { x: 50, y : 100}
+      - { x: 0, y : 100}
   - id: 2
-    name: "Camera3"
-    enable: True
+    enabled: True
     anchor: top # top, bottom, left, right
     unit: ratio # ratio (between 0 and 1), or px for absolute positioning
     origin: { x: 0, y : 0}
-    path:
+    shape: square
+    padding: 1 # Between 0 and 1
+    color: [0, 0, 255]
+    path: # point in px or use height/width (also h and w)
       - { x: 0, y : 0}
       - { x: 0, y : 0}
       - { x: 0, y : 0}
       - { x: 0, y : 0}
   - id: 3
-    name: "Camera4"
-    enable: False
+    enabled: True
     anchor: top # top, bottom, left, right
     unit: ratio # ratio (between 0 and 1), or px for absolute positioning
     origin: { x: 0, y : 0}
-    path:
+    shape: square
+    padding: 1 # Between 0 and 1
+    color: [0, 0, 255]
+    path: # point in px or use height/width (also h and w)
       - { x: 0, y : 0}
       - { x: 0, y : 0}
       - { x: 0, y : 0}
