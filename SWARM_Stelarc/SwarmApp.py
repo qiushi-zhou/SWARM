@@ -78,7 +78,7 @@ class SwarmAPP():
         pygame.display.set_mode((Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT))
         pygame.display.set_caption("SWARM")
         # if you want to use this module.
-        self.font = pygame.font.SysFont('Cascadia', 20)
+        self.font = pygame.font.SysFont('Cascadia', Constants.font_size)
         screen = pygame.display.get_surface()
         self.scene = Scene(screen)
 
@@ -191,8 +191,10 @@ class SwarmAPP():
         text_x = int(text_x + offset_x)
         text_y = int(text_y + offset_y)
         behavior_dbg = "None"
+        curr_behavior_name = "None"
         if self.current_behavior is not None:
             behavior_dbg = self.current_behavior["name"]
+            curr_behavior_name =  self.current_behavior["name"]
         behavior_dbg1 = f"Running {behavior_dbg}, Buffer size: {self.frame_buffer.size()}"
         behavior_dbg2 = f"Avg People: {avg_total_people:.2f}, Avg Dist: {avg_distance:.2f}, Avg Dist_m: {avg_distance_from_machine:.2f}"
         color = (255, 0, 0)
@@ -202,6 +204,24 @@ class SwarmAPP():
         else:
             canvas.blit(drawer.render(behavior_dbg1, True, color), (text_x, text_y))
             canvas.blit(drawer.render(behavior_dbg2, True, color), (text_x, text_y+20))
+        text_y += 20
+        for behavior in self.behaviors:
+            text_y += 20
+            enabled = behavior.get("enabled", True)
+            name = behavior.get("name", "unknown")
+            min_people = behavior.get("min_people", 0)
+            max_people = behavior.get("max_people", 10000)
+            min_avg_distance = behavior.get("min_avg_distance", 0)
+            max_avg_distance = behavior.get("max_avg_distance", 10000)
+            min_avg_distance_from_machine = behavior.get("min_avg_distance_from_machine", 0)
+            max_avg_distance_from_machine = behavior.get("max_avg_distance_from_machine", 10000)
+            behavior_dbg = f"{name} ({'enabled' if enabled else 'disabled'} - People: [{min_people}, {max_people}, People dist: [{min_avg_distance}, {max_avg_distance}] Machine dist: [{min_avg_distance_from_machine}, {max_avg_distance_from_machine}]"
+            color = (255, 0, 0) if name == curr_behavior_name else (255, 0, 255)
+            if draw_type.lower() == 'cv':
+                drawer.putText(canvas, behavior_dbg, (text_x, text_y), 0, 0.4, color, 2)
+            else:
+                canvas.blit(drawer.render(behavior_dbg, True, color), (text_x, text_y))
+        return text_y
 
     def draw_arduino_debug(self, drawer, canvas, draw_type='cv', debug=True, text_x=0, text_y=0, offset_x=20, offset_y=300):
         if debug:
@@ -236,6 +256,8 @@ class SwarmAPP():
         else:
             canvas.blit(drawer.render(arduino_cmd_dbg, True, color), (text_x, text_y))
             canvas.blit(drawer.render(arduino_status_dbg, True, color), (text_x, text_y+20))
+
+        return text_y
 
     def draw_camera_debug(self, drawer, canvas, draw_type='cv', debug=True, offset_x=20, offset_y=-20):
         if debug:
@@ -325,8 +347,8 @@ class SwarmAPP():
                 text_y = Constants.SCREEN_HEIGHT*0.5
                 offset_x = 10
                 offset_y = 10
-                self.draw_behavior_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y, offset_x=offset_x, offset_y=offset_y, debug=debug)
-                offset_y += 40
+                text_y = self.draw_behavior_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y, offset_x=offset_x, offset_y=offset_y, debug=debug)
+                text_y += 40
                 self.draw_arduino_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y, offset_x=offset_x, offset_y=offset_y, debug=debug)
 
             if draw_type.lower() == 'cv':

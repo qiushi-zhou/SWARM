@@ -10,6 +10,7 @@ nn_budget = None
 nms_max_overlap = 1.0
 max_age = 100
 n_init = 20
+font_size = 22
 
 openpose_modelfolder_win = "C:/Users/Admin/Documents/GitHub/SWARM/openpose/models"
 openpose_modelfolder_mac = "/Users/marinig/Documents/GitHub/SWARM/openpose/models"
