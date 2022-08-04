@@ -256,33 +256,33 @@ class SwarmAPP():
         text_y = int(text_y + offset_y)
         arduino_cmd_dbg = f"Last Command: {self.arduino.last_command}"
         if self.arduino.last_command is not None:
-            arduino_cmd_dbg += f" sent at {self.arduino.last_sent_command_time.strftime('%Y-%m-%d %H:%M:%S')}"
-        arduino_status_dbg = f"Arduino Status: "
-        if self.arduino.status.id == self.arduino.statuses['cooling_down'].id:
-            arduino_status_dbg += f"{self.arduino.status.name}. "
-            elapsed = (datetime.datetime.now() - self.arduino.last_completed_command_time).seconds
-            arduino_status_dbg += f" Cooldown: {self.arduino.time_between_commands - elapsed} s"
-        elif self.arduino.status.id == self.arduino.statuses['command_received'].id:
-            arduino_status_dbg += f"{self.arduino.status.name} {self.arduino.last_command}. "
-            elapsed = (datetime.datetime.now() - self.arduino.last_sent_command_time).seconds
-            arduino_status_dbg += f"Awaiting completion: {self.arduino.max_execution_wait-elapsed}s"
-            # arduino_status_dbg += f" (max wait: {self.arduino.max_execution_wait}s)"
-        elif self.arduino.status.id == self.arduino.statuses['command_sent'].id:
-            arduino_status_dbg += f"{self.arduino.status.name} {self.arduino.last_command}. "
-            elapsed = (datetime.datetime.now() - self.arduino.last_sent_command_time).seconds
-            arduino_status_dbg += f"Awaiting ACK: {self.arduino.max_feedback_wait-elapsed}s"
-            # arduino_status_dbg += f"(max wait: {self.arduino.max_feedback_wait}s)"
-        # self.cv2.putText(frame, self.arduino.debug_string(), (text_x, text_y), 0, 0.4, (0, 0, 255), 2)
-        else:
-            arduino_status_dbg += f"{self.arduino.status.name}. "
-        color = (0, 0, 255)
+            arduino_cmd_dbg += f" sent at {self.arduino.statuses['command_sent'].started_time.strftime('%Y-%m-%d %H:%M:%S')}"
+        color = (0,0,255)
         if draw_type.lower() == 'cv':
-            drawer.putText(canvas, arduino_cmd_dbg, (text_x, text_y), 0, 0.4, color, 2); text_y+=20
-            drawer.putText(canvas, arduino_status_dbg, (text_x, text_y), 0, 0.4, color, 2)
+            drawer.putText(canvas, arduino_cmd_dbg, (text_x, text_y), 0, 0.4, color, 2); text_y += 20
         else:
-            canvas.blit(drawer.render(arduino_cmd_dbg, True, color), (text_x, text_y)); text_y+=20
-            canvas.blit(drawer.render(arduino_status_dbg, True, color), (text_x, text_y))
+            canvas.blit(drawer.render(arduino_cmd_dbg, True, color), (text_x, text_y)); text_y += 20
 
+        lines = []
+        for s_idx in self.arduino.statuses:
+            s = self.arduino.statuses[s_idx]
+            color = (0, 120, 120)
+            arduino_status_dbg = "  "
+            elapsed = s.timeout
+            if self.arduino.status.id == s.id:
+                color = (0, 180, 255)
+                arduino_status_dbg = "> "
+                elapsed = (datetime.datetime.now() - self.arduino.status.started_time).seconds
+            arduino_status_dbg += f"{s.name} - "
+            arduino_status_dbg += f" Wait: {s.timeout - elapsed} / {s.timeout} s"
+            lines.append(arduino_status_dbg)
+        for line in lines:
+            if draw_type.lower() == 'cv':
+                drawer.putText(canvas, line, (text_x, text_y), 0, 0.4, color, 2)
+            else:
+                canvas.blit(drawer.render(line, True, color), (text_x, text_y))
+            if len(lines) > 0:
+                text_y += 20
         return text_y
 
     def draw_camera_debug(self, drawer, canvas, draw_type='cv', debug=True, offset_x=20, offset_y=-20):

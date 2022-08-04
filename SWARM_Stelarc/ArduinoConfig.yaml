@@ -1,0 +1,58 @@
+last_port: 'COM4'
+statuses:
+  - name: not_initialized
+    id: 0
+    title: 'Not Initialized'
+    description: 'Arduino not initialized'
+    timeout: 0
+    prev_status_id: -1
+    next_status_id: -1
+  - name: command_sent
+    id: 1,
+    title: 'Command Sent'
+    description: 'Command SENT SUCCESSFULLY, waiting for feedback...'
+    timeout: 0
+    prev_status_id: -1
+    next_status_id: -1
+  - name: command_received
+    id: 2,
+    title: 'Executing Command'
+    description: 'Command received by Arduino, waiting for completion...'
+    timeout: 0
+    prev_status_id: -1
+    next_status_id: -1
+  - name: cooling_down
+    id: 3,
+    title: 'Cooling Down'
+    description: 'Arduino is cooling down between commands {self.time_between_commands}'
+    timeout: 0
+    prev_status_id: -1
+    next_status_id: -1
+  - name: already_sent
+    id: 4,
+    title: 'Command already sent'
+    description: 'Command ALREADY SENT'
+    timeout: 0
+    prev_status_id: -1
+    next_status_id: -1
+  - name: not_connected
+    id: 5,
+    title: 'NOT CONNECTED'
+    description: 'Arduino NOT CONNECTED'
+    timeout: 0
+    prev_status_id: -1
+    next_status_id: -1
+  - name: debug_mode
+    id: 6,
+    title: 'DEBUG MODE'
+    description: 'Arduino NOT CONNECTED (debug mode)'
+    timeout: 0
+    prev_status_id: -1
+    next_status_id: -1
+  - name: ready
+    id: 7,
+    title: 'READY'
+    description: 'Arduino is ready to start a new command! Port {self.port}'
+    timeout: 0
+    prev_status_id: -1
+    next_status_id: -1
