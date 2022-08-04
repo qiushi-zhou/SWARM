@@ -5,34 +5,47 @@ statuses:
     title: 'Not Initialized'
     description: 'Arduino not initialized'
     timeout: 0
+    testing_timeout: 0
     prev_status_id: -1
-    next_status_id: -1
-  - name: command_sent
+    next_status_id: 1
+  - name: ready
     id: 1,
+    title: 'READY'
+    description: 'Arduino is ready to start a new command! Port {self.port}'
+    timeout: 0
+    testing_timeout: 0
+    prev_status_id: 0
+    next_status_id: 2
+  - name: command_sent
+    id: 2,
     title: 'Command Sent'
     description: 'Command SENT SUCCESSFULLY, waiting for feedback...'
-    timeout: 0
-    prev_status_id: -1
-    next_status_id: -1
+    timeout: 5 # Time to wait for feedback of received command
+    testing_timeout: 5
+    prev_status_id: 1
+    next_status_id: 3
   - name: command_received
-    id: 2,
+    id: 3,
     title: 'Executing Command'
     description: 'Command received by Arduino, waiting for completion...'
-    timeout: 0
-    prev_status_id: -1
-    next_status_id: -1
+    timeout: 60 # Time to wait for command completion message, longest behavior takes 48s so 60 should be ok
+    testing_timeout: 10 # Use this if sending fake commands for testing
+    prev_status_id: 2
+    next_status_id: 4
   - name: cooling_down
-    id: 3,
+    id: 4,
     title: 'Cooling Down'
     description: 'Arduino is cooling down between commands {self.time_between_commands}'
-    timeout: 0
-    prev_status_id: -1
-    next_status_id: -1
+    timeout: 5 # Cooling down time
+    testing_timeout: 5 # Cooling down time
+    prev_status_id: 3
+    next_status_id: 1
   - name: already_sent
     id: 4,
     title: 'Command already sent'
     description: 'Command ALREADY SENT'
     timeout: 0
+    testing_timeout: 0
     prev_status_id: -1
     next_status_id: -1
   - name: not_connected
@@ -40,6 +53,7 @@ statuses:
     title: 'NOT CONNECTED'
     description: 'Arduino NOT CONNECTED'
     timeout: 0
+    testing_timeout: 0
     prev_status_id: -1
     next_status_id: -1
   - name: debug_mode
@@ -47,12 +61,6 @@ statuses:
     title: 'DEBUG MODE'
     description: 'Arduino NOT CONNECTED (debug mode)'
     timeout: 0
-    prev_status_id: -1
-    next_status_id: -1
-  - name: ready
-    id: 7,
-    title: 'READY'
-    description: 'Arduino is ready to start a new command! Port {self.port}'
-    timeout: 0
+    testing_timeout: 0
     prev_status_id: -1
     next_status_id: -1

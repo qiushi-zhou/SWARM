@@ -12,12 +12,20 @@ from serial.tools import list_ports
 
 class ArduinoStatus():
 
-    def __init__(self, status_id, name, description, timeout):
+    def __init__(self, status_id=-1, title="", description="", timeout=0, prev_status_id=-1, next_status_id=-1, testing_timeout=0):
         self.id = status_id
-        self.name = name
+        self.title = title
         self.description = description
         self.timeout = timeout
+        self.testing_timeout = testing_timeout
         self.started_time = datetime.datetime.now()
+        self.prev_status_id = prev_status_id
+        self.next_status_id = next_status_id
+
+    def get_timeout(self):
+        if self.mockup_commands:
+            return self.testing_timeout
+        return self.timeout
 
 class Arduino():
     start_marker = "$"
@@ -33,7 +41,7 @@ class Arduino():
         "done":     "runcomp"
     }
 
-    def __init__(self, port="COM4", bps=115200, p_1=8, p_2="N", p_3=1, time_between_commands=5, max_feedback_wait=10, max_execution_wait=60, mockup_commands=True):
+    def __init__(self, port="COM4", bps=115200, p_1=8, p_2="N", p_3=1, config_data=None, mockup_commands=True):
         self.port = port
         self._observers = []
         self.bps = bps
@@ -41,26 +49,43 @@ class Arduino():
         self.p_2 = p_2
         self.p_3 = p_3
         self.last_command = None
-        self.time_between_commands = time_between_commands  # Seconds
-        self.max_feedback_wait = max_feedback_wait  # Seconds, the longest command takes 48s
-        self.max_execution_wait = max_execution_wait  # Seconds, the longest command takes 48s
         self.mockup_commands = mockup_commands
 
-        self.statuses = {
-            'not_initialized': ArduinoStatus(-1, 'Not Initialized', 'Arduino not initialized', 0),
-            'command_sent': ArduinoStatus(0, 'Command Sent', 'Command SENT SUCCESSFULLY, waiting for feedback...', self.max_feedback_wait),
-            'command_received': ArduinoStatus(1, 'Executing Command', 'Command received by Arduino, waiting for completion...', self.max_execution_wait),
-            'cooling_down': ArduinoStatus(2, 'Cooling Down', f'Arduino is cooling down between commands {self.time_between_commands}', self.time_between_commands),
-            'already_sent': ArduinoStatus(3, 'Command already sent', 'Command ALREADY SENT', 0),
-            'not_connected': ArduinoStatus(4, 'NOT CONNECTED', 'Arduino NOT CONNECTED', 0),
-            'debug_mode': ArduinoStatus(5, 'DEBUG MODE', 'Arduino NOT CONNECTED (debug mode)', 0),
-            'ready': ArduinoStatus(6, 'READY', f'Arduino is ready to start a new command! Port {self.port}', 0)
+        self.default_statuses = {
+            'not_initialized': ArduinoStatus(0, 'Not Initialized', 'Arduino not initialized', 0, mockup_commands=self.mockup_commands),
+            'command_sent': ArduinoStatus(1, 'Command Sent', 'Command SENT SUCCESSFULLY, waiting for feedback...', 10, mockup_commands=self.mockup_commands),
+            'command_received': ArduinoStatus(2, 'Executing Command', 'Command received by Arduino, waiting for completion...', 60, mockup_commands=self.mockup_commands),
+            'cooling_down': ArduinoStatus(3, 'Cooling Down', f'Arduino is cooling down between commands {5}', 5, mockup_commands=self.mockup_commands),
+            'already_sent': ArduinoStatus(4, 'Command already sent', 'Command ALREADY SENT', 0, mockup_commands=self.mockup_commands),
+            'not_connected': ArduinoStatus(5, 'NOT CONNECTED', 'Arduino NOT CONNECTED', 0, mockup_commands=self.mockup_commands),
+            'debug_mode': ArduinoStatus(6, 'DEBUG MODE', 'Arduino NOT CONNECTED (debug mode)', 0, mockup_commands=self.mockup_commands),
+            'ready': ArduinoStatus(7, 'READY', f'Arduino is ready to start a new command! Port {self.port}', 0, mockup_commands=self.mockup_commands)
         }
-        self.status = self.statuses['not_initialized']
+        if config_data is None:
+            self.statuses = self.default_statuses
+            self.status = self.statuses['not_initialized']
+        else:
+            self.update_config(config_data)
+            self.status = list(self.statuses.values())[0]
         self.ser = serial.Serial()
         self.ser.baudrate = self.bps
         self.ser.port = self.port
         self.update_status()
+
+    def update_config(self, config_data=None):
+        self.port = config_data.get('last_port', "COM4")
+        s_list = config_data.get('statuses', [])
+        for s in s_list:
+            name = s['name']
+            if name not in self.statuses:
+                self.statuses[name] = ArduinoStatus(mockup_commands=self.mockup_commands)
+            self.statuses[name].title = s.get('title', 'NO TITLE')
+            self.statuses[name].id = s.get('id', -1)
+            self.statuses[name].description = s.get('description', 'NO DESCRIPTION')
+            self.statuses[name].timeout = s.get('timeout', 0)
+            self.statuses[name].timeout = s.get('testing_timeout', 0)
+            self.statuses[name].prev_status_id = s.get('prev_status_id', -1)
+            self.statuses[name].next_status_id = s.get('next_status_id', -1)
     
     def debug_send_wait(self, cmd_string, manual_update=0, debug=True):
         self.send_command(cmd_string, debug=debug, testing_command=self.mockup_commands)
@@ -201,9 +226,9 @@ class Arduino():
             prev_status = self.status
             self.status = self.statuses['command_sent']
             self.status.started_time = datetime.datetime.now()
-            print(f"{'(Testing)' if testing_command else ''} Command '{self.last_command}' sent! Status updated: {prev_status.name} -> {self.status.name}!")
+            print(f"{'(Testing)' if testing_command else ''} Command '{self.last_command}' sent! Status updated: {prev_status.title} -> {self.status.title}!")
         else:
-            print(f"Arduino not ready to receive command {command}, status {self.status.name}: {self.status.description}!")
+            print(f"Arduino not ready to receive command {command}, status {self.status.title}: {self.status.description}!")
         return self.status
 
     def send(self, string):

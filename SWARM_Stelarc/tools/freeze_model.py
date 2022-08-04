@@ -6,7 +6,7 @@ import tensorflow.contrib.slim as slim
 
 def _batch_norm_fn(x, scope=None):
     if scope is None:
-        scope = tf.get_variable_scope().name + "/bn"
+        scope = tf.get_variable_scope().title + "/bn"
     return slim.batch_norm(x, scope=scope)
 
 
@@ -57,7 +57,7 @@ def create_inner_block(
         biases_initializer=bias_initializer, weights_regularizer=regularizer,
         scope=scope + "/1")
     if summarize_activations:
-        tf.summary.histogram(incoming.name + "/activations", incoming)
+        tf.summary.histogram(incoming.title + "/activations", incoming)
 
     incoming = slim.dropout(incoming, keep_prob=0.6)
 
@@ -95,7 +95,7 @@ def _create_network(incoming, reuse=None, weight_decay=1e-8):
     fc_regularizer = slim.l2_regularizer(weight_decay)
 
     def batch_norm_fn(x):
-        return slim.batch_norm(x, scope=tf.get_variable_scope().name + "/bn")
+        return slim.batch_norm(x, scope=tf.get_variable_scope().title + "/bn")
 
     network = incoming
     network = slim.conv2d(
@@ -210,7 +210,7 @@ def main():
 
         output_graph_def = tf.graph_util.convert_variables_to_constants(
             session, tf.get_default_graph().as_graph_def(),
-            [features.name.split(":")[0]])
+            [features.title.split(":")[0]])
         with tf.gfile.GFile(args.graphdef_out, "wb") as file_handle:
             file_handle.write(output_graph_def.SerializeToString())
 

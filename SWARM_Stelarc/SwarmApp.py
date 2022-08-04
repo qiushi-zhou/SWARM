@@ -39,10 +39,12 @@ class SwarmAPP():
 
         self.cameras_config = None
         self.behavior_config = None
+        self.arduino_config = None
         self.behaviors = []
         self.cameras = []
         self.update_cameras_config()
         self.update_behaviors_config()
+        self.update_arduino_config()
         self.frame_buffer = FrameBuffer(self.behavior_config.get('buffer_size', 10))
         self.current_behavior = None
         while True:
@@ -113,6 +115,18 @@ class SwarmAPP():
                 else:
                     self.cameras[i].update_config(Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, cameras_data[i])
             self.cameras_config['last_modified_time'] = os.path.getmtime(file_path)
+
+    def update_arduino_config(self):
+        file_path = r'./ArduinoConfig.yaml'
+        if self.arduino_config is None or (self.arduino_config['last_modified_time'] < os.path.getmtime(file_path)):
+            print(f"Updating Cameras configuration from file...")
+            try:
+                with open(file_path) as file:
+                    self.arduino_config = yaml.load(file, Loader=yaml.FullLoader)
+            except:
+                return
+            self.arduino.update_config(self.arduino_config)
+            self.arduino_config['last_modified_time'] = os.path.getmtime(file_path)
 
     def update_tracks(self, tracks, frame, debug=True):
         if debug:
@@ -273,7 +287,7 @@ class SwarmAPP():
                 color = (0, 180, 255)
                 arduino_status_dbg = "> "
                 elapsed = (datetime.datetime.now() - self.arduino.status.started_time).seconds
-            arduino_status_dbg += f"{s.name} - "
+            arduino_status_dbg += f"{s.title} - "
             arduino_status_dbg += f" Wait: {s.timeout - elapsed} / {s.timeout} s"
             lines.append(arduino_status_dbg)
         for line in lines:
@@ -345,6 +359,7 @@ class SwarmAPP():
                 self.scene.update(self.cv2.cvtColor(self.frame, self.cv2.COLOR_BGR2RGB), debug=debug)
                 canvas = self.scene.screen
 
+            self.update_arduino_config()
             self.arduino.update_status(debug=debug)
             if debug:
                 print(f"Arduino status updated!")
