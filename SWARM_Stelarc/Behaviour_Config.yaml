@@ -15,12 +15,12 @@ behaviors:
 #    max_people: 0
   - name: breathe
     enabled: true
-    min_people: 0
+    min_people: 1
     max_people: 1
     arduino_command: breathe
     min_avg_distance: 0
-    max_avg_distance: 150
-    min_avg_distance_from_machine: 10
+    max_avg_distance: 0
+    min_avg_distance_from_machine: 0
     max_avg_distance_from_machine: 150
   - name: default
     enabled: true
@@ -43,12 +43,12 @@ behaviors:
   - name: undulate
     enabled: true
     arduino_command: undulate
-    min_avg_distance: 150
-    max_avg_distance: 400
+    min_people: 2
+    max_people: 10
+    min_avg_distance: 80
+    max_avg_distance: 150
     min_avg_distance_from_machine: 150
     max_avg_distance_from_machine: 400
-    min_people: 2
-    max_people: 4
 #  - name: glitch
 #    enabled: true
 #    arduino_command: glitch

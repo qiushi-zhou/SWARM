@@ -145,8 +145,8 @@ class Input:
 
             hand_count = 0
             raise_count = 0
-            return self.tracker.tracks, frame
-        return self.tracker.tracks, None
+            return self.tracker.tracks, keypoints, frame
+        return self.tracker.tracks, keypoints, None
 
 
 

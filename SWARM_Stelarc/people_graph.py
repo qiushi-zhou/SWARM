@@ -73,7 +73,9 @@ class PeopleGraph:
             total_distance_from_machine = 0
             for node, node_data in self.nx_graph.nodes(data=True):
                 total_distance_from_machine += node.distance_from(m_pos)
-            self.avg_machine_distance = total_distance_from_machine/n_nodes
+            if n_nodes > 1:
+                n_nodes -= 1
+            self.avg_machine_distance = total_distance_from_machine/(n_nodes)
             return self.avg_machine_distance
         return 0
 

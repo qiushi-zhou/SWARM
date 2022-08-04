@@ -121,7 +121,7 @@ class SwarmAPP():
             self.arduino.update_config(self.arduino_config)
             self.arduino_config['last_modified_time'] = os.path.getmtime(file_path)
 
-    def update_tracks(self, tracks, frame, debug=True):
+    def update_tracks(self, tracks, keypoints, frame, drawer, draw_type='cv', debug=True):
         if debug:
             print(f"Updating tracks")
         for camera in self.cameras:
@@ -138,9 +138,30 @@ class SwarmAPP():
             chest_offset = Point(0, 0)
             center_x, center_y = (min_p.x + ((p2.x-p1.x)/2) + chest_offset.x, min_p.y + ((p2.y-p1.y)/2) + chest_offset.y) # ((x1+x2)/2, (y1+y2)/2).
             center_p = Point(center_x, center_y)
-            if Constants.draw_openpose:
-                self.cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2)
-                self.cv2.putText(frame, "id%s - ts%s" % (track.track_id, track.time_since_update), (int(bbox[0]), int(bbox[1]) - 20), 0, 0.4, (0, 255, 0), 2)
+            # if Constants.draw_openpose:
+            #     if draw_type == 'cv':
+            #         drawer.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 1)
+            #         drawer.putText(frame, "id%s - ts%s" % (track.track_id, track.time_since_update), (int(bbox[0]), int(bbox[1]) - 20), 0, 0.3, (0, 255, 0), 1)
+            #     else:
+            #         drawer.draw.rect(frame, color, pygame.Rect(int(bbox[0]), int(bbox[1]), int(bbox[2])-int(bbox[0]), int(bbox[3])-int(bbox[1])), 1)
+
+            color = (0,255,0)
+            thickness = 1
+            if track.is_confirmed():
+                for pair in self.input.POSE_PAIRS:
+                    idFrom = self.input.BODY_PARTS[pair[0]]
+                    idTo = self.input.BODY_PARTS[pair[1]]
+                    points = track.last_seen_detection.pose
+                    if points[idFrom] is not None and points[idTo] is not None:
+                        kp1 = points[idFrom]
+                        kp2 = points[idTo]
+                        p1 = Point(kp1[0], kp1[1])
+                        p2 = Point(kp2[0], kp2[1])
+                        if p1.x > 1 and p1.y > 1 and p2.x > 1 and p2.y > 1:
+                            if draw_type == 'cv':
+                                drawer.line(frame, (int(p1.x), int(p1.y)), (int(p2.x), int(p2.y)), color, thickness)
+                            else:
+                                drawer.draw.line(frame, color=color, start_pos=(int(p1.x), int(p1.y)), end_pos=(int(p2.x), int(p2.y)), width=thickness)
             for camera in self.cameras:
                 # camera.check_track([p1,p2], center_p)
                 camera.check_track([center_p], center_p)
@@ -322,11 +343,11 @@ class SwarmAPP():
                 print(f"Arduino status updated!")
             offset_y = 0
 
-            tracks, frame_updated = self.input.update_trackers(self.frame)
+            tracks, poses, frame_updated = self.input.update_trackers(self.frame)
             if Constants.draw_openpose and frame_updated is not None:
                 self.frame = frame_updated
 
-            self.update_tracks(tracks, self.frame, debug=debug)
+            self.update_tracks(tracks, poses, canvas, drawer=drawer, draw_type=draw_type, debug=debug)
 
             self.update_cameras_config()
             self.update_cameras_data(debug=debug)
