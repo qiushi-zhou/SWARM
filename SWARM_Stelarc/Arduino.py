@@ -9,11 +9,13 @@ import getopt
 import Constants
 import serial
 from serial.tools import list_ports
+import collections
 
 class ArduinoStatus():
 
-    def __init__(self, status_id=-1, title="", description="", timeout=0, prev_status_id=-1, next_status_id=-1, testing_timeout=0):
+    def __init__(self, status_id=-1, title="", description="", timeout=0, prev_status_id=-1, next_status_id=-1, testing_timeout=0, mockup_commands=True):
         self.id = status_id
+        self.mockup_commands = mockup_commands
         self.title = title
         self.description = description
         self.timeout = timeout
@@ -83,7 +85,7 @@ class Arduino():
             self.statuses[name].id = s.get('id', -1)
             self.statuses[name].description = s.get('description', 'NO DESCRIPTION')
             self.statuses[name].timeout = s.get('timeout', 0)
-            self.statuses[name].timeout = s.get('testing_timeout', 0)
+            self.statuses[name].testing_timeout = s.get('testing_timeout', 0)
             self.statuses[name].prev_status_id = s.get('prev_status_id', -1)
             self.statuses[name].next_status_id = s.get('next_status_id', -1)
     
@@ -245,11 +247,11 @@ class Arduino():
             return self.status
         elif self.status.id == self.statuses['cooling_down'].id:
             elapsed = (datetime.datetime.now() - self.status.started_time).seconds
-            if elapsed >= self.status.timeout:
+            if elapsed >= self.status.get_timeout():
                 self.status = self.statuses['ready']
                 self.status.started_time = datetime.datetime.now()
         elif self.status.id == self.statuses['command_sent'].id:
-            if (datetime.datetime.now() - self.status.started_time).seconds >= self.status.timeout:
+            if (datetime.datetime.now() - self.status.started_time).seconds >= self.status.get_timeout():
                 print(f"Max wait time waiting for feedback reached...")
                 self.status = self.statuses['command_received']
             else:
@@ -263,7 +265,7 @@ class Arduino():
                     print(f"Received feedback from Arduino!")
                     self.status = self.statuses['command_received']
         elif self.status.id == self.statuses['command_received'].id:
-            if (datetime.datetime.now() - self.status.started_time).seconds >= self.status.timeout:
+            if (datetime.datetime.now() - self.status.started_time).seconds >= self.status.get_timeout():
                 print(f"Max wait time between commands reached...")
                 self.status = self.statuses['cooling_down']
                 self.status.started_time = datetime.datetime.now()
@@ -277,7 +279,7 @@ class Arduino():
                         received = ""
                     if "runcomp" in received:
                         self.status = self.statuses['cooling_down']
-                        print(f"Command Completed! Cooling down for {self.status.timeout} seconds...")
+                        print(f"Command Completed! Cooling down for {self.status.get_timeout()} seconds...")
                         self.status.started_time = datetime.datetime.now()
                         self.last_command = None
                         break
@@ -292,3 +294,44 @@ class Arduino():
             if debug:
                 print(f"{prefix}: {ret}", end="")
         return ret
+
+    def draw_arduino_debug(self, drawer, canvas, draw_type='cv', debug=True, text_x=0, text_y=0, offset_x=20, offset_y=300):
+        if debug:
+            print(f"Drawing arduino debug")
+        text_x = int(text_x + offset_x)
+        text_y = int(text_y + offset_y)
+        arduino_cmd_dbg = f"Last Command: {self.last_command}"
+        if self.last_command is not None:
+            arduino_cmd_dbg += f" sent at {self.statuses['command_sent'].started_time.strftime('%Y-%m-%d %H:%M:%S')}"
+        color = (0,0,255)
+        if draw_type.lower() == 'cv':
+            drawer.putText(canvas, arduino_cmd_dbg, (text_x, text_y), 0, 0.4, color, 2); text_y += 20
+        else:
+            canvas.blit(drawer.render(arduino_cmd_dbg, True, color), (text_x, text_y)); text_y += 20
+
+        lines = {}
+        for s_idx in self.statuses:
+            s = self.statuses[s_idx]
+            color = (0, 120, 120)
+            arduino_status_dbg = "  "
+            elapsed = s.get_timeout()
+            if self.status.id == s.id:
+                color = (0, 180, 255)
+                arduino_status_dbg = "> "
+                elapsed = (datetime.datetime.now() - self.status.started_time).seconds
+            arduino_status_dbg += f"{s.id} "
+            arduino_status_dbg += f"{s.title} - "
+            if s.get_timeout() > 0:
+                arduino_status_dbg += f" Wait: {s.get_timeout() - elapsed} / {s.get_timeout()} s"
+            else: arduino_status_dbg += f" Wait: {elapsed} s"
+            lines[int(s.id)] = {'text': arduino_status_dbg, 'color': color}
+        ordered_lines = collections.OrderedDict(sorted(lines.items()))
+        for i in ordered_lines:
+            line = ordered_lines[i]
+            if draw_type.lower() == 'cv':
+                drawer.putText(canvas, line['text'], (text_x, text_y), 0, 0.4, line['color'], 2)
+            else:
+                canvas.blit(drawer.render(line['text'], True, line['color']), (text_x, text_y))
+            if len(lines) > 0:
+                text_y += 20
+        return text_y

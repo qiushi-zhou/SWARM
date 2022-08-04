@@ -20,15 +20,8 @@ from utils import Point
 
 
 class SwarmAPP():
-    def __init__(self, observable=None, arduino_port="COM4", time_between_commands=-1, max_feedback_wait=-1, max_execution_wait=-1, mockup_commands=True):
-        if max_feedback_wait < 0:
-            max_feedback_wait = 5 if mockup_commands else 5
-        if max_execution_wait < 0:
-            max_execution_wait = 10 if mockup_commands else 90
-        if time_between_commands < 0:
-            time_between_commands = 5 if mockup_commands else 5
-
-        self.arduino = Arduino(port=arduino_port, time_between_commands=time_between_commands, max_feedback_wait=max_feedback_wait, max_execution_wait=max_execution_wait)
+    def __init__(self, observable=None, arduino_port="COM4", mockup_commands=True):
+        self.arduino = Arduino(port=arduino_port, mockup_commands=mockup_commands)
         if observable:
             observable.subscribe(self)
         self.mockup_commands = mockup_commands
@@ -263,42 +256,6 @@ class SwarmAPP():
             text_y += 20
         return text_y
 
-    def draw_arduino_debug(self, drawer, canvas, draw_type='cv', debug=True, text_x=0, text_y=0, offset_x=20, offset_y=300):
-        if debug:
-            print(f"Drawing arduino debug")
-        text_x = int(text_x + offset_x)
-        text_y = int(text_y + offset_y)
-        arduino_cmd_dbg = f"Last Command: {self.arduino.last_command}"
-        if self.arduino.last_command is not None:
-            arduino_cmd_dbg += f" sent at {self.arduino.statuses['command_sent'].started_time.strftime('%Y-%m-%d %H:%M:%S')}"
-        color = (0,0,255)
-        if draw_type.lower() == 'cv':
-            drawer.putText(canvas, arduino_cmd_dbg, (text_x, text_y), 0, 0.4, color, 2); text_y += 20
-        else:
-            canvas.blit(drawer.render(arduino_cmd_dbg, True, color), (text_x, text_y)); text_y += 20
-
-        lines = []
-        for s_idx in self.arduino.statuses:
-            s = self.arduino.statuses[s_idx]
-            color = (0, 120, 120)
-            arduino_status_dbg = "  "
-            elapsed = s.timeout
-            if self.arduino.status.id == s.id:
-                color = (0, 180, 255)
-                arduino_status_dbg = "> "
-                elapsed = (datetime.datetime.now() - self.arduino.status.started_time).seconds
-            arduino_status_dbg += f"{s.title} - "
-            arduino_status_dbg += f" Wait: {s.timeout - elapsed} / {s.timeout} s"
-            lines.append(arduino_status_dbg)
-        for line in lines:
-            if draw_type.lower() == 'cv':
-                drawer.putText(canvas, line, (text_x, text_y), 0, 0.4, color, 2)
-            else:
-                canvas.blit(drawer.render(line, True, color), (text_x, text_y))
-            if len(lines) > 0:
-                text_y += 20
-        return text_y
-
     def draw_camera_debug(self, drawer, canvas, draw_type='cv', debug=True, offset_x=20, offset_y=-20):
         if debug:
             print(f"Drawing camera debug")
@@ -388,7 +345,7 @@ class SwarmAPP():
                 text_y = Constants.SCREEN_HEIGHT*0.5
                 offset_x = 10
                 offset_y = 10
-                text_y = self.draw_arduino_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y, offset_x=offset_x, offset_y=offset_y, debug=debug)
+                text_y = self.arduino.draw_arduino_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y, offset_x=offset_x, offset_y=offset_y, debug=debug)
                 text_y = self.draw_behavior_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y+10, offset_x=offset_x, offset_y=offset_y, debug=debug)
 
             if draw_type.lower() == 'cv':

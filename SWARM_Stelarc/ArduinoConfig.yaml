@@ -9,7 +9,7 @@ statuses:
     prev_status_id: -1
     next_status_id: 1
   - name: ready
-    id: 1,
+    id: 1
     title: 'READY'
     description: 'Arduino is ready to start a new command! Port {self.port}'
     timeout: 0
@@ -17,7 +17,7 @@ statuses:
     prev_status_id: 0
     next_status_id: 2
   - name: command_sent
-    id: 2,
+    id: 2
     title: 'Command Sent'
     description: 'Command SENT SUCCESSFULLY, waiting for feedback...'
     timeout: 5 # Time to wait for feedback of received command
@@ -25,7 +25,7 @@ statuses:
     prev_status_id: 1
     next_status_id: 3
   - name: command_received
-    id: 3,
+    id: 3
     title: 'Executing Command'
     description: 'Command received by Arduino, waiting for completion...'
     timeout: 60 # Time to wait for command completion message, longest behavior takes 48s so 60 should be ok
@@ -33,7 +33,7 @@ statuses:
     prev_status_id: 2
     next_status_id: 4
   - name: cooling_down
-    id: 4,
+    id: 4
     title: 'Cooling Down'
     description: 'Arduino is cooling down between commands {self.time_between_commands}'
     timeout: 5 # Cooling down time
@@ -41,7 +41,7 @@ statuses:
     prev_status_id: 3
     next_status_id: 1
   - name: already_sent
-    id: 4,
+    id: 5
     title: 'Command already sent'
     description: 'Command ALREADY SENT'
     timeout: 0
@@ -49,7 +49,7 @@ statuses:
     prev_status_id: -1
     next_status_id: -1
   - name: not_connected
-    id: 5,
+    id: 6
     title: 'NOT CONNECTED'
     description: 'Arduino NOT CONNECTED'
     timeout: 0
@@ -57,7 +57,7 @@ statuses:
     prev_status_id: -1
     next_status_id: -1
   - name: debug_mode
-    id: 6,
+    id: 7
     title: 'DEBUG MODE'
     description: 'Arduino NOT CONNECTED (debug mode)'
     timeout: 0
