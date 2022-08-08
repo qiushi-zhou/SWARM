@@ -6,6 +6,7 @@ class Camera:
     def __init__(self, screen_w, screen_h, config_data, init_graph=True):
         if init_graph:
             self.p_graph = PeopleGraph()
+        self.p_graph.edge_threshold = config_data.get("group_distance_threshold", -1)
         self.screen_w = screen_w
         self.screen_h = screen_h
         self.enabled = config_data.get("enabled", False)

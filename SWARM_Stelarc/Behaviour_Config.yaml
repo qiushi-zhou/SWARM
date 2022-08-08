@@ -1,79 +1,166 @@
 buffer_size: 60 # number of frames to average
-cameras_padding: 0.05
-time_between_commands: 10
-max_feedback_wait: 10
-max_execution_wait: 60
-max_distance_threshold: 150 #px
 behaviors:
 #  - name: none
 #    enabled: true
 #    arduino_command: none
-#    min_avg_distance: 0
-#    max_avg_distance: 0
-#    min_avg_distance_from_machine: 10
-#    max_avg_distance_from_machine: 0
-#    min_people: 0
-#    max_people: 0
+    # parameters:
+    #   time: 
+    #     - enabled: false
+    #     - timeout: 600 # run every 10 minutes
+    #   people:
+    #     - enabled: true
+    #       min: 2 # Absolute value vs relative to the avg number of people in the last minute or so
+    #       max: 10
+    #   groups:
+    #     - enabled: true
+    #       min: 0
+    #       max: 10
+    #   people_in_groups_ratio:
+    #     - enabled: true
+    #       min: 0
+    #       max: 0.3
+    #   avg_distance_between_people:
+    #     - enabled: true
+    #       min: 80
+    #       max: 150
+    #   avg_distance_from_machine:
+    #     - enabled: true
+    #       min: 150
+    #       max: 400
   - name: breathe
     enabled: true
     min_people: 1
     max_people: 1
     arduino_command: breathe
-    min_avg_distance: 0
-    max_avg_distance: 0
-    min_avg_distance_from_machine: 0
-    max_avg_distance_from_machine: 150
+    parameters:
+      time: 
+        - enabled: false
+        - timeout: 600 # run every 10 minutes
+      people:
+        - enabled: true
+          min: 2 # Absolute value vs relative to the avg number of people in the last minute or so
+          max: 10
+      groups:
+        - enabled: true
+          min: 0
+          max: 10
+      people_in_groups_ratio:
+        - enabled: true
+          min: 0
+          max: 0.3
+      avg_distance_between_people:
+        - enabled: true
+          min: 80
+          max: 150
+      avg_distance_from_machine:
+        - enabled: true
+          min: 150
+          max: 400
   - name: default
     enabled: true
-    trigger_timeout: 600 #10mins
     arduino_command: default
-    min_avg_distance: 150
-    max_avg_distance: 400
-    min_avg_distance_from_machine: 10
-    max_avg_distance_from_machine: 150
-    min_people: 2
-    max_people: 4
+    parameters:
+      time: 
+        - enabled: true
+        - timeout: 600 # run every 10 minutes
+      people:
+        - enabled: true
+          min: 2 # Absolute value vs relative to the avg number of people in the last minute or so
+          max: 10
+      groups:
+        - enabled: true
+          min: 0
+          max: 10
+      people_in_groups_ratio:
+        - enabled: true
+          min: 0
+          max: 0.3
+      avg_distance_between_people:
+        - enabled: true
+          min: 80
+          max: 150
+      avg_distance_from_machine:
+        - enabled: true
+          min: 150
+          max: 400
   - name: quiver
     enabled: true
     arduino_command: quiver
-    min_avg_distance: 50
-    max_avg_distance: 150
-    min_avg_distance_from_machine: 10
-    max_avg_distance_from_machine: 200
-    min_people: 2
-    max_people: 4
+    parameters:
+      time: 
+        - enabled: false
+        - timeout: 600 # run every 10 minutes
+      people:
+        - enabled: true
+          min: 2 # Absolute value vs relative to the avg number of people in the last minute or so
+          max: 10
+      groups:
+        - enabled: true
+          min: 0
+          max: 10
+      people_in_groups_ratio:
+        - enabled: true
+          min: 0
+          max: 0.3
+      avg_distance_between_people:
+        - enabled: true
+          min: 80
+          max: 150
+      avg_distance_from_machine:
+        - enabled: true
+          min: 150
+          max: 400
   - name: undulate
     enabled: true
     arduino_command: undulate
     parameters:
+      time: 
+        - enabled: false
+        - timeout: 600 # run every 10 minutes
       people:
-        - use_parameter: true
-        - range: [2, 10] # Absolute value vs relative to the avg number of people in the last minute or so
+        - enabled: true
+          min: 2 # Absolute value vs relative to the avg number of people in the last minute or so
+          max: 10
       groups:
-        - use_parameter: true
-        - range: [0, 10]
+        - enabled: true
+          min: 0
+          max: 10
       people_in_groups_ratio:
-        - use_parameter: true
-        - range: [0.1, 0.3]
+        - enabled: true
+          min: 0
+          max: 0.3
       avg_distance_between_people:
-        - use_parameter: true
-        - range: [80, 150]
+        - enabled: true
+          min: 80
+          max: 150
       avg_distance_from_machine:
-        - use_parameter: true
-        - range: [150, 400]
-
-    min_people: 2
-    max_people: 10
-    min_avg_distance: 80
-    max_avg_distance: 150
-    min_avg_distance_from_machine: 150
-    max_avg_distance_from_machine: 400
+        - enabled: true
+          min: 150
+          max: 400
 #  - name: glitch
 #    enabled: true
 #    arduino_command: glitch
-#    min_avg_distance: 1000
-#    max_avg_distance: 1000
-#    min_avg_distance_from_machine: 10
-#    max_avg_distance_from_machine: 100000
-#    min_people: 10
-#    max_people: 10
+    # parameters:
+    #   time: 
+    #     - enabled: false
+    #     - timeout: 600 # run every 10 minutes
+    #   people:
+    #     - enabled: true
+    #       min: 2 # Absolute value vs relative to the avg number of people in the last minute or so
+    #       max: 10
+    #   groups:
+    #     - enabled: true
+    #       min: 0
+    #       max: 10
+    #   people_in_groups_ratio:
+    #     - enabled: true
+    #       min: 0
+    #       max: 0.3
+    #   avg_distance_between_people:
+    #     - enabled: true
+    #       min: 80
+    #       max: 150
+    #   avg_distance_from_machine:
+    #     - enabled: true
+    #       min: 150
+    #       max: 400

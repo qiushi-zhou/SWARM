@@ -9,11 +9,11 @@ from utils import Point
 class PeopleGraph:
     def __init__(self):
         self.nx_graph = nx.Graph()
+        self.edge_threshold = -1
         self.edges_calculated = False
         self.n_people = 0
         self.n_edges = 0
         self.n_groups = 0
-        self.clusters = []
         self.avg_people_distance = 0
         self.avg_machine_distance = 0
         self.max_weight = 0
@@ -27,11 +27,16 @@ class PeopleGraph:
         self.nx_graph.add_node(node, pos=node.pos)
         return node.pos
 
-    def add_edge(self, from_node, to_node, max_dist=-1):
+    def add_edge(self, from_node, to_node, dist_threshold=-1):
         dist = from_node.distance_from(to_node)
-        if max_dist > 0:
-            if dist <= max_dist:
+        if dist_threshold > 0:
+            if dist <= dist_threshold:
+                if dist >= self.max_weight:
+                    self.max_weight = w
+                if dist <= self.min_weight:
+                    self.min_weight = w
                 self.nx_graph.add_edge(from_node, to_node, weight=dist)
+            else:
                 return dist
         else:
             self.nx_graph.add_edge(from_node, to_node, weight=dist)
@@ -43,17 +48,16 @@ class PeopleGraph:
         self.update_avg_machine_distance(machine_pos=machine_pos)
         self.n_people = self.nx_graph.number_of_nodes()
         self.n_edges = self.nx_graph.number_of_edges()
+        if self.edge_threshold > 0:
+            sub_graphs = nx.connected_component_subgraphs(self.nx_graph)            
+            self.n_groups = len(sub_graphs) #n gives the number of sub graphs
 
     def calculate_edges(self):
         for i in self.nx_graph.nodes():
             for j in self.nx_graph.nodes():
                 if i != j:
-                    if not self.nx_graph.has_edge(i, j):
-                        w = self.add_edge(i, j)
-                        if w >= self.max_weight:
-                            self.max_weight = w
-                        if w <= self.min_weight:
-                            self.min_weight = w
+                    if not self.nx_graph.has_edge(i, j):            
+                        self.add_edge(i, j, self.edge_threshold)
         self.edges_calculated = True
 
     def update_avg_distance(self):
