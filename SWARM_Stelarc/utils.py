@@ -24,8 +24,16 @@ class Point():
         
         squared_dist = np.sum((self.pos-point.pos)**2, axis=0)
         return np.sqrt(squared_dist)
-        
-    
+
+def draw_debug_lines(lines, color, drawer, canvas, text_x=0, text_y=0, draw_type='cv'):
+    for line in lines:
+        if draw_type.lower() == 'cv':
+            drawer.putText(canvas, line, (text_x, text_y), 0, 0.4, color, 2)
+        else:
+            canvas.blit(drawer.render(line, True, color), (text_x, text_y))
+        if len(lines) > 1:
+            text_y += 20
+    return text_y+20
 
 def pairwise(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."

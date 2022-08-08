@@ -4,6 +4,7 @@ import numpy as np
 import itertools
 import matplotlib.pyplot as plt
 import Constants
+import utils
 from utils import Point
 
 class PeopleGraph:
@@ -32,9 +33,9 @@ class PeopleGraph:
         if dist_threshold > 0:
             if dist <= dist_threshold:
                 if dist >= self.max_weight:
-                    self.max_weight = w
+                    self.max_weight = dist
                 if dist <= self.min_weight:
-                    self.min_weight = w
+                    self.min_weight = dist
                 self.nx_graph.add_edge(from_node, to_node, weight=dist)
             else:
                 return dist
@@ -147,18 +148,13 @@ class PeopleGraph:
         text_x = int(text_x+offset_x)
         text_y = int(text_y+offset_y)
 
-        nodes_str = f"Nodes {self.nx_graph.number_of_nodes()}: {nodes_data}"
-        edges_str = f"Edges {self.nx_graph.number_of_edges()}: {edges_data}"
-        data_str = f"Avg dist: {self.avg_people_distance:.2f} Avg_m: {self.avg_machine_distance:.2f}"
+        lines = [f"People {self.n_people}: {nodes_data}"]
+        lines.append(f"Links {self.n_edges}: {edges_data}")
+        lines.append(f"Groups {self.n_groups}")
+        lines.append(f"Avg dist: {self.avg_people_distance:.2f}")
+        lines.append(f"Avg_m: {self.avg_machine_distance:.2f}")
         color = (255, 255, 0)
-        if draw_type.lower() == 'cv':
-            drawer.putText(canvas, nodes_str, (text_x, text_y), 0, 0.4, color, 2)
-            drawer.putText(canvas, edges_str, (text_x, text_y+20), 0, 0.4, color, 2)
-            drawer.putText(canvas, data_str, (text_x, text_y+40), 0, 0.4, color, 2)
-        else:
-            canvas.blit(drawer.render(nodes_str, True, color), (text_x, text_y))
-            canvas.blit(drawer.render(edges_str, True, color), (text_x, text_y+20))
-            canvas.blit(drawer.render(data_str, True, color), (text_x, text_y+40))
+        text_y = utils.draw_debug_lines(lines, color, drawer, canvas, text_x, text_y, draw_type)
         if debug:
             print(f"Camera {prefix:<2} - Nodes: {self.nx_graph.number_of_nodes():<3} Edges: {self.nx_graph.number_of_edges():<3}")
 

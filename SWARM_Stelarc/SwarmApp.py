@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import os.path
 
+import utils
 from Input import Input
 from Scene import Scene
 import datetime
@@ -70,7 +71,7 @@ class SwarmAPP():
 
         self.input = Input(self, cv2)
         pygame.init()
-        pygame.display.set_mode((Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT))
+        pygame.display.set_mode((int(Constants.SCREEN_WIDTH+Constants.SCREEN_WIDTH*0.27), Constants.SCREEN_HEIGHT))
         pygame.display.set_caption("SWARM")
         # if you want to use this module.
         self.font = pygame.font.SysFont('Cascadia', Constants.font_size)
@@ -185,7 +186,7 @@ class SwarmAPP():
         self.current_behavior = None
         self.frame_buffer.add_frame_data(self.cameras)
         avg_total_people = self.frame_buffer.people_data.avg
-        avg_total_groups = self.frame_buffer.distance_data.avg
+        avg_total_groups = self.frame_buffer.groups_data.avg
         avg_distance = self.frame_buffer.distance_data.avg
         avg_distance_from_machine = self.frame_buffer.machine_distance_data.avg
 
@@ -268,7 +269,7 @@ class SwarmAPP():
                 p_enabled = parameter.get("enabled", True)
                 if not p_enabled:
                     continue
-                value = -1
+                value = -999
                 if param_name == "time":
                     last_time = behavior.get("last_executed_time", None)
                     elapsed = 0
@@ -284,6 +285,10 @@ class SwarmAPP():
                     value = p_data.avg
                 elif param_name == "groups":
                     value = g_data.avg
+                elif param_name == "people_in_groups_ratio":
+                    value = 0
+                    if p_data.avg > 0:
+                        value = g_data.avg / p_data.avg
                 elif param_name == "avg_distance_between_people":
                     value = d_data.avg
                 elif param_name == "avg_distance_from_machine":
@@ -295,14 +300,7 @@ class SwarmAPP():
                     lines[0] += f"{param_name}: [{min_value}, {max_value}]"
                 else:
                     lines.append(f"  {param_name}: {min_value} < {value:.2f} < {max_value}")
-            for line in lines:
-                if draw_type.lower() == 'cv':
-                    drawer.putText(canvas, line, (text_x, text_y), 0, 0.4, color, 2)
-                else:
-                    canvas.blit(drawer.render(line, True, color), (text_x, text_y))
-                if len(lines) > 1:
-                    text_y += 20
-            text_y += 20
+            text_y = utils.draw_debug_lines(lines, color, drawer, canvas, text_x, text_y, draw_type)
         return text_y
 
     def draw_behavior_debug(self, drawer, canvas, draw_type='cv', debug=True, text_x=0, text_y=0, offset_x=20,
@@ -325,14 +323,7 @@ class SwarmAPP():
         lines.append(f"M_Distance - avg: {dm_data.avg:.2f}, minmax: [{dm_data.min:.2f}, {dm_data.max:.2f}], n: {dm_data.non_zeroes}/{self.frame_buffer.size()}")
         color = (255, 50, 0)
         b_color = (150, 150, 150) if behavior_dbg == "None" else (255, 255, 0)
-        for line in lines:
-            if draw_type.lower() == 'cv':
-                drawer.putText(canvas, line, (text_x, text_y), 0, 0.4, color, 2)
-            else:
-                canvas.blit(drawer.render(line, True, color), (text_x, text_y))
-            if len(lines) > 1:
-                text_y += 20
-        text_y += 10
+        text_y = utils.draw_debug_lines(lines, color, drawer, canvas, text_x, text_y, draw_type)
         return text_y
 
     def draw_camera_debug(self, drawer, canvas, draw_type='cv', debug=True, offset_x=20, offset_y=-20):
@@ -426,9 +417,9 @@ class SwarmAPP():
                 offset_y = 10
                 text_y = self.arduino.draw_arduino_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y, offset_x=offset_x, offset_y=offset_y, debug=debug)
                 self.draw_behavior_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y+10, offset_x=offset_x, offset_y=offset_y, debug=debug)
-                text_x = Constants.SCREEN_WIDTH*0.75
-                text_y = Constants.SCREEN_HEIGHT*0.5
-                self.draw_actions_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y+10, offset_x=offset_x, offset_y=offset_y, debug=debug)
+                text_x = Constants.SCREEN_WIDTH
+                text_y = Constants.SCREEN_HEIGHT*0
+                self.draw_actions_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y, offset_x=offset_x, offset_y=offset_y, debug=debug)
 
             if draw_type.lower() == 'cv':
                 self.scene.update(self.cv2.cvtColor(canvas, self.cv2.COLOR_BGR2RGB), debug=debug)
