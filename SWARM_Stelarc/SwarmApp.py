@@ -89,7 +89,8 @@ class SwarmAPP():
                     self.behavior_config = yaml.load(file, Loader=yaml.FullLoader)
                     self.behaviors = self.behavior_config.get("behaviors", [])
                 self.behavior_config['last_modified_time'] = os.path.getmtime(file_path)
-            except:
+            except Exception as e:
+                print(f"Error opening behavior config file {e}")
                 return
 
     def update_cameras_config(self):
@@ -194,31 +195,36 @@ class SwarmAPP():
             name = behavior.get("name", "unknown")
             command = behavior.get("arduino_command", "")
             if not enabled:
-                continue            
-            for param_name in behavior.get("parameters", []):
-                parameter = behavior.get(param_name, {})
+                continue
+            parameters = behavior.get("parameters", [])
+            for param_name in parameters:
+                print(f"Param name: {param_name}")
+                parameter = parameters[param_name]
                 param_name = param_name.lower()
                 enabled = parameter.get("enabled", True)
                 run_action = True
                 if not enabled:
                     continue
+                value = -1
                 if param_name == "time":
-                    last_time = behavior.get("last_executed_time", -1)
-                    if last_time < 0:
-                        run_action = True
-                        break                        
-                    elapsed = (datetime.datetime.now() - last_time).seconds
-                    if elapsed >= parameter.get("timeout", 600):
+                    last_time = behavior.get("last_executed_time", None)
+                    if last_time is None:
                         run_action = True
                         break
+                    timeout = parameter.get("timeout", 600)
+                    elapsed = (datetime.datetime.now() - last_time).seconds
+                    if elapsed >= timeout:
+                        run_action = True
+                        break
+                elif param_name == "people": value = avg_total_people
                 elif param_name == "groups": value = avg_total_groups
                 elif param_name == "avg_distance_between_people": value = avg_distance
-                elif avg_distance_from_machine == "avg_distance_from_machine": value = avg_distance_from_machine
+                elif param_name == "avg_distance_from_machine": value = avg_distance_from_machine
                 
                 min_value = parameter.get('min', 0)
                 max_value = parameter.get('max', 0)
-                criterias_met = min_value <= value <= max_value
-                if not criterias_met:
+                criteria_met = min_value <= value <= max_value
+                if not criteria_met:
                     run_action = False
                     break
                 
@@ -231,7 +237,8 @@ class SwarmAPP():
                 print(f"\r\nNew ACTION: Running command {command} from behavior {name}\n\r")
             return # We found the command to execute so we can stop here
 
-    def draw_behavior_debug(self, drawer, canvas, draw_type='cv', debug=True, text_x=0, text_y=0, offset_x=20, offset_y=300):
+    def draw_actions_debug(self, drawer, canvas, draw_type='cv', debug=True, text_x=0, text_y=0, offset_x=20,
+                            offset_y=300):
         if debug:
             print(f"Drawing behavior debug")
         p_data = self.frame_buffer.people_data
@@ -240,33 +247,13 @@ class SwarmAPP():
         dm_data = self.frame_buffer.machine_distance_data
         text_x = int(text_x + offset_x)
         text_y = int(text_y + offset_y)
-        behavior_dbg = "None"
         curr_behavior_name = "None"
         if self.current_behavior is not None:
-            behavior_dbg = self.current_behavior["name"]
             curr_behavior_name = self.current_behavior["name"]
-        action_dbg = f"Running Action {behavior_dbg}"
-        p_dbg = f"People - avg: {p_data.avg:.2f}, minmax: [{p_data.min:.2f}, {p_data.max:.2f}], n_sample: {p_data.non_zeroes}/{self.frame_buffer.size()}"
-        d_dbg = f"P_Distance - avg: {d_data.avg:.2f}, minmax: [{d_data.min:.2f}, {d_data.max:.2f}], n_sample: {d_data.non_zeroes}/{self.frame_buffer.size()}"
-        dm_dbg = f"M_Distance - avg: {dm_data.avg:.2f}, minmax: [{dm_data.min:.2f}, {dm_data.max:.2f}], n_sample: {dm_data.non_zeroes}/{self.frame_buffer.size()}"
-        color = (255, 50, 0)
-        b_color = (150, 150, 150) if behavior_dbg == "None" else (255, 255, 0)
-        if draw_type.lower() == 'cv':
-            drawer.putText(canvas, action_dbg, (text_x, text_y), 0, 0.4, b_color, 2); text_y+=30
-            drawer.putText(canvas, p_dbg, (text_x, text_y), 0, 0.4, color, 2); text_y+=20
-            drawer.putText(canvas, d_dbg, (text_x, text_y), 0, 0.4, color, 2); text_y+=20
-            drawer.putText(canvas, dm_dbg, (text_x, text_y), 0, 0.4, color, 2); text_y+=20
-        else:
-            canvas.blit(drawer.render(action_dbg, True, b_color), (text_x, text_y)); text_y+=30
-            canvas.blit(drawer.render(p_dbg, True, color), (text_x, text_y)); text_y+=20
-            canvas.blit(drawer.render(d_dbg, True, color), (text_x, text_y)); text_y+=20
-            canvas.blit(drawer.render(dm_dbg, True, color), (text_x, text_y)); text_y+=20
-        text_y += 10
-        
         for behavior in self.behaviors:
             b_enabled = behavior.get("enabled", True)
             name = behavior.get("name", "unknown")
-            color = color = (255, 0, 200) if name == curr_behavior_name else (140, 0, 140)
+            color = (255, 0, 200) if name == curr_behavior_name else (140, 0, 140)
             lines = []
             prefix = 'x'
             if b_enabled:
@@ -274,25 +261,34 @@ class SwarmAPP():
             if name == curr_behavior_name:
                 prefix = '>'
             lines.append(f"{prefix} {name}")
-            for param_name in behavior.get("parameters", []):
-                parameter = behavior.get(param_name, {})
+            parameters = behavior.get("parameters", [])
+            for param_name in parameters:
+                parameter = parameters[param_name]
                 param_name = param_name.lower()
                 p_enabled = parameter.get("enabled", True)
-                run_action = True
+                if not p_enabled:
+                    continue
+                value = -1
                 if param_name == "time":
-                    last_time = behavior.get("last_executed_time", -1)
-                    if last_time < 0:
-                        run_action = True
-                        break                        
-                    elapsed = (datetime.datetime.now() - last_time).seconds
-                    if elapsed >= parameter.get("timeout", 600):
-                        run_action = True
-                        break
-                elif param_name == "people": value = p_data.avg
-                elif param_name == "groups": value = g_data.avg
-                elif param_name == "avg_distance_between_people": value = d_data.avg
-                elif avg_distance_from_machine == "avg_distance_from_machine": value = dm_data.avg
-                
+                    last_time = behavior.get("last_executed_time", None)
+                    elapsed = 0
+                    timeout = parameter.get("timeout", 600)
+                    if last_time is not None:
+                        elapsed = (datetime.datetime.now() - last_time).seconds
+                    if name == curr_behavior_name:
+                        lines[0] += f"{param_name}: {elapsed}/{timeout}"
+                    else:
+                        lines.append(f"  {param_name}: {elapsed}/{timeout}")
+                    continue
+                elif param_name == "people":
+                    value = p_data.avg
+                elif param_name == "groups":
+                    value = g_data.avg
+                elif param_name == "avg_distance_between_people":
+                    value = d_data.avg
+                elif param_name == "avg_distance_from_machine":
+                    value = dm_data.avg
+
                 min_value = parameter.get('min', 0)
                 max_value = parameter.get('max', 0)
                 if name == curr_behavior_name:
@@ -305,8 +301,38 @@ class SwarmAPP():
                 else:
                     canvas.blit(drawer.render(line, True, color), (text_x, text_y))
                 if len(lines) > 1:
-                    text_y+=20
+                    text_y += 20
             text_y += 20
+        return text_y
+
+    def draw_behavior_debug(self, drawer, canvas, draw_type='cv', debug=True, text_x=0, text_y=0, offset_x=20,
+                            offset_y=300):
+        if debug:
+            print(f"Drawing behavior debug")
+        p_data = self.frame_buffer.people_data
+        g_data = self.frame_buffer.groups_data
+        d_data = self.frame_buffer.distance_data
+        dm_data = self.frame_buffer.machine_distance_data
+        text_x = int(text_x + offset_x)
+        text_y = int(text_y + offset_y)
+        behavior_dbg = "None"
+        if self.current_behavior is not None:
+            behavior_dbg = self.current_behavior["name"]
+        lines = [f"Running Action {behavior_dbg}"]
+        lines.append(f"People - avg: {p_data.avg:.2f}, minmax: [{p_data.min:.2f}, {p_data.max:.2f}], n: {p_data.non_zeroes}/{self.frame_buffer.size()}")
+        lines.append(f"Groups - avg: {g_data.avg:.2f}, minmax: [{g_data.min:.2f}, {g_data.max:.2f}], n: {g_data.non_zeroes}/{self.frame_buffer.size()}")
+        lines.append(f"P_Distance - avg: {d_data.avg:.2f}, minmax: [{d_data.min:.2f}, {d_data.max:.2f}], n: {d_data.non_zeroes}/{self.frame_buffer.size()}")
+        lines.append(f"M_Distance - avg: {dm_data.avg:.2f}, minmax: [{dm_data.min:.2f}, {dm_data.max:.2f}], n: {dm_data.non_zeroes}/{self.frame_buffer.size()}")
+        color = (255, 50, 0)
+        b_color = (150, 150, 150) if behavior_dbg == "None" else (255, 255, 0)
+        for line in lines:
+            if draw_type.lower() == 'cv':
+                drawer.putText(canvas, line, (text_x, text_y), 0, 0.4, color, 2)
+            else:
+                canvas.blit(drawer.render(line, True, color), (text_x, text_y))
+            if len(lines) > 1:
+                text_y += 20
+        text_y += 10
         return text_y
 
     def draw_camera_debug(self, drawer, canvas, draw_type='cv', debug=True, offset_x=20, offset_y=-20):
@@ -399,7 +425,10 @@ class SwarmAPP():
                 offset_x = 10
                 offset_y = 10
                 text_y = self.arduino.draw_arduino_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y, offset_x=offset_x, offset_y=offset_y, debug=debug)
-                text_y = self.draw_behavior_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y+10, offset_x=offset_x, offset_y=offset_y, debug=debug)
+                self.draw_behavior_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y+10, offset_x=offset_x, offset_y=offset_y, debug=debug)
+                text_x = Constants.SCREEN_WIDTH*0.75
+                text_y = Constants.SCREEN_HEIGHT*0.5
+                self.draw_actions_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y+10, offset_x=offset_x, offset_y=offset_y, debug=debug)
 
             if draw_type.lower() == 'cv':
                 self.scene.update(self.cv2.cvtColor(canvas, self.cv2.COLOR_BGR2RGB), debug=debug)
