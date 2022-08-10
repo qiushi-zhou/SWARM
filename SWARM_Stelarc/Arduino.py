@@ -245,9 +245,11 @@ class Arduino():
             prev_status = self.status
             self.status = self.statuses['command_sent']
             self.status.started_time = datetime.datetime.now()
-            print(f"{prefix} Command '{self.last_command}' sent! Status updated: {prev_status.title} -> {self.status.title}!")
+            if debug:
+                print(f"{prefix} Command '{self.last_command}' sent! Status updated: {prev_status.title} -> {self.status.title}!")
         else:
-            print(f"Arduino not ready to receive command {command}, status {self.status.title}: {self.status.description}!")
+            if debug:
+                print(f"Arduino not ready to receive command {command}, status {self.status.title}: {self.status.description}!")
         return self.status
 
     def send(self, string):
@@ -266,7 +268,8 @@ class Arduino():
         if start <= now <= end:
             self.not_operational = False
         else:
-            print(f"MACHINE NOT OPERATIONAL")
+            if debug:
+                print(f"MACHINE NOT OPERATIONAL")
             self.not_operational = True
 
         for s_idx in self.statuses:

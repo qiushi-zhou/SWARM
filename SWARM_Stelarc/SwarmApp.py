@@ -23,12 +23,15 @@ import asyncio
 import socketio
 import base64
 import logging
+import json
+import io
 
 
 class WebSocket:
-    sio = socketio.Client(logger=True, engineio_logger=True)
 
     def __init__(self, url, namespace, enabled=False):
+        # self.sio = socketio.Client(logger=True, engineio_logger=True)
+        self.sio = socketio.Client()
         self.url = url
         self.namespace = namespace
         self.uri = url +"/" + namespace
@@ -39,34 +42,32 @@ class WebSocket:
         if self.ws_enabled:
             self.call_backs()
             print(f"Connecting to WebSocket on: {self.uri}")
-            self.sio.connect(self.url, namespaces=[self.namespace])
-            self.sio.wait()
-
-    def loop(self):
-        self.sio.wait()
-
-    def encode_image_data(self, img_filename):
-        image_data = cv2.imread(img_filename)
-        b64_data = base64.b64encode(image_data)
-        b64_data = b64_data.decode()
-        image_data = "data:image/jpeg;base64," + b64_data
-        return image_data
-
-    def send_data(self, frame_filename):
-        if self.ws_enabled and self.ws_connected:
-            img_data_str = self.encode_image_data(frame_filename)
-            t = datetime.datetime.now()
-            # self.sio.start_background_task(self.sio.emit, 'op_frame', {'frame_data': img_data_str, 'time':datetime.datetime().now().ctime()})
-            self.sio.emit(event='op_frame', data={'frame_data': img_data_str, 'time_ms': time.mktime(t.timetuple()), "datetime": t.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}, namespace=self.namespace)
-            # self.sio.emit('op_frame', {'frame_data': '', 'time_ms': time.mktime(t.timetuple()), "datetime": t.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}, namespace=self.namespace)
+            self.sio.connect(self.url, namespaces=[self.namespace], wait_timeout=2)
             # self.sio.wait()
+
+    def encode_image_data(self, image_data):
+        img_str = base64.b64encode(image_data.getvalue())
+        return "data:image/jpeg;base64," + img_str.decode()
+
+    def send_data(self, image_data):
+        if self.ws_enabled and self.sio.connected:
+            try:
+                img_data_str = self.encode_image_data(image_data)
+                t = datetime.datetime.now()
+                # self.sio.start_background_task(self.sio.emit, 'op_frame', {'frame_data': img_data_str, 'time':datetime.datetime().now().ctime()})
+                # self.sio.emit(event='op_frame', data={'frame_data': img_data_str, 'time_ms': time.mktime(t.timetuple()), "datetime": t.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}, namespace=self.namespace)
+                self.sio.emit(event='op_frame', data={'frame_data': img_data_str}, namespace=self.namespace)
+                # self.sio.emit(event='op_frame', data={"WHAT":"what"}, namespace=self.namespace)
+                # self.sio.emit('op_frame', {'frame_data': '', 'time_ms': time.mktime(t.timetuple()), "datetime": t.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}, namespace=self.namespace)
+                # self.sio.wait()
+            except Exception as e:
+                print(f"Error sending data to socket {e}")
         else:
             print(f"WS NOT CONNECTED!")
 
     def call_backs(self):
         @self.sio.event
         def connect():
-            self.ws_connected = True
             print(f"Connected to to WebSocket on: {self.uri}")
 
         @self.sio.on("docs")
@@ -82,8 +83,7 @@ class WebSocket:
 
         @self.sio.event
         def disconnect():
-            self.ws_connected = False
-
+            pass
     def draw_debug(self, logger, start_pos, debug=False):
         dbg_str = "WebSocket "
         if not self.ws_enabled:
@@ -336,6 +336,7 @@ class SwarmAPP():
         return criteria_met == total_enabled_criteria
 
     def update_action(self, left_text_pos, right_text_pos, debug=True):
+        text_debug = False
         right_text_pos_orig = Point(right_text_pos.x, right_text_pos.y)
         right_text_pos.y += self.logger.line_height*1.5
         self.current_behavior = None
@@ -350,10 +351,11 @@ class SwarmAPP():
                 self.current_behavior = behavior
                 name = self.current_behavior.get("name", "unknown")
                 command = self.current_behavior.get("arduino_command", "")
-                print(f"Action updated: {name} ({command})")
-                self.arduino.send_command(command)
+                if text_debug:
+                    print(f"Action updated: {name} ({command})")
+                    print(f"\r\nNew ACTION: Running command {command} from behavior {name}\n\r")
+                self.arduino.send_command(command, debug=text_debug)
                 behavior["last_executed_time"] = datetime.datetime.now()
-                print(f"\r\nNew ACTION: Running command {command} from behavior {name}\n\r")
                 # We found the command to execute so we can stop here
                 if not debug:
                     return
@@ -402,10 +404,12 @@ class SwarmAPP():
             self.logger = SwarmLogger(self.cv2, None, font=None, font_size=0.4)
 
         offset = Point(10, 10)
+        image_data = io.BytesIO()
         while True:
-            print(f"--- Start loop ---")
-            e = datetime.datetime.now()
-            print(f"\r\n{e.strftime('%Y-%m-%d %H:%M:%S')}", end="\r")
+            if debug:
+                print(f"--- Start loop ---")
+                e = datetime.datetime.now()
+                print(f"\r\n{e.strftime('%Y-%m-%d %H:%M:%S')}", end="\r")
 
             result, self.frame = self.capture0.read()
             if self.logger.draw_type == SwarmLogger.OPENCV:
@@ -433,8 +437,8 @@ class SwarmAPP():
             self.update_behaviors_config()
 
             self.draw_cameras_debug(draw_graph_data=False)
-            pygame.image.save(self.scene.screen, self.screenshot_filename)
-            self.sio.send_data(self.screenshot_filename)
+
+            # pygame.image.save(self.scene.screen, image_data, "JPEG")
 
             self.sio.draw_debug(self.logger, left_text_pos)
             left_text_pos.y += self.logger.line_height
@@ -442,16 +446,20 @@ class SwarmAPP():
             left_text_pos.y += self.logger.line_height
             self.update_action(left_text_pos=left_text_pos, right_text_pos=right_text_pos, debug=True)
 
-            self.logger.flush_text_lines()
+            self.logger.flush_text_lines(debug=debug)
 
             if self.logger.draw_type == SwarmLogger.OPENCV:
                 self.scene.update(self.cv2.cvtColor(self.frame, self.cv2.COLOR_BGR2RGB), debug=debug)
-            self.scene.render(filename=self.screenshot_filename)
+            self.scene.render()
+
+            pygame.image.save(self.scene.screen, image_data, "JPEG")
+            self.sio.send_data(image_data)
 
             if Constants.draw_map:
                 if debug:
                     print(f"Updating map...")
                 self.update_map()
 
-            print(f"--- End loop ---")
+            if debug:
+                print(f"--- End loop ---")
             self.cv2.waitKey(1)

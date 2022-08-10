@@ -50,8 +50,9 @@ class SwarmLogger:
         # return Point(pos.x, pos.y+line_height)
         return pos
 
-    def flush_text_lines(self):
-        print(f"Flushing {len(self.buffer)} lines")
+    def flush_text_lines(self, debug=False):
+        if debug:
+            print(f"Flushing {len(self.buffer)} lines")
         while len(self.buffer) > 0:
             line = self.buffer.pop()
             text_x = line.pos.x
