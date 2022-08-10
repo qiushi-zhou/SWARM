@@ -36,23 +36,23 @@ behaviors:
         timeout: 600 # run every 10 minutes
       people:
         enabled: true
-        min: 2 # Absolute value vs relative to the avg number of people in the last minute or so
+        min: 0 # Absolute value vs relative to the avg number of people in the last minute or so
         max: 10
       groups:
-        enabled: true
+        enabled: false
         min: 0
         max: 10
       people_in_groups_ratio:
-        enabled: true
+        enabled: false
         min: 0
         max: 0.3
       avg_distance_between_people:
         enabled: true
-        min: 80
+        min: 0
         max: 150
       avg_distance_from_machine:
         enabled: true
-        min: 150
+        min: 0
         max: 400
   - name: quiver
     enabled: true
@@ -64,7 +64,7 @@ behaviors:
       people:
         enabled: true
         min: 2 # Absolute value vs relative to the avg number of people in the last minute or so
-        max: 10
+        max: 5
       groups:
         enabled: true
         min: 0
@@ -75,8 +75,8 @@ behaviors:
         max: 0.3
       avg_distance_between_people:
         enabled: true
-        min: 80
-        max: 150
+        min: 40
+        max: 100
       avg_distance_from_machine:
         enabled: true
         min: 150
@@ -94,7 +94,7 @@ behaviors:
         max: 10
       groups:
         enabled: true
-        min: 0
+        min: 1
         max: 10
       people_in_groups_ratio:
         enabled: true
@@ -102,7 +102,7 @@ behaviors:
         max: 0.3
       avg_distance_between_people:
         enabled: true
-        min: 80
+        min: 20
         max: 150
       avg_distance_from_machine:
         enabled: true

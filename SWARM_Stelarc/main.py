@@ -42,4 +42,5 @@ if __name__ == "__main__":
 
         swarm = SwarmAPP(arduino_port="COM3", mockup_commands=True, ws_enabled=False)
         # swarm = SwarmAPP(arduino_port="COM3", mockup_commands=False, ws_enabled=False)
+        # swarm = SwarmAPP(arduino_port="COM3", mockup_commands=False, ws_enabled=False)
         swarm.run(debug=False)

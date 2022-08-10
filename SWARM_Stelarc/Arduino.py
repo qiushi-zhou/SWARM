@@ -13,10 +13,8 @@ import collections
 
 class ArduinoStatus():
 
-    def __init__(self, status_id=-1, title="", description="", timeout=0, prev_status_id=-1, next_status_id=-1, testing_timeout=0, mockup_commands=True, not_operational=False):
+    def __init__(self, status_id=-1, title="", description="", timeout=0, prev_status_id=-1, next_status_id=-1, testing_timeout=0):
         self.id = status_id
-        self.mockup_commands = mockup_commands
-        self.not_operational = not_operational
         self.title = title
         self.description = description
         self.timeout = timeout
@@ -25,8 +23,8 @@ class ArduinoStatus():
         self.prev_status_id = prev_status_id
         self.next_status_id = next_status_id
 
-    def get_timeout(self):
-        if self.mockup_commands or self.not_operational:
+    def get_timeout(self, mockup_commands, not_operational):
+        if mockup_commands or not_operational:
             return self.testing_timeout
         return self.timeout
 
@@ -57,14 +55,14 @@ class Arduino():
         self.working_hours_end = time.strptime("17:00", "%H:%M")
 
         self.default_statuses = {
-            'not_initialized': ArduinoStatus(0, 'Not Initialized', 'Arduino not initialized', 0, mockup_commands=self.mockup_commands),
-            'command_sent': ArduinoStatus(1, 'Command Sent', 'Command SENT SUCCESSFULLY, waiting for feedback...', 10, mockup_commands=self.mockup_commands),
-            'command_received': ArduinoStatus(2, 'Executing Command', 'Command received by Arduino, waiting for completion...', 60, mockup_commands=self.mockup_commands),
-            'cooling_down': ArduinoStatus(3, 'Cooling Down', f'Arduino is cooling down between commands {5}', 5, mockup_commands=self.mockup_commands),
-            'already_sent': ArduinoStatus(4, 'Command already sent', 'Command ALREADY SENT', 0, mockup_commands=self.mockup_commands),
-            'not_connected': ArduinoStatus(5, 'NOT CONNECTED', 'Arduino NOT CONNECTED', 0, mockup_commands=self.mockup_commands),
-            'debug_mode': ArduinoStatus(6, 'DEBUG MODE', 'Arduino NOT CONNECTED (debug mode)', 0, mockup_commands=self.mockup_commands),
-            'ready': ArduinoStatus(7, 'READY', f'Arduino is ready to start a new command! Port {self.port}', 0, mockup_commands=self.mockup_commands)
+            'not_initialized': ArduinoStatus(0, 'Not Initialized', 'Arduino not initialized', 0),
+            'command_sent': ArduinoStatus(1, 'Command Sent', 'Command SENT SUCCESSFULLY, waiting for feedback...', 10),
+            'command_received': ArduinoStatus(2, 'Executing Command', 'Command received by Arduino, waiting for completion...', 60),
+            'cooling_down': ArduinoStatus(3, 'Cooling Down', f'Arduino is cooling down between commands {5}', 5),
+            'already_sent': ArduinoStatus(4, 'Command already sent', 'Command ALREADY SENT', 0),
+            'not_connected': ArduinoStatus(5, 'NOT CONNECTED', 'Arduino NOT CONNECTED', 0),
+            'debug_mode': ArduinoStatus(6, 'DEBUG MODE', 'Arduino NOT CONNECTED (debug mode)', 0),
+            'ready': ArduinoStatus(7, 'READY', f'Arduino is ready to start a new command! Port {self.port}', 0)
         }
         if config_data is None:
             self.statuses = self.default_statuses
@@ -93,7 +91,7 @@ class Arduino():
         for s in s_list:
             name = s['name']
             if name not in self.statuses:
-                self.statuses[name] = ArduinoStatus(mockup_commands=self.mockup_commands)
+                self.statuses[name] = ArduinoStatus()
             self.statuses[name].title = s.get('title', 'NO TITLE')
             self.statuses[name].id = s.get('id', -1)
             self.statuses[name].description = s.get('description', 'NO DESCRIPTION')
@@ -103,7 +101,7 @@ class Arduino():
             self.statuses[name].next_status_id = s.get('next_status_id', -1)
     
     def debug_send_wait(self, cmd_string, manual_update=0, debug=True):
-        self.send_command(cmd_string, debug=debug, testing_command=self.mockup_commands)
+        self.send_command(cmd_string, debug=debug)
         if manual_update <= 0:
             print(f"Waiting for Arduino to be ready...")
             while self.status.id != self.statuses['ready'].id:
@@ -230,14 +228,14 @@ class Arduino():
                 return f"Arduino NOT CONNECTED (debug mode) on {self.port}: bps={self.bps}, {self.p_1}/{self.p_2}/{self.p_3}"
             return f"Arduino NOT found on {self.port}: bps={self.bps}, {self.p_1}/{self.p_2}/{self.p_3}"
 
-    def send_command(self, command, loop=False, debug=True, testing_command=True):
+    def send_command(self, command, loop=False, debug=True):
         if self.status.id == self.statuses['ready'].id:
             prefix = '(Normal)'
             cmd_string = self.build_command_str(command, loop)
             if debug:
                 print(f"Sending command string: {cmd_string}")
             if not self.not_operational:
-                if not testing_command:
+                if not self.mockup_commands:
                     self.send(cmd_string)
                 else:
                     prefix = '(Testing)'
@@ -264,7 +262,7 @@ class Arduino():
         # print(f"{self.working_hours_start.tm_hour}:{self.working_hours_start.tm_min} <= {now.hour}:{now.minute} <= {self.working_hours_end.tm_hour}:{self.working_hours_end.tm_min}")
         start = now.replace(hour=self.working_hours_start.tm_hour, minute=self.working_hours_start.tm_min, second=0, microsecond=0)
         end = now.replace(hour=self.working_hours_end.tm_hour, minute=self.working_hours_end.tm_min, second=0, microsecond=0)
-        print(f"{start} <= {now} <= {end}")
+        # print(f"{start} <= {now} <= {end}")
         if start <= now <= end:
             self.not_operational = False
         else:
@@ -281,13 +279,14 @@ class Arduino():
             return self.status
         elif self.status.id == self.statuses['cooling_down'].id:
             elapsed = (datetime.datetime.now() - self.status.started_time).seconds
-            if elapsed >= self.status.get_timeout():
+            if elapsed >= self.status.get_timeout(self.mockup_commands, self.not_operational):
                 self.status = self.statuses['ready']
                 self.status.started_time = datetime.datetime.now()
         elif self.status.id == self.statuses['command_sent'].id:
-            if (datetime.datetime.now() - self.status.started_time).seconds >= self.status.get_timeout():
+            if (datetime.datetime.now() - self.status.started_time).seconds >= self.status.get_timeout(self.mockup_commands, self.not_operational):
                 print(f"Max wait time waiting for feedback reached...")
                 self.status = self.statuses['command_received']
+                self.status.started_time = datetime.datetime.now()
             else:
                 try:
                     received = self.receive(debug=debug, prefix="Waiting for received command msg")
@@ -298,8 +297,9 @@ class Arduino():
                 if "received" in received.lower():
                     print(f"Received feedback from Arduino!")
                     self.status = self.statuses['command_received']
+                    self.status.started_time = datetime.datetime.now()
         elif self.status.id == self.statuses['command_received'].id:
-            if (datetime.datetime.now() - self.status.started_time).seconds >= self.status.get_timeout():
+            if (datetime.datetime.now() - self.status.started_time).seconds >= self.status.get_timeout(self.mockup_commands, self.not_operational):
                 print(f"Max wait time between commands reached...")
                 self.status = self.statuses['cooling_down']
                 self.status.started_time = datetime.datetime.now()
@@ -313,7 +313,7 @@ class Arduino():
                         received = ""
                     if "runcomp" in received:
                         self.status = self.statuses['cooling_down']
-                        print(f"Command Completed! Cooling down for {self.status.get_timeout()} seconds...")
+                        print(f"Command Completed! Cooling down for {self.status.get_timeout(self.mockup_commands, self.not_operational)} seconds...")
                         self.status.started_time = datetime.datetime.now()
                         self.last_command = None
                         break
@@ -329,11 +329,7 @@ class Arduino():
                 print(f"{prefix}: {ret}", end="")
         return ret
 
-    def draw_arduino_debug(self, drawer, canvas, draw_type='cv', debug=True, text_x=0, text_y=0, offset_x=20, offset_y=300):
-        if debug:
-            print(f"Drawing arduino debug")
-        text_x = int(text_x + offset_x)
-        text_y = int(text_y + offset_y)
+    def draw_debug(self, logger, start_pos, debug=False):
         prefix = "(Normal)"
         color = (0, 255, 0)
         if self.mockup_commands:
@@ -350,37 +346,27 @@ class Arduino():
 
         time_str = f"Time of the day: {now.hour:>02d}:{now.minute:>02d}"
         time_str += f" - Working Hours {self.working_hours_start.tm_hour:>02d}:{self.working_hours_start.tm_min:>02d} - {self.working_hours_end.tm_hour:>02d}:{self.working_hours_end.tm_min:>02d}"
+        start_pos = logger.add_text_line(time_str, color, start_pos)
+        start_pos.y += logger.line_height*0.9
+        start_pos = logger.add_text_line(arduino_cmd_dbg, color, start_pos)
+        start_pos.y += logger.line_height
 
-        if draw_type.lower() == 'cv':
-            drawer.putText(canvas, time_str, (text_x, text_y), 0, 0.4, color, 2); text_y += 20
-            drawer.putText(canvas, arduino_cmd_dbg, (text_x, text_y), 0, 0.4, color, 2); text_y += 20
-        else:
-            canvas.blit(drawer.render(time_str, True, color), (text_x, text_y)); text_y += 20
-            canvas.blit(drawer.render(arduino_cmd_dbg, True, color), (text_x, text_y)); text_y += 20
-
-        lines = {}
         for s_idx in self.statuses:
             s = self.statuses[s_idx]
             color = (0, 120, 120)
             arduino_status_dbg = "  "
-            elapsed = s.get_timeout()
+            timeout = s.get_timeout(self.mockup_commands, self.not_operational)
+            remaining = timeout
             if self.status.id == s.id:
                 color = (0, 180, 255)
                 arduino_status_dbg = "> "
                 elapsed = (datetime.datetime.now() - self.status.started_time).seconds
+                remaining = timeout - elapsed
             arduino_status_dbg += f"{s.id} "
             arduino_status_dbg += f"{s.title} - "
-            if s.get_timeout() > 0:
-                arduino_status_dbg += f" Wait: {s.get_timeout() - elapsed} / {s.get_timeout()} s"
-            else: arduino_status_dbg += f" Wait: {elapsed} s"
-            lines[int(s.id)] = {'text': arduino_status_dbg, 'color': color}
-        ordered_lines = collections.OrderedDict(sorted(lines.items()))
-        for i in ordered_lines:
-            line = ordered_lines[i]
-            if draw_type.lower() == 'cv':
-                drawer.putText(canvas, line['text'], (text_x, text_y), 0, 0.4, line['color'], 2)
-            else:
-                canvas.blit(drawer.render(line['text'], True, line['color']), (text_x, text_y))
-            if len(lines) > 0:
-                text_y += 20
-        return text_y
+            if timeout > 0:
+                arduino_status_dbg += f" Wait: {remaining} / {timeout} s"
+            else: arduino_status_dbg += f" Waiting: {remaining} s"
+
+            start_pos = logger.add_text_line(arduino_status_dbg, color, start_pos)
+        return

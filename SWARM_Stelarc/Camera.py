@@ -3,9 +3,10 @@ from matplotlib import path
 from utils import Point
 
 class Camera:
-    def __init__(self, screen_w, screen_h, config_data, init_graph=True):
+    def __init__(self, id, screen_w, screen_h, config_data, init_graph=True):
         if init_graph:
             self.p_graph = PeopleGraph()
+        self.id = id
         self.p_graph.edge_threshold = config_data.get("group_distance_threshold", -1)
         self.screen_w = screen_w
         self.screen_h = screen_h
@@ -33,7 +34,7 @@ class Camera:
             self.build_path()
         text_position = config_data.get("text_position", origin_data)
         tx, ty = self.parse_point(text_position)
-        self.text_position = Point(tx, ty)
+        self.text_position = Point(tx+10, ty+10)
 
         self.min_point = Point(screen_w, screen_h)
         self.max_point = Point(-1, -1)
@@ -119,3 +120,20 @@ class Camera:
         if not self.enabled:
             return
         self.p_graph.update_graph(machine_pos=self.machine_position)
+
+    def draw_debug(self, logger, draw_graph_data=True):
+        if not self.enabled or not Constants.draw_cameras_data:
+            return
+        if len(self.path_vertices) > 0:
+            for j in range(0, len(self.path_vertices) - 1):
+                p1 = self.path_vertices[j]
+                p2 = self.path_vertices[j + 1]
+                thickness = 2
+                logger.draw_line(p1, p2, self.color, thickness)
+            self.p_graph.draw_edges(logger)
+            self.p_graph.draw_nodes(logger)
+            self.p_graph.draw_dist_from_machine(logger,
+                                                Point(int(self.machine_position.x), int(self.machine_position.y)))
+        if draw_graph_data:
+            self.p_graph.draw_debug_text(logger, Point(int(self.text_position.x), int(self.text_position.y)),
+                                         camera_n=self.id)

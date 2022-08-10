@@ -7,7 +7,9 @@ class SingleFrameData():
         self.groups_in_frame = 0
         self.avg_people_distance = 0
         self.avg_machine_distance = 0
+        self.empty = True
         if cameras is not None:
+            self.empty = False
             total_avg_distance = 0
             total_avg_machine_distance = 0
             total_cameras = 0
@@ -48,7 +50,9 @@ class FramesData():
   
 class FrameBuffer():           
     def __init__(self, buffer_size=10):
-        self.frames = [SingleFrameData() for i in range(0, buffer_size)]
+        self.buffer_size = buffer_size
+        self.frames = [SingleFrameData() for i in range(0, self.buffer_size)]
+        self.empty_frames = self.buffer_size
         self.frame_to_update_idx = 0
         
         self.people_data = FramesData()
@@ -58,10 +62,14 @@ class FrameBuffer():
         
     def add_frame_data(self, cameras):
         self.frames[self.frame_to_update_idx].update_frame_data(cameras)
+        if self.empty_frames > 0:
+            self.empty_frames -= 1
         self.frame_to_update_idx += 1 
         if self.frame_to_update_idx >= len(self.frames):
           self.frame_to_update_idx = 0
         self.update_framebuffer_data()
+        return self.empty_frames
+
 
     def update_framebuffer_data(self):
         self.people_data.reset()

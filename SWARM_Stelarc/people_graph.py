@@ -101,41 +101,26 @@ class PeopleGraph:
             normalized = 1
         return normalized
 
-    def draw_nodes(self, drawer, canvas, draw_type='cv', debug=False):
+    def draw_nodes(self, logger, debug=False):
         color = (255, 255, 255)
         for node, node_data in self.nx_graph.nodes(data=True):
-            if draw_type.lower() == 'cv':
-                drawer.circle(canvas, (int(node.pos[0]), int(node.pos[1])), 3, color, 3)
-            else:
-                drawer.draw.circle(canvas, color=color, center=(int(node.pos[0]), int(node.pos[1])), radius=3, width=3)
+            logger.draw_circle(Point(node.pos[0], node.pos[1]), (255, 255, 255), 3, 3)
 
-    def draw_edges(self, drawer, canvas, draw_type='cv', debug=False):
+    def draw_edges(self, logger, debug=False):
         if self.edges_calculated:
-            color = (0, 0, 255)
             thickness = 1
-                # thickness = int((self.normalize_weight(w['weight'])+1) * 2)
+            # thickness = int((self.normalize_weight(w['weight'])+1) * 2)
             for i, j, w in self.nx_graph.edges(data=True):
-                if draw_type.lower() == 'cv':
-                    drawer.line(canvas, (int(i.pos[0]), int(i.pos[1])), (int(j.pos[0]), int(j.pos[1])), color, thickness)
-                else:
-                    drawer.draw.line(canvas, color=color, start_pos=(int(i.pos[0]), int(i.pos[1])), end_pos=(int(j.pos[0]), int(j.pos[1])), width=thickness)
+                logger.draw_line(Point(i.pos[0], i.pos[1]), Point(j.pos[0], j.pos[1]), (0, 0, 255), thickness)
                 if debug:
                     print(f"thickness (max: {self.min_weight}, min: {self.max_weight}, Original: {w['weight']} Normalized: {thickness}")
 
-    def draw_dist_from_machine(self, drawer, canvas, mx, my, draw_type='cv', debug=True):
-        if draw_type.lower() == 'cv':
-            drawer.circle(canvas, (int(mx), int(my)), 3, (255, 255, 255), 3)
-        else:
-            drawer.draw.circle(canvas, color=(255, 255, 255), center=(int(mx), int(my)), radius=3, width=3)
-        thickness = 1
-        color = (255, 0, 0)
+    def draw_dist_from_machine(self, logger, m_pos, debug=False):
         for node, node_data in self.nx_graph.nodes(data=True):
-            if draw_type.lower() == 'cv':
-                drawer.line(canvas, (int(node.pos[0]), int(node.pos[1])), (int(mx), int(my)), color, thickness)
-            else:
-                drawer.draw.line(canvas, color=color, start_pos=(int(node.pos[0]), int(node.pos[1])), end_pos=(int(mx), int(my)), width=thickness)
+            logger.draw_line(Point(node.pos[0], node.pos[1]), Point(m_pos.x, m_pos.y), (255, 0, 0), 1)
+        logger.draw_circle(Point(m_pos.x, m_pos.y), (255, 255, 255), 3, 3)
 
-    def draw_debug(self, drawer, canvas, text_x=0, text_y=0, offset_x=20, offset_y=100, draw_type='cv', debug=True, prefix=""):
+    def draw_debug_text(self, logger, start_pos, camera_n=0, debug=False):
         nodes_data = ""
         for node in self.nx_graph.nodes():
             nodes_data = f"{nodes_data}, ({node.pos[0]:.2f}, {node.pos[1]:.2f})"
@@ -145,24 +130,13 @@ class PeopleGraph:
             # edges_data = f"{edges_data}, ({i.pos[0]:.2f}, {i.pos[1]:.2f}, weight: {w['weight']:.2f}\n)"
             edges_data = f"{edges_data},{w['weight']:.2f}"
         edges_data = f"[{edges_data}]"
-        text_x = int(text_x+offset_x)
-        text_y = int(text_y+offset_y)
 
-        lines = [f"People {self.n_people}: {nodes_data}"]
-        lines.append(f"Links {self.n_edges}: {edges_data}")
-        lines.append(f"Groups {self.n_groups}")
-        lines.append(f"Avg dist: {self.avg_people_distance:.2f}")
-        lines.append(f"Avg_m: {self.avg_machine_distance:.2f}")
         color = (255, 255, 0)
-        text_y = utils.draw_debug_lines(lines, color, drawer, canvas, text_x, text_y, draw_type)
-        if debug:
-            print(f"Camera {prefix:<2} - Nodes: {self.nx_graph.number_of_nodes():<3} Edges: {self.nx_graph.number_of_edges():<3}")
 
-    # from people_graph import *
-    # g = PeopleGraph()
-    # g.add_node(Person(10, 10))
-    # g.add_node(Person(0, 10))
-    # g.add_node(Person(10, 10))
-    # g.add_node(Person(13, 5))
-    # g.calculate_edges()
-    # g.draw_nx_graph()
+        start_pos = logger.add_text_line(f"People {self.n_people}: {nodes_data}", color, start_pos)
+        start_pos = logger.add_text_line(f"Links {self.n_edges}: {edges_data}", color, start_pos)
+        start_pos = logger.add_text_line(f"Groups {self.n_groups}", color, start_pos)
+        start_pos = logger.add_text_line(f"Avg dist: {self.avg_people_distance:.2f}", color, start_pos)
+        start_pos = logger.add_text_line(f"Avg_m: {self.avg_machine_distance:.2f}", color, start_pos)
+        if debug:
+            print(f"Camera {camera_n:<2} - Nodes: {self.nx_graph.number_of_nodes():<3} Edges: {self.nx_graph.number_of_edges():<3}")

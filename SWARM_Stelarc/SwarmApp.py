@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import os.path
 
+from SwarmLogger import SwarmLogger
 import utils
 from Input import Input
 from Scene import Scene
@@ -24,8 +25,76 @@ import base64
 import logging
 
 
+class WebSocket:
+    sio = socketio.Client(logger=True, engineio_logger=True)
+
+    def __init__(self, url, namespace, enabled=False):
+        self.url = url
+        self.namespace = namespace
+        self.uri = url +"/" + namespace
+        self.ws_connected = False
+        self.ws_enabled = enabled
+
+    def setup(self):
+        if self.ws_enabled:
+            self.call_backs()
+            print(f"Connecting to WebSocket on: {self.uri}")
+            self.sio.connect(self.url, namespaces=[self.namespace])
+            self.sio.wait()
+
+    def loop(self):
+        self.sio.wait()
+
+    def encode_image_data(self, img_filename):
+        image_data = cv2.imread(img_filename)
+        b64_data = base64.b64encode(image_data)
+        b64_data = b64_data.decode()
+        image_data = "data:image/jpeg;base64," + b64_data
+        return image_data
+
+    def send_data(self, frame_filename):
+        if self.ws_enabled and self.ws_connected:
+            img_data_str = self.encode_image_data(frame_filename)
+            t = datetime.datetime.now()
+            # self.sio.start_background_task(self.sio.emit, 'op_frame', {'frame_data': img_data_str, 'time':datetime.datetime().now().ctime()})
+            self.sio.emit(event='op_frame', data={'frame_data': img_data_str, 'time_ms': time.mktime(t.timetuple()), "datetime": t.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}, namespace=self.namespace)
+            # self.sio.emit('op_frame', {'frame_data': '', 'time_ms': time.mktime(t.timetuple()), "datetime": t.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}, namespace=self.namespace)
+            # self.sio.wait()
+        else:
+            print(f"WS NOT CONNECTED!")
+
+    def call_backs(self):
+        @self.sio.event
+        def connect():
+            self.ws_connected = True
+            print(f"Connected to to WebSocket on: {self.uri}")
+
+        @self.sio.on("docs")
+        def raw_data(data):
+            print(f"Data Received!")
+            # print(f"Data Received {data}")
+
+
+        @self.sio.event
+        def auth(data):
+            print(f"Data Received")
+            # print(f"Data Received {data}")
+
+        @self.sio.event
+        def disconnect():
+            self.ws_connected = False
+
+    def draw_debug(self, logger, start_pos, debug=False):
+        dbg_str = "WebSocket "
+        if not self.ws_enabled:
+            dbg_str += "Disabled"
+        else:
+            dbg_str += "Connected " if self.ws_connected else "NOT Connected"
+        start_pos = logger.add_text_line(dbg_str, (255, 50, 0), start_pos)
+
+
 class SwarmAPP():
-    def __init__(self, observable=None, arduino_port="COM3", ws_enabled=False, mockup_commands=True):
+    def __init__(self, observable=None, arduino_port="COM4", ws_enabled=False, mockup_commands=True):
         self.arduino = Arduino(port=arduino_port, mockup_commands=mockup_commands)
         if observable:
             observable.subscribe(self)
@@ -44,7 +113,8 @@ class SwarmAPP():
         self.update_arduino_config()
         self.frame_buffer = FrameBuffer(self.behavior_config.get('buffer_size', 10))
         self.current_behavior = None
-        self.ws_enabled = ws_enabled
+        self.font = None
+        self.logger = None
         while True:
             try:
                 if platform == "win32":
@@ -78,50 +148,12 @@ class SwarmAPP():
         pygame.display.set_mode((int(Constants.SCREEN_WIDTH+Constants.SCREEN_WIDTH*0.27), Constants.SCREEN_HEIGHT))
         pygame.display.set_caption("SWARM")
         # if you want to use this module.
-        self.font = pygame.font.SysFont('Cascadia', Constants.font_size)
         screen = pygame.display.get_surface()
         self.scene = Scene(screen)
         # self.async_loop = asyncio.get_event_loop()
         self.screenshot_filename = 'tempOP.jpeg'
-        if self.ws_enabled:
-            self.sio = socketio.Client()
-            self.setupSocketio()
-
-    def setupSocketio(self):
-        print(f"Connecting to WebSocket on: {Constants.ws_uri}")
-        self.call_backs()
-        # self.sio.start_background_task(self.sio.connect, Constants.ws_uri)
-        self.sio.connect(Constants.ws_uri)
-
-    def call_backs(self):
-        @self.sio.event
-        def connect():
-            print("I'm connected!")
-
-        @self.sio.event
-        def connect_error(data):
-            print("The connection failed!")
-
-        @self.sio.event
-        def disconnect():
-            print("I'm disconnected!")
-        
-    def encode_image_data(self, img_filename):
-        image_data = self.cv2.imread(img_filename)
-        b64_data = base64.b64encode(image_data)
-        b64_data = b64_data.decode()
-        image_data = "data:image/jpeg;base64," + b64_data 
-        return image_data
-    
-    def sendData(self, graphData=None):
-        if self.sio.connected:
-            img_data_str = self.encode_image_data(self.screenshot_filename)
-            t = datetime.datetime.now()
-
-            # self.sio.start_background_task(self.sio.emit, 'op_frame', {'frame_data': img_data_str, 'time':datetime.datetime().now().ctime()})
-            self.sio.emit('op_frame', {'frame_data': img_data_str, 'time_ms': time.mktime(t.timetuple()), "datetime": t.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]})
-        else:
-            print(f"WS NOT CONNECTED!")
+        self.sio = WebSocket(Constants.ws_url, Constants.ws_namespace, ws_enabled)
+        self.sio.setup()
 
     def notify(self, observable, *args, **kwargs):
         print('Got', args, kwargs, 'From', observable)
@@ -153,7 +185,7 @@ class SwarmAPP():
             for i in range(0, len(cameras_data)):
                 cameras_data[i]["group_distance_threshold"] = threshold
                 if len(self.cameras) <= i:
-                    self.cameras.append(Camera(Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, cameras_data[i]))
+                    self.cameras.append(Camera(i, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, cameras_data[i]))
                 else:
                     self.cameras[i].update_config(Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, cameras_data[i])
             self.cameras_config['last_modified_time'] = os.path.getmtime(file_path)
@@ -170,7 +202,7 @@ class SwarmAPP():
             self.arduino.update_config(self.arduino_config)
             self.arduino_config['last_modified_time'] = os.path.getmtime(file_path)
 
-    def update_tracks(self, tracks, keypoints, frame, drawer, draw_type='cv', debug=True):
+    def update_tracks(self, tracks, keypoints, logger, debug=True):
         if debug:
             print(f"Updating tracks")
         for camera in self.cameras:
@@ -207,10 +239,7 @@ class SwarmAPP():
                         p1 = Point(kp1[0], kp1[1])
                         p2 = Point(kp2[0], kp2[1])
                         if p1.x > 1 and p1.y > 1 and p2.x > 1 and p2.y > 1:
-                            if draw_type == 'cv':
-                                drawer.line(frame, (int(p1.x), int(p1.y)), (int(p2.x), int(p2.y)), color, thickness)
-                            else:
-                                drawer.draw.line(frame, color=color, start_pos=(int(p1.x), int(p1.y)), end_pos=(int(p2.x), int(p2.y)), width=thickness)
+                            logger.draw_line(p1, p2, color, thickness)
             for camera in self.cameras:
                 # camera.check_track([p1,p2], center_p)
                 camera.check_track([center_p], center_p)
@@ -224,175 +253,136 @@ class SwarmAPP():
             if camera.enabled:
                 camera.update_graph()
 
-    def update_action(self, debug=True):
-        if debug:
-            print(f"Updating Action!")
-        arduino = self.arduino
-        self.current_behavior = None
-        self.frame_buffer.add_frame_data(self.cameras)
-        avg_total_people = self.frame_buffer.people_data.avg
-        avg_total_groups = self.frame_buffer.groups_data.avg
-        avg_distance = self.frame_buffer.distance_data.avg
-        avg_distance_from_machine = self.frame_buffer.machine_distance_data.avg
+    def check_parameter(self, param, param_name, behavior, is_running, frame_buffer, text_pos, inactive_color, active_color, debug=False):
+        param_name = param_name.lower()
+        enabled = param.get("enabled", True)
+        if not enabled:
+            return False, enabled
+        value = -1
+        if param_name == "time":
+            last_time = behavior.get("last_executed_time", None)
+            if last_time is None:
+                return True, enabled
+            timeout = param.get("timeout", 600)
+            elapsed = (datetime.datetime.now() - last_time).seconds
+            if debug:
+                if is_running:
+                    text_pos = self.logger.add_text_line(f"{param_name}: {elapsed}/{timeout}", active_color, text_pos)
+                else:
+                    text_pos = self.logger.add_text_line(f"  {param_name}: {elapsed}/{timeout}", inactive_color, text_pos)
+            if elapsed >= timeout:
+                return True, enabled
+            return False, enabled
+        elif param_name == "people":
+            value = frame_buffer.people_data.avg
+        elif param_name == "groups":
+            value = frame_buffer.groups_data.avg
+        elif param_name == "people_in_groups_ratio":
+            value = 0
+            if frame_buffer.people_data.avg > 0:
+                value = frame_buffer.groups_data.avg / frame_buffer.people_data.avg
+        elif param_name == "avg_distance_between_people":
+            value = frame_buffer.distance_data.avg
+        elif param_name == "avg_distance_from_machine":
+            value = frame_buffer.machine_distance_data.avg
 
-        for behavior in self.behaviors:
-            # print(f"Checking Behaviour: {behavior}")
-            enabled = behavior.get("enabled", True)
-            name = behavior.get("name", "unknown")
-            command = behavior.get("arduino_command", "")
-            if not enabled:
-                continue
-            parameters = behavior.get("parameters", [])
-            for param_name in parameters:
-                print(f"Param name: {param_name}")
-                parameter = parameters[param_name]
-                param_name = param_name.lower()
-                enabled = parameter.get("enabled", True)
-                run_action = True
-                if not enabled:
-                    continue
-                value = -1
-                if param_name == "time":
-                    last_time = behavior.get("last_executed_time", None)
-                    if last_time is None:
-                        run_action = True
-                        break
-                    timeout = parameter.get("timeout", 600)
-                    elapsed = (datetime.datetime.now() - last_time).seconds
-                    if elapsed >= timeout:
-                        run_action = True
-                        break
-                elif param_name == "people": value = avg_total_people
-                elif param_name == "groups": value = avg_total_groups
-                elif param_name == "avg_distance_between_people": value = avg_distance
-                elif param_name == "avg_distance_from_machine": value = avg_distance_from_machine
-                
-                min_value = parameter.get('min', 0)
-                max_value = parameter.get('max', 0)
-                criteria_met = min_value <= value <= max_value
-                if not criteria_met:
-                    run_action = False
-                    break
-                
-            if run_action:
-                self.current_behavior = behavior
-                print(f"Action updated: {name} ({command})")
-                # arduino.send_command(arduino.commands["stop"])
-                arduino.send_command(command, testing_command=self.mockup_commands)
-                behavior["last_executed_time"] = datetime.datetime.now()
-                print(f"\r\nNew ACTION: Running command {command} from behavior {name}\n\r")
-            return # We found the command to execute so we can stop here
+        min_value = param.get('min', 0)
+        max_value = param.get('max', 0)
+        criteria_met = min_value <= value <= max_value
+        if is_running:
+            color = active_color
+        else:
+            if criteria_met:
+                color = (inactive_color[0] * 1.5, inactive_color[1] * 1.5, inactive_color[2] * 1.5)
+            else:
+                color = inactive_color
+        text_pos = self.logger.add_text_line(f"  {param_name}: {min_value} < {value:.2f} < {max_value}", color, text_pos)
+        return criteria_met, enabled
 
-    def draw_actions_debug(self, drawer, canvas, draw_type='cv', debug=True, text_x=0, text_y=0, offset_x=20,
-                            offset_y=300):
+    def check_behavior(self, behavior, curr_behavior, right_text_pos, debug=False):
+        right_text_pos_orig = Point(right_text_pos.x, right_text_pos.y)
+        right_text_pos.y += self.logger.line_height
+        # print(f"Checking Behaviour: {behavior}")
+        enabled = behavior.get("enabled", True)
+        total_enabled_criteria = 0
+        criteria_met = 0
+        name = behavior.get('name', 'unknown')
+        curr_behavior_name = curr_behavior.get('name', 'None')
+        is_running = (name == curr_behavior_name)
+        inactive_color = (140, 0, 140)
+        active_color = (255, 200, 0)
         if debug:
-            print(f"Drawing behavior debug")
-        p_data = self.frame_buffer.people_data
-        g_data = self.frame_buffer.groups_data
-        d_data = self.frame_buffer.distance_data
-        dm_data = self.frame_buffer.machine_distance_data
-        text_x = int(text_x + offset_x)
-        text_y = int(text_y + offset_y)
-        curr_behavior_name = "None"
-        if self.current_behavior is not None:
-            curr_behavior_name = self.current_behavior["name"]
-        for behavior in self.behaviors:
-            b_enabled = behavior.get("enabled", True)
-            name = behavior.get("name", "unknown")
-            color = (255, 0, 200) if name == curr_behavior_name else (140, 0, 140)
-            lines = []
+            color = active_color if is_running else inactive_color
             prefix = 'x'
-            if b_enabled:
+            postfix = ''
+            if enabled:
                 prefix = '-'
+            else:
+                postfix = '(disabled)'
             if name == curr_behavior_name:
                 prefix = '>'
-            lines.append(f"{prefix} {name}")
-            parameters = behavior.get("parameters", [])
-            for param_name in parameters:
-                parameter = parameters[param_name]
-                param_name = param_name.lower()
-                p_enabled = parameter.get("enabled", True)
-                if not p_enabled:
-                    continue
-                value = -999
-                if param_name == "time":
-                    last_time = behavior.get("last_executed_time", None)
-                    elapsed = 0
-                    timeout = parameter.get("timeout", 600)
-                    if last_time is not None:
-                        elapsed = (datetime.datetime.now() - last_time).seconds
-                    if name == curr_behavior_name:
-                        lines[0] += f"{param_name}: {elapsed}/{timeout}"
-                    else:
-                        lines.append(f"  {param_name}: {elapsed}/{timeout}")
-                    continue
-                elif param_name == "people":
-                    value = p_data.avg
-                elif param_name == "groups":
-                    value = g_data.avg
-                elif param_name == "people_in_groups_ratio":
-                    value = 0
-                    if p_data.avg > 0:
-                        value = g_data.avg / p_data.avg
-                elif param_name == "avg_distance_between_people":
-                    value = d_data.avg
-                elif param_name == "avg_distance_from_machine":
-                    value = dm_data.avg
+                postfix = '(running)'
+        else:
+            if not enabled:
+                return False
 
-                min_value = parameter.get('min', 0)
-                max_value = parameter.get('max', 0)
-                if name == curr_behavior_name:
-                    lines[0] += f"{param_name}: [{min_value}, {max_value}]"
-                else:
-                    lines.append(f"  {param_name}: {min_value} < {value:.2f} < {max_value}")
-            text_y = utils.draw_debug_lines(lines, color, drawer, canvas, text_x, text_y, draw_type)
-        return text_y
+        parameters = behavior.get("parameters", [])
+        for param_name in parameters:
+            criterium_met, is_enabled = self.check_parameter(parameters[param_name], param_name, behavior, is_running, self.frame_buffer, right_text_pos, inactive_color, active_color, debug=debug)
+            criteria_met += 1 if criterium_met else 0
+            total_enabled_criteria += 1 if is_enabled else 0
+        right_text_pos.y += self.logger.line_height
+        self.logger.add_text_line(f"{prefix} {name.upper()} {postfix} {criteria_met}/{total_enabled_criteria}", color, right_text_pos_orig)
+        return criteria_met == total_enabled_criteria
 
-    def draw_behavior_debug(self, drawer, canvas, draw_type='cv', debug=True, text_x=0, text_y=0, offset_x=20,
-                            offset_y=300):
-        if debug:
-            print(f"Drawing behavior debug")
-        p_data = self.frame_buffer.people_data
-        g_data = self.frame_buffer.groups_data
-        d_data = self.frame_buffer.distance_data
-        dm_data = self.frame_buffer.machine_distance_data
-        text_x = int(text_x + offset_x)
-        text_y = int(text_y + offset_y)
-        behavior_dbg = "None"
-        if self.current_behavior is not None:
-            behavior_dbg = self.current_behavior["name"]
-        lines = [f"Running Action {behavior_dbg}"]
-        lines.append(f"People - avg: {p_data.avg:.2f}, minmax: [{p_data.min:.2f}, {p_data.max:.2f}], n: {p_data.non_zeroes}/{self.frame_buffer.size()}")
-        lines.append(f"Groups - avg: {g_data.avg:.2f}, minmax: [{g_data.min:.2f}, {g_data.max:.2f}], n: {g_data.non_zeroes}/{self.frame_buffer.size()}")
-        lines.append(f"P_Distance - avg: {d_data.avg:.2f}, minmax: [{d_data.min:.2f}, {d_data.max:.2f}], n: {d_data.non_zeroes}/{self.frame_buffer.size()}")
-        lines.append(f"M_Distance - avg: {dm_data.avg:.2f}, minmax: [{dm_data.min:.2f}, {dm_data.max:.2f}], n: {dm_data.non_zeroes}/{self.frame_buffer.size()}")
-        color = (255, 50, 0)
-        b_color = (150, 150, 150) if behavior_dbg == "None" else (255, 255, 0)
-        text_y = utils.draw_debug_lines(lines, color, drawer, canvas, text_x, text_y, draw_type)
-        return text_y
+    def update_action(self, left_text_pos, right_text_pos, debug=True):
+        right_text_pos_orig = Point(right_text_pos.x, right_text_pos.y)
+        right_text_pos.y += self.logger.line_height*1.5
+        self.current_behavior = None
+        self.frame_buffer.add_frame_data(self.cameras)
+        action_updated = False
+        # if self.frame_buffer.empty_frames > 0:
+        #     return left_text_pos, right_text_pos
+        for behavior in self.behaviors:
+            all_criteria_met = self.check_behavior(behavior, {}, right_text_pos, debug=debug)
+            if all_criteria_met and not action_updated:
+                action_updated = True
+                self.current_behavior = behavior
+                name = self.current_behavior.get("name", "unknown")
+                command = self.current_behavior.get("arduino_command", "")
+                print(f"Action updated: {name} ({command})")
+                self.arduino.send_command(command)
+                behavior["last_executed_time"] = datetime.datetime.now()
+                print(f"\r\nNew ACTION: Running command {command} from behavior {name}\n\r")
+                # We found the command to execute so we can stop here
+                if not debug:
+                    return
+        curr_behavior_name = self.current_behavior.get('name', 'NONE').upper() if self.current_behavior is not None else '-'
+        self.logger.add_text_line(f"Current Behaviour: {curr_behavior_name}", (255, 0, 0), right_text_pos_orig)
+        b_color = (150, 150, 150) if curr_behavior_name == "None" else (255, 255, 0)
+        left_text_pos = self.logger.add_text_line(f"Running Action {curr_behavior_name}", b_color, left_text_pos)
+        data = self.frame_buffer.people_data
+        left_text_pos = self.logger.add_text_line(
+            f"People - avg: {data.avg:.2f}, minmax: [{data.min:.2f}, {data.max:.2f}], n: {data.non_zeroes}/{self.frame_buffer.size()}",
+            b_color, left_text_pos)
+        data = self.frame_buffer.groups_data
+        left_text_pos = self.logger.add_text_line(
+            f"Groups - avg: {data.avg:.2f}, minmax: [{data.min:.2f}, {data.max:.2f}], n: {data.non_zeroes}/{self.frame_buffer.size()}",
+            b_color, left_text_pos)
+        data = self.frame_buffer.distance_data
+        left_text_pos = self.logger.add_text_line(
+            f"P_Distance - avg: {data.avg:.2f}, minmax: [{data.min:.2f}, {data.max:.2f}], n: {data.non_zeroes}/{self.frame_buffer.size()}",
+            b_color, left_text_pos)
+        data = self.frame_buffer.machine_distance_data
+        left_text_pos = self.logger.add_text_line(
+            f"M_Distance - avg: {data.avg:.2f}, minmax: [{data.min:.2f}, {data.max:.2f}], n: {data.non_zeroes}/{self.frame_buffer.size()}",
+            b_color, left_text_pos)
+        return
 
-    def draw_camera_debug(self, drawer, canvas, draw_type='cv', debug=True, offset_x=20, offset_y=-20):
-        if debug:
-            print(f"Drawing camera debug")
+    def draw_cameras_debug(self, draw_graph_data):
         for i in range(0, len(self.cameras)):
             camera = self.cameras[i]
-            if camera.enabled:
-                # text_x = int(camera.start_x + offset_x)
-                # text_y = int(camera.end_y + offset_y)
-                if len(camera.path_vertices) > 0:
-                    for j in range(0, len(camera.path_vertices)-1):
-                        p1 = camera.path_vertices[j]
-                        p2 = camera.path_vertices[j+1]
-                        thickness = 2
-                        if draw_type.lower() == 'cv':
-                            drawer.line(canvas, (int(p1.x), int(p1.y)), (int(p2.x), int(p2.y)), camera.color, thickness)
-                        else:
-                            drawer.draw.line(self.scene.screen, color=camera.color, start_pos=(int(p1.x), int(p1.y)), end_pos=(int(p2.x), int(p2.y)), width=thickness)
-
-                # self.cv2.rectangle(frame, (int(camera.start_x), int(camera.start_y)), (int(camera.end_x), int(camera.end_y)), (255, 0, 0), 2)
-                # self.cv2.putText(frame, f"Q{i + 1}: {camera.num_people}", (text_x, text_y), 0, 0.4, (0, 0, 255), 2)
-        # if debug:
-        #     print(f"Quadrant {i + 1} [{camera.q_row}, {camera.q_col}] - Count: {camera.num_people} x=[{camera.start_x}, {camera.end_x}] - y=[{camera.start_y}, {camera.end_y}]")
+            camera.draw_debug(self.logger, draw_graph_data=draw_graph_data)
 
     def update_map(self):
         height = 500
@@ -403,80 +393,65 @@ class SwarmAPP():
         self.cv2.circle(map_canvas, (int(height/2), int(width/2)), Constants.outer_radius, (0, 0, 0), 2)
         self.cv2.imshow("SWARM map", map_canvas)
 
-    def draw_graph(self, drawer, font_drawer, canvas, draw_type='cv', debug=True, offset_x=20, offset_y=200):
-        if debug:
-            print(f"Drawing graph debug")
-        for i in range(0, len(self.cameras)):
-            camera = self.cameras[i]
-            if camera.enabled:
-                camera.p_graph.draw_nodes(drawer, canvas, draw_type=draw_type)
-                camera.p_graph.draw_edges(drawer, canvas, draw_type=draw_type, debug=debug)
-                camera.p_graph.draw_dist_from_machine(drawer, canvas, camera.machine_position.x, camera.machine_position.y, draw_type=draw_type, debug=debug)
-                camera.p_graph.draw_debug(font_drawer, canvas, camera.text_position.x, camera.text_position.y, 10, 10, draw_type=draw_type, debug=debug, prefix=i)
-
     def run(self, debug=False):
+        draw_type = SwarmLogger.PYGAME
+        if draw_type == SwarmLogger.PYGAME:
+            self.font = pygame.font.SysFont('Cascadia', Constants.font_size)
+            self.logger = SwarmLogger(pygame, self.scene.screen, font=self.font, font_size=Constants.font_size)
+        else:
+            self.logger = SwarmLogger(self.cv2, None, font=None, font_size=0.4)
+
+        offset = Point(10, 10)
         while True:
             print(f"--- Start loop ---")
             e = datetime.datetime.now()
             print(f"\r\n{e.strftime('%Y-%m-%d %H:%M:%S')}", end="\r")
-            draw_type = 'pygame'
+
             result, self.frame = self.capture0.read()
-            if draw_type == 'cv':
-                drawer = self.cv2
-                font_drawer = self.cv2
-                canvas = self.frame
+            if self.logger.draw_type == SwarmLogger.OPENCV:
+                self.logger.update_canvas(self.frame)
             else:
-                drawer = pygame
-                font_drawer = self.font
                 self.scene.update(self.cv2.cvtColor(self.frame, self.cv2.COLOR_BGR2RGB), debug=debug)
-                canvas = self.scene.screen
+
+            left_text_pos = Point(Constants.SCREEN_WIDTH * 0.5 + offset.x, Constants.SCREEN_HEIGHT * 0.5 + offset.y)
+            right_text_pos = Point(Constants.SCREEN_WIDTH + offset.x, 0 + offset.y)
 
             self.update_arduino_config()
             self.arduino.update_status(debug=debug)
             if debug:
                 print(f"Arduino status updated!")
-            offset_y = 0
 
             tracks, poses, frame_updated = self.input.update_trackers(self.frame)
             if Constants.draw_openpose and frame_updated is not None:
                 self.frame = frame_updated
 
-            self.update_tracks(tracks, poses, canvas, drawer=drawer, draw_type=draw_type, debug=debug)
+            self.update_tracks(tracks, poses, self.logger, debug=debug)
 
             self.update_cameras_config()
             self.update_cameras_data(debug=debug)
 
-            if Constants.draw_cameras_data:
-                self.draw_camera_debug(drawer, canvas, draw_type=draw_type, debug=debug, offset_y=-15)
-
-            if Constants.draw_graph:
-                offset_y += 20
-                self.draw_graph(drawer, font_drawer, canvas, draw_type=draw_type, offset_y=offset_y, debug=debug)
-
             self.update_behaviors_config()
-            self.update_action(debug=True)
-            if Constants.draw_behavior_data:
-                text_x = Constants.SCREEN_WIDTH*0.5
-                text_y = Constants.SCREEN_HEIGHT*0.5
-                offset_x = 10
-                offset_y = 10
-                text_y = self.arduino.draw_arduino_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y, offset_x=offset_x, offset_y=offset_y, debug=debug)
-                self.draw_behavior_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y+10, offset_x=offset_x, offset_y=offset_y, debug=debug)
-                text_x = Constants.SCREEN_WIDTH
-                text_y = Constants.SCREEN_HEIGHT*0
-                self.draw_actions_debug(font_drawer, canvas, draw_type=draw_type, text_x=text_x, text_y=text_y, offset_x=offset_x, offset_y=offset_y, debug=debug)
 
-            if draw_type.lower() == 'cv':
-                self.scene.update(self.cv2.cvtColor(canvas, self.cv2.COLOR_BGR2RGB), debug=debug)
+            self.draw_cameras_debug(draw_graph_data=False)
+            pygame.image.save(self.scene.screen, self.screenshot_filename)
+            self.sio.send_data(self.screenshot_filename)
+
+            self.sio.draw_debug(self.logger, left_text_pos)
+            left_text_pos.y += self.logger.line_height
+            self.arduino.draw_debug(self.logger, left_text_pos, debug=True)
+            left_text_pos.y += self.logger.line_height
+            self.update_action(left_text_pos=left_text_pos, right_text_pos=right_text_pos, debug=True)
+
+            self.logger.flush_text_lines()
+
+            if self.logger.draw_type == SwarmLogger.OPENCV:
+                self.scene.update(self.cv2.cvtColor(self.frame, self.cv2.COLOR_BGR2RGB), debug=debug)
             self.scene.render(filename=self.screenshot_filename)
 
             if Constants.draw_map:
                 if debug:
                     print(f"Updating map...")
                 self.update_map()
-
-            if self.ws_enabled:
-                self.sendData()
 
             print(f"--- End loop ---")
             self.cv2.waitKey(1)
