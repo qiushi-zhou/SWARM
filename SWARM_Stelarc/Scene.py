@@ -9,8 +9,9 @@ class Scene():
         self.sceneClock = pygame.time.Clock()
         self.backgroundColor = (0, 0, 0)
 
-    def render(self):
+    def render(self, filename='tempOP.jpeg'):
         pygame.display.flip()
+        pygame.image.save(self.screen, filename)
 
     def update(self, frame, debug=False):
         if debug:

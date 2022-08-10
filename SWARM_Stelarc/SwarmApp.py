@@ -18,6 +18,9 @@ import oyaml as yaml
 from Camera import Camera
 from FrameBufferData import FrameBuffer
 from utils import Point
+import asyncio
+import socketio
+import logging
 
 
 class SwarmAPP():
@@ -30,7 +33,6 @@ class SwarmAPP():
         self.capture_index = 2
         self.capture0 = None
         self.frame = None
-
         self.cameras_config = None
         self.behavior_config = None
         self.arduino_config = None
@@ -77,6 +79,31 @@ class SwarmAPP():
         self.font = pygame.font.SysFont('Cascadia', Constants.font_size)
         screen = pygame.display.get_surface()
         self.scene = Scene(screen)
+        self.sio = socketio.AsyncClient()
+        sio.connect(Constants.ws_uri)
+        self.screenshot_filename = 'tempOP.jpeg'
+    @sio.event
+    def connect():
+        print("I'm connected!")
+
+    @sio.event
+    def connect_error(data):
+        print("The connection failed!")
+
+    @sio.event
+    def disconnect():
+        print("I'm disconnected!")
+        
+    def encode_image_data(self, img_filename):
+        image_data = self.cv2.imread(img_filename)
+        b64_data = base64.b64encode(buffer)
+        b64_data = b64_data.decode()
+        image_data = "data:image/jpeg;base64," + b64_data 
+        return image_data
+    
+    async def sendData(self, graphData=None):
+        img_data_str = self.encode_image_data(self.screenshot_filename)
+        await sio.emit('op_frame', {'frame_data': img_data, 'time':datetime.datetime().now().ctime()})
 
     def notify(self, observable, *args, **kwargs):
         print('Got', args, kwargs, 'From', observable)
@@ -423,12 +450,15 @@ class SwarmAPP():
 
             if draw_type.lower() == 'cv':
                 self.scene.update(self.cv2.cvtColor(canvas, self.cv2.COLOR_BGR2RGB), debug=debug)
-            self.scene.render()
+            self.scene.render(filename=self.screenshot_filename)
 
             if Constants.draw_map:
                 if debug:
                     print(f"Updating map...")
                 self.update_map()
+            
+            
+            self.sendData()
 
             print(f"--- End loop ---")
             self.cv2.waitKey(1)

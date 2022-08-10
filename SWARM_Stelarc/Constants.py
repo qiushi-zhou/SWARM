@@ -5,6 +5,8 @@ SCREEN_HEIGHT = 720
 # PATH_win = 'C:/Users/Admin/Documents/GitHub/SWARM'
 PATH_mac = '/Users/marinig/Documents/GitHub/SWARM'
 
+ws_uri = "https://anthropomorphicmachine.com:3005/vizualization"
+
 max_cosine_distance = 1
 nn_budget = None
 nms_max_overlap = 1.0
