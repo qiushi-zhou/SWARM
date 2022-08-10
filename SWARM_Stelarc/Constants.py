@@ -29,5 +29,8 @@ outer_radius = 200
 
 max_capture_index = 10
 
+time_start = "10:45"
+time_end = "17:00"
+
 
 

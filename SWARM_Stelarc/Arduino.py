@@ -13,9 +13,10 @@ import collections
 
 class ArduinoStatus():
 
-    def __init__(self, status_id=-1, title="", description="", timeout=0, prev_status_id=-1, next_status_id=-1, testing_timeout=0, mockup_commands=True):
+    def __init__(self, status_id=-1, title="", description="", timeout=0, prev_status_id=-1, next_status_id=-1, testing_timeout=0, mockup_commands=True, not_operational=False):
         self.id = status_id
         self.mockup_commands = mockup_commands
+        self.not_operational = not_operational
         self.title = title
         self.description = description
         self.timeout = timeout
@@ -25,7 +26,7 @@ class ArduinoStatus():
         self.next_status_id = next_status_id
 
     def get_timeout(self):
-        if self.mockup_commands:
+        if self.mockup_commands or self.not_operational:
             return self.testing_timeout
         return self.timeout
 
@@ -52,6 +53,8 @@ class Arduino():
         self.p_3 = p_3
         self.last_command = None
         self.mockup_commands = mockup_commands
+        self.working_hours_start = time.strptime("10:45", "%H:%M")
+        self.working_hours_end = time.strptime("17:00", "%H:%M")
 
         self.default_statuses = {
             'not_initialized': ArduinoStatus(0, 'Not Initialized', 'Arduino not initialized', 0, mockup_commands=self.mockup_commands),
@@ -76,6 +79,16 @@ class Arduino():
 
     def update_config(self, config_data=None):
         self.port = config_data.get('last_port', "COM4")
+        wh = config_data.get('working_hours', None)
+        if wh is not None:
+            self.working_hours_start = wh.get('from', "10:45")
+            self.working_hours_end = wh.get('to', "17:00")
+        else:
+            self.working_hours_start = "10:45"
+            self.working_hours_end = "17:00"
+
+        self.working_hours_start = time.strptime(self.working_hours_start, "%H:%M")
+        self.working_hours_end = time.strptime(self.working_hours_end, "%H:%M")
         s_list = config_data.get('statuses', [])
         for s in s_list:
             name = s['name']
@@ -219,16 +232,22 @@ class Arduino():
 
     def send_command(self, command, loop=False, debug=True, testing_command=True):
         if self.status.id == self.statuses['ready'].id:
+            prefix = '(Normal)'
             cmd_string = self.build_command_str(command, loop)
             if debug:
                 print(f"Sending command string: {cmd_string}")
-            if not testing_command:
-                self.send(cmd_string)
+            if not self.not_operational:
+                if not testing_command:
+                    self.send(cmd_string)
+                else:
+                    prefix = '(Testing)'
+            else:
+                prefix = '(Not Operational)'
             self.last_command = command
             prev_status = self.status
             self.status = self.statuses['command_sent']
             self.status.started_time = datetime.datetime.now()
-            print(f"{'(Testing)' if testing_command else ''} Command '{self.last_command}' sent! Status updated: {prev_status.title} -> {self.status.title}!")
+            print(f"{prefix} Command '{self.last_command}' sent! Status updated: {prev_status.title} -> {self.status.title}!")
         else:
             print(f"Arduino not ready to receive command {command}, status {self.status.title}: {self.status.description}!")
         return self.status
@@ -241,6 +260,21 @@ class Arduino():
         self.ser.close()
 
     def update_status(self, blocking_wait=False, debug=True):
+        now = datetime.datetime.now()
+        # print(f"{self.working_hours_start.tm_hour}:{self.working_hours_start.tm_min} <= {now.hour}:{now.minute} <= {self.working_hours_end.tm_hour}:{self.working_hours_end.tm_min}")
+        start = now.replace(hour=self.working_hours_start.tm_hour, minute=self.working_hours_start.tm_min, second=0, microsecond=0)
+        end = now.replace(hour=self.working_hours_end.tm_hour, minute=self.working_hours_end.tm_min, second=0, microsecond=0)
+        print(f"{start} <= {now} <= {end}")
+        if start <= now <= end:
+            self.not_operational = False
+        else:
+            print(f"MACHINE NOT OPERATIONAL")
+            self.not_operational = True
+
+        for s_idx in self.statuses:
+            s = self.statuses[s_idx]
+            s.not_operational = self.not_operational
+
         while self.status.id == self.statuses['not_initialized'].id:
             self.init()
         if self.status.id == self.statuses['not_connected'].id:
@@ -300,13 +334,28 @@ class Arduino():
             print(f"Drawing arduino debug")
         text_x = int(text_x + offset_x)
         text_y = int(text_y + offset_y)
-        arduino_cmd_dbg = f"Last Command: {self.last_command}"
+        prefix = "(Normal)"
+        color = (0, 255, 0)
+        if self.mockup_commands:
+            prefix = "(Mockup Commands)"
+            color = (0, 0, 255)
+        if self.not_operational:
+            prefix = "(Not Operational )"
+            color = (255, 0, 0)
+        arduino_cmd_dbg = f"{prefix} Last Command: {self.last_command}"
         if self.last_command is not None:
             arduino_cmd_dbg += f" sent at {self.statuses['command_sent'].started_time.strftime('%Y-%m-%d %H:%M:%S')}"
-        color = (0,0,255)
+
+        now = datetime.datetime.now()
+
+        time_str = f"Time of the day: {now.hour:>02d}:{now.minute:>02d}"
+        time_str += f" - Working Hours {self.working_hours_start.tm_hour:>02d}:{self.working_hours_start.tm_min:>02d} - {self.working_hours_end.tm_hour:>02d}:{self.working_hours_end.tm_min:>02d}"
+
         if draw_type.lower() == 'cv':
+            drawer.putText(canvas, time_str, (text_x, text_y), 0, 0.4, color, 2); text_y += 20
             drawer.putText(canvas, arduino_cmd_dbg, (text_x, text_y), 0, 0.4, color, 2); text_y += 20
         else:
+            canvas.blit(drawer.render(time_str, True, color), (text_x, text_y)); text_y += 20
             canvas.blit(drawer.render(arduino_cmd_dbg, True, color), (text_x, text_y)); text_y += 20
 
         lines = {}

@@ -20,11 +20,12 @@ from FrameBufferData import FrameBuffer
 from utils import Point
 import asyncio
 import socketio
+import base64
 import logging
 
 
 class SwarmAPP():
-    def __init__(self, observable=None, arduino_port="COM4", mockup_commands=True):
+    def __init__(self, observable=None, arduino_port="COM3", ws_enabled=False, mockup_commands=True):
         self.arduino = Arduino(port=arduino_port, mockup_commands=mockup_commands)
         if observable:
             observable.subscribe(self)
@@ -43,6 +44,7 @@ class SwarmAPP():
         self.update_arduino_config()
         self.frame_buffer = FrameBuffer(self.behavior_config.get('buffer_size', 10))
         self.current_behavior = None
+        self.ws_enabled = ws_enabled
         while True:
             try:
                 if platform == "win32":
@@ -79,31 +81,47 @@ class SwarmAPP():
         self.font = pygame.font.SysFont('Cascadia', Constants.font_size)
         screen = pygame.display.get_surface()
         self.scene = Scene(screen)
-        self.sio = socketio.AsyncClient()
-        sio.connect(Constants.ws_uri)
+        # self.async_loop = asyncio.get_event_loop()
         self.screenshot_filename = 'tempOP.jpeg'
-    @sio.event
-    def connect():
-        print("I'm connected!")
+        if self.ws_enabled:
+            self.sio = socketio.Client()
+            self.setupSocketio()
 
-    @sio.event
-    def connect_error(data):
-        print("The connection failed!")
+    def setupSocketio(self):
+        print(f"Connecting to WebSocket on: {Constants.ws_uri}")
+        self.call_backs()
+        # self.sio.start_background_task(self.sio.connect, Constants.ws_uri)
+        self.sio.connect(Constants.ws_uri)
 
-    @sio.event
-    def disconnect():
-        print("I'm disconnected!")
+    def call_backs(self):
+        @self.sio.event
+        def connect():
+            print("I'm connected!")
+
+        @self.sio.event
+        def connect_error(data):
+            print("The connection failed!")
+
+        @self.sio.event
+        def disconnect():
+            print("I'm disconnected!")
         
     def encode_image_data(self, img_filename):
         image_data = self.cv2.imread(img_filename)
-        b64_data = base64.b64encode(buffer)
+        b64_data = base64.b64encode(image_data)
         b64_data = b64_data.decode()
         image_data = "data:image/jpeg;base64," + b64_data 
         return image_data
     
-    async def sendData(self, graphData=None):
-        img_data_str = self.encode_image_data(self.screenshot_filename)
-        await sio.emit('op_frame', {'frame_data': img_data, 'time':datetime.datetime().now().ctime()})
+    def sendData(self, graphData=None):
+        if self.sio.connected:
+            img_data_str = self.encode_image_data(self.screenshot_filename)
+            t = datetime.datetime.now()
+
+            # self.sio.start_background_task(self.sio.emit, 'op_frame', {'frame_data': img_data_str, 'time':datetime.datetime().now().ctime()})
+            self.sio.emit('op_frame', {'frame_data': img_data_str, 'time_ms': time.mktime(t.timetuple()), "datetime": t.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]})
+        else:
+            print(f"WS NOT CONNECTED!")
 
     def notify(self, observable, *args, **kwargs):
         print('Got', args, kwargs, 'From', observable)
@@ -456,9 +474,9 @@ class SwarmAPP():
                 if debug:
                     print(f"Updating map...")
                 self.update_map()
-            
-            
-            self.sendData()
+
+            if self.ws_enabled:
+                self.sendData()
 
             print(f"--- End loop ---")
             self.cv2.waitKey(1)

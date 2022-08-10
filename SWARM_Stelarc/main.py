@@ -27,7 +27,7 @@ if __name__ == "__main__":
     startTime = re.sub(":", "-", startTime.strip())
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-        
+
     with open(f"{log_dir}/{startTime}-data.csv", 'w', newline='') as csvfile:
         spamwriter = csv.writer(csvfile, delimiter=',', quotechar=' ', quoting=csv.QUOTE_MINIMAL)
         spamwriter.writerow(["Timestamp","PoseId", "Nose.x", "Nose.y", "Neck.x", "Neck.y",
@@ -40,6 +40,6 @@ if __name__ == "__main__":
                              "LBigToe.x", "LBigToe.y", "LSmallToe.x", "LSmallToe.y", "LHeel.x", "LHeel.y",
                              "RBigToe.x", "RBigToe.y", "RSmallToe.x", "RSmallToe.y", "RHeel.x", "RHeel.y"])
 
-        swarm = SwarmAPP(arduino_port="COM4", mockup_commands=True)
-        # swarm = SwarmAPP(arduino_port="COM4", mockup_commands=False)
+        swarm = SwarmAPP(arduino_port="COM3", mockup_commands=True, ws_enabled=False)
+        # swarm = SwarmAPP(arduino_port="COM3", mockup_commands=False, ws_enabled=False)
         swarm.run(debug=False)
