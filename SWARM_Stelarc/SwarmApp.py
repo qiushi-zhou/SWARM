@@ -49,9 +49,10 @@ class WebSocket:
         img_str = base64.b64encode(image_data.getvalue())
         return "data:image/jpeg;base64," + img_str.decode()
 
-    def send_data(self, image_data):
+    def send_data(self, pygame, screen, image_data):
         if self.ws_enabled and self.sio.connected:
             try:
+                pygame.image.save(self.scene.screen, image_data, "JPEG")
                 img_data_str = self.encode_image_data(image_data)
                 t = datetime.datetime.now()
                 # self.sio.start_background_task(self.sio.emit, 'op_frame', {'frame_data': img_data_str, 'time':datetime.datetime().now().ctime()})
@@ -63,7 +64,8 @@ class WebSocket:
             except Exception as e:
                 print(f"Error sending data to socket {e}")
         else:
-            print(f"WS NOT CONNECTED!")
+            pass
+            # print(f"WS NOT CONNECTED!")
 
     def call_backs(self):
         @self.sio.event
@@ -84,6 +86,7 @@ class WebSocket:
         @self.sio.event
         def disconnect():
             pass
+
     def draw_debug(self, logger, start_pos, debug=False):
         dbg_str = "WebSocket "
         if not self.ws_enabled:
@@ -103,6 +106,7 @@ class SwarmAPP():
         self.capture_index = 2
         self.capture0 = None
         self.frame = None
+        self.fps = 0
         self.cameras_config = None
         self.behavior_config = None
         self.arduino_config = None
@@ -160,7 +164,11 @@ class SwarmAPP():
 
     def update_behaviors_config(self):
         file_path = r'./Behaviour_Config.yaml'
-        if self.behavior_config is None or (self.behavior_config['last_modified_time'] < os.path.getmtime(file_path)):
+        try:
+            last_modified_time = self.behavior_config['last_modified_time']
+        except Exception as e:
+            last_modified_time = -1
+        if self.behavior_config is None or (last_modified_time < os.path.getmtime(file_path)):
             print(f"Updating Behaviors configuration from file...")
             try:
                 with open(file_path) as file:
@@ -173,34 +181,43 @@ class SwarmAPP():
 
     def update_cameras_config(self):
         file_path = r'./CamerasConfig.yaml'
-        if self.cameras_config is None or (self.cameras_config['last_modified_time'] < os.path.getmtime(file_path)):
+        try:
+            last_modified_time = self.cameras_config['last_modified_time']
+        except Exception as e:
+            last_modified_time = -1
+        if self.cameras_config is None or (last_modified_time < os.path.getmtime(file_path)):
             print(f"Updating Cameras configuration from file...")
             try:
                 with open(file_path) as file:
                     self.cameras_config = yaml.load(file, Loader=yaml.FullLoader)
-            except:
+                cameras_data = self.cameras_config.get("cameras", [])
+                threshold = self.cameras_config.get("group_distance_threshold", -1)
+                for i in range(0, len(cameras_data)):
+                    cameras_data[i]["group_distance_threshold"] = threshold
+                    if len(self.cameras) <= i:
+                        self.cameras.append(Camera(i, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, cameras_data[i]))
+                    else:
+                        self.cameras[i].update_config(Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, cameras_data[i])
+                self.cameras_config['last_modified_time'] = os.path.getmtime(file_path)
+            except Exception as e:
+                print(f"Error opening cameras config file {e}")
                 return
-            cameras_data = self.cameras_config.get("cameras", [])
-            threshold = self.cameras_config.get("group_distance_threshold", -1)
-            for i in range(0, len(cameras_data)):
-                cameras_data[i]["group_distance_threshold"] = threshold
-                if len(self.cameras) <= i:
-                    self.cameras.append(Camera(i, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, cameras_data[i]))
-                else:
-                    self.cameras[i].update_config(Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, cameras_data[i])
-            self.cameras_config['last_modified_time'] = os.path.getmtime(file_path)
 
     def update_arduino_config(self):
         file_path = r'./ArduinoConfig.yaml'
-        if self.arduino_config is None or (self.arduino_config['last_modified_time'] < os.path.getmtime(file_path)):
+        try:
+            last_modified_time = self.arduino_config['last_modified_time']
+        except Exception as e:
+            last_modified_time = -1
+        if self.arduino_config is None or (last_modified_time < os.path.getmtime(file_path)):
             print(f"Updating Cameras configuration from file...")
             try:
                 with open(file_path) as file:
                     self.arduino_config = yaml.load(file, Loader=yaml.FullLoader)
-            except:
+                self.arduino.update_config(self.arduino_config)
+                self.arduino_config['last_modified_time'] = os.path.getmtime(file_path)
+            except Exception as e:
                 return
-            self.arduino.update_config(self.arduino_config)
-            self.arduino_config['last_modified_time'] = os.path.getmtime(file_path)
 
     def update_tracks(self, tracks, keypoints, logger, debug=True):
         if debug:
@@ -263,7 +280,7 @@ class SwarmAPP():
             last_time = behavior.get("last_executed_time", None)
             if last_time is None:
                 return True, enabled
-            timeout = param.get("timeout", 600)
+            timeout = param.get("timeout", 300)
             elapsed = (datetime.datetime.now() - last_time).seconds
             if debug:
                 if is_running:
@@ -328,9 +345,13 @@ class SwarmAPP():
 
         parameters = behavior.get("parameters", [])
         for param_name in parameters:
-            criterium_met, is_enabled = self.check_parameter(parameters[param_name], param_name, behavior, is_running, self.frame_buffer, right_text_pos, inactive_color, active_color, debug=debug)
-            criteria_met += 1 if criterium_met else 0
-            total_enabled_criteria += 1 if is_enabled else 0
+            try:
+                criterium_met, is_enabled = self.check_parameter(parameters[param_name], param_name, behavior, is_running, self.frame_buffer, right_text_pos, inactive_color, active_color, debug=debug)
+                criteria_met += 1 if criterium_met else 0
+                total_enabled_criteria += 1 if is_enabled else 0
+            except Exception as e:
+                print(f"Error checking parameter {param_name}")
+                return False
         right_text_pos.y += self.logger.line_height
         self.logger.add_text_line(f"{prefix} {name.upper()} {postfix} {criteria_met}/{total_enabled_criteria}", color, right_text_pos_orig)
         return criteria_met == total_enabled_criteria
@@ -345,7 +366,11 @@ class SwarmAPP():
         # if self.frame_buffer.empty_frames > 0:
         #     return left_text_pos, right_text_pos
         for behavior in self.behaviors:
-            all_criteria_met = self.check_behavior(behavior, {}, right_text_pos, debug=debug)
+            try:
+                all_criteria_met = self.check_behavior(behavior, {}, right_text_pos, debug=debug)
+            except Exception as e:
+                print(f"Error checking behavior: {behavior.get('name', 'NONE')}")
+                all_criteria_met = false
             if all_criteria_met and not action_updated:
                 action_updated = True
                 self.current_behavior = behavior
@@ -405,6 +430,9 @@ class SwarmAPP():
 
         offset = Point(10, 10)
         image_data = io.BytesIO()
+        start_time = time.time()
+        fps_update_time = 2
+        frame_count = 0
         while True:
             if debug:
                 print(f"--- Start loop ---")
@@ -412,6 +440,7 @@ class SwarmAPP():
                 print(f"\r\n{e.strftime('%Y-%m-%d %H:%M:%S')}", end="\r")
 
             result, self.frame = self.capture0.read()
+            # self.frame = cv2.resize(self.rame, (224, 224))
             if self.logger.draw_type == SwarmLogger.OPENCV:
                 self.logger.update_canvas(self.frame)
             else:
@@ -439,21 +468,27 @@ class SwarmAPP():
             self.draw_cameras_debug(draw_graph_data=False)
 
             # pygame.image.save(self.scene.screen, image_data, "JPEG")
+            elapsed = time.time() - start_time
+            frame_count += 1
+            if elapsed >= fps_update_time:
+                self.fps = int(frame_count / (elapsed))
+                frame_count = 0
+                start_time = time.time()
 
+            left_text_pos = self.logger.add_text_line(f"Frame size: {self.frame.shape} FPS: {self.fps}", (255, 255, 0), left_text_pos)
             self.sio.draw_debug(self.logger, left_text_pos)
             left_text_pos.y += self.logger.line_height
             self.arduino.draw_debug(self.logger, left_text_pos, debug=True)
             left_text_pos.y += self.logger.line_height
             self.update_action(left_text_pos=left_text_pos, right_text_pos=right_text_pos, debug=True)
 
-            self.logger.flush_text_lines(debug=debug)
+            self.logger.flush_text_lines(debug=debug, draw=True)
 
             if self.logger.draw_type == SwarmLogger.OPENCV:
                 self.scene.update(self.cv2.cvtColor(self.frame, self.cv2.COLOR_BGR2RGB), debug=debug)
             self.scene.render()
 
-            pygame.image.save(self.scene.screen, image_data, "JPEG")
-            self.sio.send_data(image_data)
+            self.sio.send_data(pygame, self.scene.screen, image_data)
 
             if Constants.draw_map:
                 if debug:

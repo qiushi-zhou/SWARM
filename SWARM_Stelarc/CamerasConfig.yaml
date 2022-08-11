@@ -28,10 +28,11 @@ cameras:
     padding: 1 # Between 0 and 1
     color: [0, 255, 0]
     path: # point in px or use height/width (also h and w)
-      - { x: w*0.5, y: 0}
       - { x: w*0.5, y: h*0.5}
-      - { x: w*1.0, y: h*0.5}
-      - { x: w*1.0, y: 0}
+      - { x: w*1, y: h*0.5}
+      - { x: w*1, y: h*0.25 }
+      - { x: w*0.75, y: h*0.12 }
+      - { x: w*0.5, y: h*0.27 }
   - id: 2
     enabled: True
     anchor: bottomLeft # top, bottom, left, right, center

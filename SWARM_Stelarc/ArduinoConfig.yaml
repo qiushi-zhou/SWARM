@@ -1,7 +1,7 @@
-last_port: 'COM4'
 working_hours:
     from: "10:45" # 24hrs
-    to:  "17:00" # 4hrs
+#    to:  "17:00" # 4hrs
+    to:  "21:00" # 4hrs
 statuses:
   - name: not_initialized
     id: 0

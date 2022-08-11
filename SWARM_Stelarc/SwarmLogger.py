@@ -50,16 +50,21 @@ class SwarmLogger:
         # return Point(pos.x, pos.y+line_height)
         return pos
 
-    def flush_text_lines(self, debug=False):
+    def flush_text_lines(self, debug=False, draw=True):
         if debug:
             print(f"Flushing {len(self.buffer)} lines")
         while len(self.buffer) > 0:
             line = self.buffer.pop()
-            text_x = line.pos.x
-            text_y = line.pos.y
-            if self.draw_type == SwarmLogger.OPENCV:
-                self.drawer.putText(self.canvas, line.text, (int(text_x), int(text_y)), 0, line.font_size, line.color, 2)
-            else:
-                # print(f"{line.text}, {line.pos.x} {line.pos.y}, {line.color}")
-                self.canvas.blit(self.font.render(line.text, True, line.color), (int(text_x), int(text_y)))
+            if draw:
+                try:
+                    text_x = line.pos.x
+                    text_y = line.pos.y
+                    if self.draw_type == SwarmLogger.OPENCV:
+                        self.drawer.putText(self.canvas, line.text, (int(text_x), int(text_y)), 0, line.font_size, line.color, 2)
+                    else:
+                        # print(f"{line.text}, {line.pos.x} {line.pos.y}, {line.color}")
+                        self.canvas.blit(self.font.render(line.text, True, line.color), (int(text_x), int(text_y)))
+                except Exception as e:
+                    print(f"Error printing line " +line.text)
+                    pass
 

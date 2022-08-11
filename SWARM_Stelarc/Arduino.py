@@ -22,6 +22,7 @@ class ArduinoStatus():
         self.started_time = datetime.datetime.now()
         self.prev_status_id = prev_status_id
         self.next_status_id = next_status_id
+        self.extra = ''
 
     def get_timeout(self, mockup_commands, not_operational):
         if mockup_commands or not_operational:
@@ -193,7 +194,7 @@ class Arduino():
                 received = self.receive(prefix="Flushing init data...")
                 if received is None:
                     break
-                initial_string += received
+                initial_string += received.replace('\x00', '')
             if len(initial_string) > 1:
                 print(f"Flushed initial string: {initial_string}")
             self.status = self.statuses['ready']
@@ -244,6 +245,8 @@ class Arduino():
             self.last_command = command
             prev_status = self.status
             self.status = self.statuses['command_sent']
+            self.statuses['command_received'].extra = f"Waiting for confirmation ({command})"
+            self.status.extra = f"{command} sent..."
             self.status.started_time = datetime.datetime.now()
             if debug:
                 print(f"{prefix} Command '{self.last_command}' sent! Status updated: {prev_status.title} -> {self.status.title}!")
@@ -260,68 +263,74 @@ class Arduino():
         self.ser.close()
 
     def update_status(self, blocking_wait=False, debug=True):
-        now = datetime.datetime.now()
-        # print(f"{self.working_hours_start.tm_hour}:{self.working_hours_start.tm_min} <= {now.hour}:{now.minute} <= {self.working_hours_end.tm_hour}:{self.working_hours_end.tm_min}")
-        start = now.replace(hour=self.working_hours_start.tm_hour, minute=self.working_hours_start.tm_min, second=0, microsecond=0)
-        end = now.replace(hour=self.working_hours_end.tm_hour, minute=self.working_hours_end.tm_min, second=0, microsecond=0)
-        # print(f"{start} <= {now} <= {end}")
-        if start <= now <= end:
-            self.not_operational = False
-        else:
-            if debug:
-                print(f"MACHINE NOT OPERATIONAL")
-            self.not_operational = True
-
-        for s_idx in self.statuses:
-            s = self.statuses[s_idx]
-            s.not_operational = self.not_operational
-
-        while self.status.id == self.statuses['not_initialized'].id:
-            self.init()
-        if self.status.id == self.statuses['not_connected'].id:
-            return self.status
-        elif self.status.id == self.statuses['cooling_down'].id:
-            elapsed = (datetime.datetime.now() - self.status.started_time).seconds
-            if elapsed >= self.status.get_timeout(self.mockup_commands, self.not_operational):
-                self.status = self.statuses['ready']
-                self.status.started_time = datetime.datetime.now()
-        elif self.status.id == self.statuses['command_sent'].id:
-            if (datetime.datetime.now() - self.status.started_time).seconds >= self.status.get_timeout(self.mockup_commands, self.not_operational):
-                print(f"Max wait time waiting for feedback reached...")
-                self.status = self.statuses['command_received']
-                self.status.started_time = datetime.datetime.now()
+        try:
+            now = datetime.datetime.now()
+            # print(f"{self.working_hours_start.tm_hour}:{self.working_hours_start.tm_min} <= {now.hour}:{now.minute} <= {self.working_hours_end.tm_hour}:{self.working_hours_end.tm_min}")
+            start = now.replace(hour=self.working_hours_start.tm_hour, minute=self.working_hours_start.tm_min, second=0, microsecond=0)
+            end = now.replace(hour=self.working_hours_end.tm_hour, minute=self.working_hours_end.tm_min, second=0, microsecond=0)
+            # print(f"{start} <= {now} <= {end}")
+            if start <= now <= end:
+                self.not_operational = False
             else:
-                try:
-                    received = self.receive(debug=debug, prefix="Waiting for received command msg")
-                    if received is None:
-                        received = ""
-                except serial.serialutil.SerialException:
-                    received = ""
-                if "received" in received.lower():
-                    print(f"Received feedback from Arduino!")
+                if debug:
+                    print(f"MACHINE NOT OPERATIONAL")
+                self.not_operational = True
+
+            for s_idx in self.statuses:
+                s = self.statuses[s_idx]
+                s.not_operational = self.not_operational
+
+            while self.status.id == self.statuses['not_initialized'].id:
+                self.init()
+            if self.status.id == self.statuses['not_connected'].id:
+                return self.status
+            elif self.status.id == self.statuses['cooling_down'].id:
+                elapsed = (datetime.datetime.now() - self.status.started_time).seconds
+                if elapsed >= self.status.get_timeout(self.mockup_commands, self.not_operational):
+                    self.status = self.statuses['ready']
+                    self.status.started_time = datetime.datetime.now()
+            elif self.status.id == self.statuses['command_sent'].id:
+                if (datetime.datetime.now() - self.status.started_time).seconds >= self.status.get_timeout(self.mockup_commands, self.not_operational):
+                    print(f"Max wait time waiting for feedback reached...")
+                    self.status.extra = f"Arduino did not respond..."
                     self.status = self.statuses['command_received']
                     self.status.started_time = datetime.datetime.now()
-        elif self.status.id == self.statuses['command_received'].id:
-            if (datetime.datetime.now() - self.status.started_time).seconds >= self.status.get_timeout(self.mockup_commands, self.not_operational):
-                print(f"Max wait time between commands reached...")
-                self.status = self.statuses['cooling_down']
-                self.status.started_time = datetime.datetime.now()
-            else:
-                while True:
+                else:
                     try:
-                        received = self.receive(debug=debug, prefix="Waiting for completiong msg")
+                        received = self.receive(debug=debug, prefix="Waiting for received command msg")
                         if received is None:
                             received = ""
                     except serial.serialutil.SerialException:
                         received = ""
-                    if "runcomp" in received:
-                        self.status = self.statuses['cooling_down']
-                        print(f"Command Completed! Cooling down for {self.status.get_timeout(self.mockup_commands, self.not_operational)} seconds...")
+                    if "received" in received.lower():
+                        print(f"Received feedback from Arduino!")
+                        self.status = self.statuses['command_received']
+                        self.status.extra = received.replace('\x00', '')
                         self.status.started_time = datetime.datetime.now()
-                        self.last_command = None
-                        break
-                    if not blocking_wait:
-                        break
+            elif self.status.id == self.statuses['command_received'].id:
+                if (datetime.datetime.now() - self.status.started_time).seconds >= self.status.get_timeout(self.mockup_commands, self.not_operational):
+                    print(f"Max wait time between commands reached...")
+                    self.status = self.statuses['cooling_down']
+                    self.status.started_time = datetime.datetime.now()
+                else:
+                    while True:
+                        try:
+                            received = self.receive(debug=debug, prefix="Waiting for completiong msg")
+                            if received is None:
+                                received = ""
+                        except serial.serialutil.SerialException:
+                            received = ""
+                        if "runcomp" in received:
+                            self.status = self.statuses['cooling_down']
+                            self.status.extra = received.replace('\x00', '')
+                            print(f"Command Completed! Cooling down for {self.status.get_timeout(self.mockup_commands, self.not_operational)} seconds...")
+                            self.status.started_time = datetime.datetime.now()
+                            self.last_command = None
+                            break
+                        if not blocking_wait:
+                            break
+        except Exception as e:
+            print(f"Error updating Arduino's status")
         return self.status
 
     def receive(self, prefix="Received from Arduino", debug=False):
@@ -363,13 +372,13 @@ class Arduino():
             if self.status.id == s.id:
                 color = (0, 180, 255)
                 arduino_status_dbg = "> "
-                elapsed = (datetime.datetime.now() - self.status.started_time).seconds
+                elapsed = (datetime.datetime.now() - s.started_time).seconds
                 remaining = timeout - elapsed
             arduino_status_dbg += f"{s.id} "
             arduino_status_dbg += f"{s.title} - "
             if timeout > 0:
-                arduino_status_dbg += f" Wait: {remaining} / {timeout} s"
-            else: arduino_status_dbg += f" Waiting: {remaining} s"
+                arduino_status_dbg += f" Wait: {remaining} / {timeout} s {s.extra}"
+            else: arduino_status_dbg += f" Waiting: {remaining} s {s.extra}"
 
             start_pos = logger.add_text_line(arduino_status_dbg, color, start_pos)
         return

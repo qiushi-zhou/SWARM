@@ -87,7 +87,7 @@ class Camera:
         return x,y
 
     def update_config(self, screen_w, screen_h, config_data, reset_graph=False):
-        Camera.__init__(self, screen_w, screen_h, config_data, init_graph=reset_graph)
+        Camera.__init__(self, self.id, screen_w, screen_h, config_data, init_graph=reset_graph)
 
     def build_path(self):
         vertices = [[v.x, v.y] for v in self.path_vertices]
