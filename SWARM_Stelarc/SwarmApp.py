@@ -169,7 +169,7 @@ class SwarmAPP():
         except Exception as e:
             last_modified_time = -1
         if self.behavior_config is None or (last_modified_time < os.path.getmtime(file_path)):
-            print(f"Updating Behaviors configuration from file...")
+            # print(f"Updating Behaviors configuration from file...")
             try:
                 with open(file_path) as file:
                     self.behavior_config = yaml.load(file, Loader=yaml.FullLoader)
@@ -186,7 +186,7 @@ class SwarmAPP():
         except Exception as e:
             last_modified_time = -1
         if self.cameras_config is None or (last_modified_time < os.path.getmtime(file_path)):
-            print(f"Updating Cameras configuration from file...")
+            # print(f"Updating Cameras configuration from file...")
             try:
                 with open(file_path) as file:
                     self.cameras_config = yaml.load(file, Loader=yaml.FullLoader)
@@ -370,20 +370,23 @@ class SwarmAPP():
                 all_criteria_met = self.check_behavior(behavior, {}, right_text_pos, debug=debug)
             except Exception as e:
                 print(f"Error checking behavior: {behavior.get('name', 'NONE')}")
-                all_criteria_met = false
-            if all_criteria_met and not action_updated:
-                action_updated = True
-                self.current_behavior = behavior
-                name = self.current_behavior.get("name", "unknown")
-                command = self.current_behavior.get("arduino_command", "")
-                if text_debug:
-                    print(f"Action updated: {name} ({command})")
-                    print(f"\r\nNew ACTION: Running command {command} from behavior {name}\n\r")
-                self.arduino.send_command(command, debug=text_debug)
-                behavior["last_executed_time"] = datetime.datetime.now()
-                # We found the command to execute so we can stop here
-                if not debug:
-                    return
+                all_criteria_met = False
+            if not action_updated:
+                if all_criteria_met:
+                    action_updated = True
+                    self.current_behavior = behavior
+                    name = self.current_behavior.get("name", "unknown")
+                    command = self.current_behavior.get("arduino_command", "")
+                    if text_debug:
+                        print(f"Action updated: {name} ({command})")
+                        print(f"\r\nNew ACTION: Running command {command} from behavior {name}\n\r")
+                    # Debugging lines
+                    dbg_vals = f"p: {self.frame_buffer.people_data.avg:.2f}, g: {self.frame_buffer.groups_data.avg:.2f}, p_d: {self.frame_buffer.distance_data.avg:.2f}, p_dm: {self.frame_buffer.machine_distance_data.avg:.2f}"
+                    self.arduino.send_command(command, debug=text_debug, dbg_vals=dbg_vals)
+                    behavior["last_executed_time"] = datetime.datetime.now()
+                    # We found the command to execute so we can stop here
+                    if not debug:
+                        return
         curr_behavior_name = self.current_behavior.get('name', 'NONE').upper() if self.current_behavior is not None else '-'
         self.logger.add_text_line(f"Current Behaviour: {curr_behavior_name}", (255, 0, 0), right_text_pos_orig)
         b_color = (150, 150, 150) if curr_behavior_name == "None" else (255, 255, 0)

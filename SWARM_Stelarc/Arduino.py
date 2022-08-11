@@ -229,7 +229,7 @@ class Arduino():
                 return f"Arduino NOT CONNECTED (debug mode) on {self.port}: bps={self.bps}, {self.p_1}/{self.p_2}/{self.p_3}"
             return f"Arduino NOT found on {self.port}: bps={self.bps}, {self.p_1}/{self.p_2}/{self.p_3}"
 
-    def send_command(self, command, loop=False, debug=True):
+    def send_command(self, command, loop=False, debug=True, dbg_vals=''):
         if self.status.id == self.statuses['ready'].id:
             prefix = '(Normal)'
             cmd_string = self.build_command_str(command, loop)
@@ -237,6 +237,7 @@ class Arduino():
                 print(f"Sending command string: {cmd_string}")
             if not self.not_operational:
                 if not self.mockup_commands:
+                    print(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Command {command} - {dbg_vals}")
                     self.send(cmd_string)
                 else:
                     prefix = '(Testing)'
@@ -249,7 +250,7 @@ class Arduino():
             self.status.extra = f"{command} sent..."
             self.status.started_time = datetime.datetime.now()
             if debug:
-                print(f"{prefix} Command '{self.last_command}' sent! Status updated: {prev_status.title} -> {self.status.title}!")
+                print(f"{e.strftime('%Y-%m-%d %H:%M:%S')} {prefix} Command '{self.last_command}' sent! Status updated: {prev_status.title} -> {self.status.title}!")
         else:
             if debug:
                 print(f"Arduino not ready to receive command {command}, status {self.status.title}: {self.status.description}!")
@@ -303,7 +304,7 @@ class Arduino():
                     except serial.serialutil.SerialException:
                         received = ""
                     if "received" in received.lower():
-                        print(f"Received feedback from Arduino!")
+                        # print(f"Received feedback from Arduino!")
                         self.status = self.statuses['command_received']
                         self.status.extra = received.replace('\x00', '')
                         self.status.started_time = datetime.datetime.now()
@@ -323,7 +324,7 @@ class Arduino():
                         if "runcomp" in received:
                             self.status = self.statuses['cooling_down']
                             self.status.extra = received.replace('\x00', '')
-                            print(f"Command Completed! Cooling down for {self.status.get_timeout(self.mockup_commands, self.not_operational)} seconds...")
+                            # print(f"Command Completed! Cooling down for {self.status.get_timeout(self.mockup_commands, self.not_operational)} seconds...")
                             self.status.started_time = datetime.datetime.now()
                             self.last_command = None
                             break

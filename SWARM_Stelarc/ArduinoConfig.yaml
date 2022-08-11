@@ -39,8 +39,8 @@ statuses:
     id: 4
     title: 'Cooling Down'
     description: 'Arduino is cooling down between commands'
-    timeout: 5 # Cooling down time
-    testing_timeout: 5 # Cooling down time
+    timeout: 8 # Cooling down time
+    testing_timeout: 8 # Cooling down time
     prev_status_id: 3
     next_status_id: 1
   - name: already_sent

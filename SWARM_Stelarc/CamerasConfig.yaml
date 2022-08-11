@@ -13,9 +13,9 @@ cameras:
     color: [0, 0, 255]
     path: # point in px or use height/width (also h and w)
       - { x: 0, y: h*0.5}
-      - { x: 0, y: h*0.34}
-      - { x: 260, y: h*0.19}
-      - { x: w*0.5, y: h*0.28}
+      - { x: 0, y: h*0.3}
+      - { x: w*0.2, y: h*0.16}
+      - { x: w*0.5, y: h*0.24}
       - { x: w*0.5, y: h*0.5}
   - id: 1
     name: "Camera2"
@@ -30,9 +30,9 @@ cameras:
     path: # point in px or use height/width (also h and w)
       - { x: w*0.5, y: h*0.5}
       - { x: w*1, y: h*0.5}
-      - { x: w*1, y: h*0.25 }
-      - { x: w*0.75, y: h*0.12 }
-      - { x: w*0.5, y: h*0.27 }
+      - { x: w*1, y: h*0.16 }
+      - { x: w*0.75, y: h*0.05 }
+      - { x: w*0.5, y: h*0.2 }
   - id: 2
     enabled: True
     anchor: bottomLeft # top, bottom, left, right, center
@@ -44,9 +44,9 @@ cameras:
     color: [255, 0, 0]
     path: # point in px or use height/width (also h and w)
       - { x: 0, y: h*1}
-      - { x: 0, y: h*0.73}
-      - { x: w*0.38, y: h*0.69}
-      - { x: w*0.5, y: h*0.82}
+      - { x: 0, y: h*0.67}
+      - { x: w*0.38, y: h*0.65}
+      - { x: w*0.5, y: h*0.78}
       - { x: w*0.5, y: h*1}
   - id: 3
     enabled: False
