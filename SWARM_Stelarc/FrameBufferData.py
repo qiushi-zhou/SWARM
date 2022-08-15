@@ -57,6 +57,7 @@ class FrameBuffer():
         
         self.people_data = FramesData()
         self.groups_data = FramesData()
+        self.group_ratio = 0
         self.distance_data = FramesData()
         self.machine_distance_data = FramesData()        
         
@@ -70,7 +71,6 @@ class FrameBuffer():
         self.update_framebuffer_data()
         return self.empty_frames
 
-
     def update_framebuffer_data(self):
         self.people_data.reset()
         self.groups_data.reset()
@@ -79,6 +79,9 @@ class FrameBuffer():
         for f in self.frames:
           self.people_data.update(f.people_in_frame)
           self.groups_data.update(f.groups_in_frame)
+          self.group_ratio = 0
+          if self.people_data.avg > 0:
+            self.group_ratio = self.groups_data.avg / self.people_data.avg
           self.distance_data.update(f.avg_people_distance)
           self.machine_distance_data.update(f.avg_machine_distance)
 

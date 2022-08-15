@@ -1,6 +1,8 @@
 buffer_size: 60 # number of frames to average
+current_behavior_type: lite
 behaviors:
   - name: default
+    type: lite
     enabled: false # Change this to false to disable this behavior
     arduino_command: default
     parameters:
@@ -29,6 +31,7 @@ behaviors:
         max: 400
   - name: glitch
     enabled: true # Change this to false to disable this behavior
+    type: lite
     arduino_command: glitch
     parameters:
       time:
@@ -56,6 +59,7 @@ behaviors:
         max: 280
   - name: quiver
     enabled: true # Change this to false to disable this behavior
+    type: lite
     arduino_command: quiver
     parameters:
       time:
@@ -83,6 +87,7 @@ behaviors:
         max: 310
   - name: undulate
     enabled: true # Change this to false to disable this behavior
+    type: normal
     arduino_command: undulate
     parameters:
       time:
@@ -110,6 +115,7 @@ behaviors:
         max: 340
   - name: breathe
     enabled: true # Change this to false to disable this behavior
+    type: normal
     arduino_command: breathe
     parameters:
       time:

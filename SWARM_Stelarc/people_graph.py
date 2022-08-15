@@ -8,9 +8,9 @@ import utils
 from utils import Point
 
 class PeopleGraph:
-    def __init__(self):
+    def __init__(self, edge_threshold=-1):
         self.nx_graph = nx.Graph()
-        self.edge_threshold = -1
+        self.edge_threshold = edge_threshold
         self.edges_calculated = False
         self.n_people = 0
         self.n_edges = 0
@@ -21,7 +21,7 @@ class PeopleGraph:
         self.min_weight = 9999
 
     def init_graph(self):
-        PeopleGraph.__init__(self)
+        PeopleGraph.__init__(self, self.edge_threshold)
 
     def add_node(self, x, y, z=None):
         node = Point(x,y,z)

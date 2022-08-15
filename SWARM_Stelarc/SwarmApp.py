@@ -117,6 +117,7 @@ class SwarmAPP():
         self.update_behaviors_config()
         self.update_arduino_config()
         self.frame_buffer = FrameBuffer(self.behavior_config.get('buffer_size', 10))
+        self.current_behavior_type = self.behavior_config.get("current_behavior_type", 'normal')
         self.current_behavior = None
         self.font = None
         self.logger = None
@@ -175,6 +176,9 @@ class SwarmAPP():
                 with open(file_path) as file:
                     self.behavior_config = yaml.load(file, Loader=yaml.FullLoader)
                     self.behaviors = self.behavior_config.get("behaviors", [])
+                    self.buffer_size = self.behavior_config.get('buffer_size', 10)
+                    self.frame_buffer.buffer_size = self.buffer_size              
+                    self.current_behavior_type = self.behavior_config.get("current_behavior_type", 'normal')
                 self.behavior_config['last_modified_time'] = os.path.getmtime(file_path)
             except Exception as e:
                 print(f"Error opening behavior config file {e}")
@@ -192,9 +196,7 @@ class SwarmAPP():
                 with open(file_path) as file:
                     self.cameras_config = yaml.load(file, Loader=yaml.FullLoader)
                 cameras_data = self.cameras_config.get("cameras", [])
-                threshold = self.cameras_config.get("group_distance_threshold", -1)
                 for i in range(0, len(cameras_data)):
-                    cameras_data[i]["group_distance_threshold"] = threshold
                     if len(self.cameras) <= i:
                         self.cameras.append(Camera(i, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, cameras_data[i]))
                     else:
@@ -296,9 +298,7 @@ class SwarmAPP():
         elif param_name == "groups":
             value = frame_buffer.groups_data.avg
         elif param_name == "people_in_groups_ratio":
-            value = 0
-            if frame_buffer.people_data.avg > 0:
-                value = frame_buffer.groups_data.avg / frame_buffer.people_data.avg
+            value = frame_buffer.group_ratio
         elif param_name == "avg_distance_between_people":
             value = frame_buffer.distance_data.avg
         elif param_name == "avg_distance_from_machine":
@@ -320,8 +320,11 @@ class SwarmAPP():
     def check_behavior(self, behavior, curr_behavior, right_text_pos, debug=False):
         right_text_pos_orig = Point(right_text_pos.x, right_text_pos.y)
         right_text_pos.y += self.logger.line_height
+        behavior_type = behavior.get('type', 'normal')
         # print(f"Checking Behaviour: {behavior}")
-        enabled = behavior.get("enabled", True)
+        enabled = behavior.get("enabled", True)        
+        if self.current_behavior_type != behavior_type:
+            enabled = False
         total_enabled_criteria = 0
         criteria_met = 0
         name = behavior.get('name', 'unknown')
@@ -336,7 +339,10 @@ class SwarmAPP():
             if enabled:
                 prefix = '-'
             else:
-                postfix = '(disabled)'
+                if self.current_behavior_type != behavior_type:
+                    postfix = '(type disabled)'
+                else:
+                    postfix = '(disabled)'
             if name == curr_behavior_name:
                 prefix = '>'
                 postfix = '(running)'
@@ -355,6 +361,10 @@ class SwarmAPP():
                 return False
         right_text_pos.y += self.logger.line_height
         self.logger.add_text_line(f"{prefix} {name.upper()} {postfix} {criteria_met}/{total_enabled_criteria}", color, right_text_pos_orig)
+        
+        if not enabled:
+            return False
+        
         return criteria_met == total_enabled_criteria
 
     def update_action(self, left_text_pos, right_text_pos, debug=True):
@@ -389,7 +399,8 @@ class SwarmAPP():
                     if not debug:
                         return
         curr_behavior_name = self.current_behavior.get('name', 'NONE').upper() if self.current_behavior is not None else '-'
-        self.logger.add_text_line(f"Current Behaviour: {curr_behavior_name}", (255, 0, 0), right_text_pos_orig)
+        right_text_pos_orig = self.logger.add_text_line(f"Current Behaviour: {curr_behavior_name}", (255, 0, 0), right_text_pos_orig)
+        right_text_pos_orig = self.logger.add_text_line(f"Behaviour Type: {self.current_behavior_type}", (255, 0, 0), right_text_pos_orig)
         b_color = (150, 150, 150) if curr_behavior_name == "None" else (255, 255, 0)
         left_text_pos = self.logger.add_text_line(f"Running Action {curr_behavior_name}", b_color, left_text_pos)
         data = self.frame_buffer.people_data
@@ -399,6 +410,9 @@ class SwarmAPP():
         data = self.frame_buffer.groups_data
         left_text_pos = self.logger.add_text_line(
             f"Groups - avg: {data.avg:.2f}, minmax: [{data.min:.2f}, {data.max:.2f}], n: {data.non_zeroes}/{self.frame_buffer.size()}",
+            b_color, left_text_pos)
+        left_text_pos = self.logger.add_text_line(
+            f"Groups Ratio- avg: {self.frame_buffer.group_ratio:.2f}, minmax: [{data.min:.2f}, {data.max:.2f}], n: {data.non_zeroes}/{self.frame_buffer.size()}",
             b_color, left_text_pos)
         data = self.frame_buffer.distance_data
         left_text_pos = self.logger.add_text_line(
