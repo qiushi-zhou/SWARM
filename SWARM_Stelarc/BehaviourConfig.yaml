@@ -1,5 +1,5 @@
 buffer_size: 60 # number of frames to average
-current_behavior_type: lite
+machine_mode: normal # all movements
 behaviors:
   - name: default
     type: lite
@@ -87,7 +87,7 @@ behaviors:
         max: 310
   - name: undulate
     enabled: true # Change this to false to disable this behavior
-    type: normal
+    type: lite
     arduino_command: undulate
     parameters:
       time:

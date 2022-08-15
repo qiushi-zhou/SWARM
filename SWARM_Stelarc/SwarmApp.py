@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import os.path
-from py_simple_logging import log, FileLogWidget, ConsoleLogWidget, PyGameLogWidget
+from pylogger import log, FileLogWidget, ConsoleLogWidget, PyGameLogWidget
 from SwarmLogger import SwarmLogger
 import utils
 from Input import Input
@@ -113,11 +113,11 @@ class SwarmAPP():
         self.arduino_config = None
         self.behaviors = []
         self.cameras = []
+        self.frame_buffer = FrameBuffer(buffer_size=60)
         self.update_cameras_config()
         self.update_behaviors_config()
         self.update_arduino_config()
-        self.frame_buffer = FrameBuffer(self.behavior_config.get('buffer_size', 10))
-        self.current_behavior_type = self.behavior_config.get("current_behavior_type", 'normal')
+        self.machine_mode = self.behavior_config.get("machine_mode", 'normal')
         self.current_behavior = None
         self.font = None
         self.logger = None
@@ -178,7 +178,7 @@ class SwarmAPP():
                     self.behaviors = self.behavior_config.get("behaviors", [])
                     self.buffer_size = self.behavior_config.get('buffer_size', 10)
                     self.frame_buffer.buffer_size = self.buffer_size              
-                    self.current_behavior_type = self.behavior_config.get("current_behavior_type", 'normal')
+                    self.machine_mode = self.behavior_config.get("machine_mode", 'normal')
                 self.behavior_config['last_modified_time'] = os.path.getmtime(file_path)
             except Exception as e:
                 print(f"Error opening behavior config file {e}")
@@ -323,7 +323,7 @@ class SwarmAPP():
         behavior_type = behavior.get('type', 'normal')
         # print(f"Checking Behaviour: {behavior}")
         enabled = behavior.get("enabled", True)        
-        if self.current_behavior_type != behavior_type:
+        if self.machine_mode != behavior_type:
             enabled = False
         total_enabled_criteria = 0
         criteria_met = 0
@@ -339,7 +339,7 @@ class SwarmAPP():
             if enabled:
                 prefix = '-'
             else:
-                if self.current_behavior_type != behavior_type:
+                if self.machine_mode != behavior_type:
                     postfix = '(type disabled)'
                 else:
                     postfix = '(disabled)'
@@ -400,7 +400,7 @@ class SwarmAPP():
                         return
         curr_behavior_name = self.current_behavior.get('name', 'NONE').upper() if self.current_behavior is not None else '-'
         right_text_pos_orig = self.logger.add_text_line(f"Current Behaviour: {curr_behavior_name}", (255, 0, 0), right_text_pos_orig)
-        right_text_pos_orig = self.logger.add_text_line(f"Behaviour Type: {self.current_behavior_type}", (255, 0, 0), right_text_pos_orig)
+        right_text_pos_orig = self.logger.add_text_line(f"Behaviour Type: {self.machine_mode}", (255, 0, 0), right_text_pos_orig)
         b_color = (150, 150, 150) if curr_behavior_name == "None" else (255, 255, 0)
         left_text_pos = self.logger.add_text_line(f"Running Action {curr_behavior_name}", b_color, left_text_pos)
         data = self.frame_buffer.people_data
