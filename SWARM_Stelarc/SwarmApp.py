@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import os.path
-
+from py_simple_logging import log, FileLogWidget, ConsoleLogWidget, PyGameLogWidget
 from SwarmLogger import SwarmLogger
 import utils
 from Input import Input
@@ -99,6 +99,7 @@ class WebSocket:
 class SwarmAPP():
     def __init__(self, observable=None, arduino_port="COM4", ws_enabled=False, mockup_commands=True):
         self.arduino = Arduino(port=arduino_port, mockup_commands=mockup_commands)
+        self.tag = "SwarmApp"
         if observable:
             observable.subscribe(self)
         self.mockup_commands = mockup_commands
@@ -428,6 +429,7 @@ class SwarmAPP():
         if draw_type == SwarmLogger.PYGAME:
             self.font = pygame.font.SysFont('Cascadia', Constants.font_size)
             self.logger = SwarmLogger(pygame, self.scene.screen, font=self.font, font_size=Constants.font_size)
+            log.add_widget(PyGameLogWidget(pygame=pygame, font=self.font, font_size=Constants.font_size, canvas=self.scene.screen))
         else:
             self.logger = SwarmLogger(self.cv2, None, font=None, font_size=0.4)
 
@@ -445,7 +447,7 @@ class SwarmAPP():
             result, self.frame = self.capture0.read()
             # self.frame = cv2.resize(self.rame, (224, 224))
             if self.logger.draw_type == SwarmLogger.OPENCV:
-                self.logger.update_canvas(self.frame)
+                self.logger.set_canvas(self.frame)
             else:
                 self.scene.update(self.cv2.cvtColor(self.frame, self.cv2.COLOR_BGR2RGB), debug=debug)
 
@@ -477,15 +479,17 @@ class SwarmAPP():
                 self.fps = int(frame_count / (elapsed))
                 frame_count = 0
                 start_time = time.time()
-
-            left_text_pos = self.logger.add_text_line(f"Frame size: {self.frame.shape} FPS: {self.fps}", (255, 255, 0), left_text_pos)
+                
+            log.append(self.tag, f"Frame size: {self.frame.shape} FPS: {self.fps}", color=(255, 255, 0), pos=left_text_pos)
+            # left_text_pos = self.logger.add_text_line(f"Frame size: {self.frame.shape} FPS: {self.fps}", (255, 255, 0), left_text_pos)
             self.sio.draw_debug(self.logger, left_text_pos)
             left_text_pos.y += self.logger.line_height
             self.arduino.draw_debug(self.logger, left_text_pos, debug=True)
             left_text_pos.y += self.logger.line_height
             self.update_action(left_text_pos=left_text_pos, right_text_pos=right_text_pos, debug=True)
 
-            self.logger.flush_text_lines(debug=debug, draw=True)
+            # self.logger.flush_text_lines(debug=debug, draw=True)
+            log.flush()
 
             if self.logger.draw_type == SwarmLogger.OPENCV:
                 self.scene.update(self.cv2.cvtColor(self.frame, self.cv2.COLOR_BGR2RGB), debug=debug)

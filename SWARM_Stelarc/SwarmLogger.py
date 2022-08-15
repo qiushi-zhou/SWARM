@@ -27,7 +27,7 @@ class SwarmLogger:
             self.line_height = self.font_size*0.8
         self.buffer = []
 
-    def update_canvas(self, canvas):
+    def set_canvas(self, canvas):
         self.canvas = canvas
 
     def draw_line(self, start, end, color, thickness):
