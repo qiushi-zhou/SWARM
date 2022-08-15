@@ -165,7 +165,7 @@ class SwarmAPP():
         print('Got', args, kwargs, 'From', observable)
 
     def update_behaviors_config(self):
-        file_path = r'./Behaviour_Config.yaml'
+        file_path = r'./BehaviourConfig.yaml'
         try:
             last_modified_time = self.behavior_config['last_modified_time']
         except Exception as e:
