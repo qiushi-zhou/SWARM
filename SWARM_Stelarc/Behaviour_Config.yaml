@@ -1,22 +1,22 @@
 buffer_size: 60 # number of frames to average
 behaviors:
   - name: default
-    enabled: true # Change this to false to disable this behavior
+    enabled: false # Change this to false to disable this behavior
     arduino_command: default
     parameters:
       time:
         enabled: true
         timeout: 300 # run every 10 minutes
       people:
-        enabled: false
+        enabled: true
         min: 2 # Absolute value vs relative to the avg number of people in the last minute or so
-        max: 10
+        max: 100
       groups:
         enabled: false
         min: 0
         max: 10
       people_in_groups_ratio:
-        enabled: false
+        enabled: true
         min: 0
         max: 0.3
       avg_distance_between_people:
@@ -43,17 +43,17 @@ behaviors:
         min: 0
         max: 10
       people_in_groups_ratio:
-        enabled: false
+        enabled: true
         min: 0
         max: 0.3
       avg_distance_between_people:
-        enabled: true
+        enabled: false
         min: 1
         max: 60
       avg_distance_from_machine:
         enabled: true
-        min: 1
-        max: 110
+        min: 250
+        max: 280
   - name: quiver
     enabled: true # Change this to false to disable this behavior
     arduino_command: quiver
@@ -63,24 +63,24 @@ behaviors:
         timeout: 600 # run every 10 minutes
       people:
         enabled: true
-        min: 10 # Absolute value vs relative to the avg number of people in the last minute or so
-        max: 20
+        min: 30 # Absolute value vs relative to the avg number of people in the last minute or so
+        max: 200
       groups:
         enabled: false
         min: 0
         max: 0
       people_in_groups_ratio:
-        enabled: false
+        enabled: true
         min: 0
         max: 0
       avg_distance_between_people:
-        enabled: true
-        min: 20
+        enabled: false
+        min: 10
         max: 300
       avg_distance_from_machine:
         enabled: true
-        min: 0
-        max: 400
+        min: 280
+        max: 310
   - name: undulate
     enabled: true # Change this to false to disable this behavior
     arduino_command: undulate
@@ -91,23 +91,23 @@ behaviors:
       people:
         enabled: true
         min: 1 # Absolute value vs relative to the avg number of people in the last minute or so
-        max: 10
+        max: 100
       groups:
         enabled: false
         min: 0
         max: 0
       people_in_groups_ratio:
-        enabled: false
+        enabled: true
         min: 0
         max: 0
       avg_distance_between_people:
-        enabled: true
-        min: 10
-        max: 200
+        enabled: false
+        min: 0
+        max: 400
       avg_distance_from_machine:
         enabled: true
-        min: 0
-        max: 170
+        min: 310
+        max: 340
   - name: breathe
     enabled: true # Change this to false to disable this behavior
     arduino_command: breathe
@@ -118,20 +118,20 @@ behaviors:
       people:
         enabled: true
         min: 1 # Absolute value vs relative to the avg number of people in the last minute or so
-        max: 5
+        max: 50
       groups:
         enabled: false
         min: 0
         max: 0
       people_in_groups_ratio:
+        enabled: true
+        min: 0
+        max: 0
+      avg_distance_between_people:
         enabled: false
         min: 0
-        max:
-      avg_distance_between_people:
-        enabled: true
-        min: 10
         max: 300
       avg_distance_from_machine:
         enabled: true
-        min: 140
-        max: 500
+        min: 340
+        max: 370
