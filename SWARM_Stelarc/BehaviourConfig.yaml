@@ -55,7 +55,7 @@ behaviors:
         max: 60
       avg_distance_from_machine:
         enabled: true
-        min: 200
+        min: 90
         max: 280
   - name: quiver
     enabled: true # Change this to false to disable this behavior
