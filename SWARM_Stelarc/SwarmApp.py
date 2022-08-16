@@ -381,7 +381,7 @@ class SwarmAPP():
 
         offset = Point(10, 10)
         start_time = time.time()
-        fps_update_time = 0.05
+        fps_update_time = 0.5
         frame_count = 0
         image_data = io.BytesIO()
         image_file_size = 0
@@ -438,8 +438,7 @@ class SwarmAPP():
                     # Adapting framerate!
                     if self.ws.skipped_frames >= self.ws.frames_to_skip:
                         self.ws.skipped_frames = 0
-                        self.ws.frame_count += 1
-                        image_data = io.BytesIO()               
+                        image_data = io.BytesIO()
                         pygame.image.save(self.scene.screen, image_data, "JPEG")
                         image_file_size = image_data.getbuffer().nbytes/(1024*1024)
                         image_data = self.encode_image_data(image_data.getvalue())

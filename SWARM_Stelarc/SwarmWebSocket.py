@@ -26,7 +26,7 @@ class WebSocket:
         self.skipped_frames = 0
         self.last_size = 0
         self.frame_count = 0
-        self.fps_update_time = 0.1
+        self.fps_reset_time = 10
         self.fps = 0
         self.start_time = time.time() 
 
@@ -45,7 +45,7 @@ class WebSocket:
         self.setup_done = True
         await self.call_backs()
         try:
-          await self.sio.connect(self.url, namespaces=[self.namespace], wait_timeout=2)
+          await self.sio.connect(self.url, namespaces=[self.namespace], wait_timeout=1)
         except Exception as e:
           self.setup_msg = e
         # self.sio.wait()
@@ -67,32 +67,42 @@ class WebSocket:
           print(f"Error sending data to socket {e}")
 
     def send_data(self, image_data, file_size, b64_size, async_loop):
-      if self.ws_enabled and self.sio.connected:
-        try:
-            # print(f"Sending msg to WebSocket on: {self.uri}")
-            # async_loop.run_until_complete(self.send_msg_async())
-            if self.send_frames:
-                elapsed = time.time() - self.start_time
-                if elapsed >= self.fps_update_time:
+        if self.ws_enabled:
+            try:
+                # print(f"Sending msg to WebSocket on: {self.uri}")
+                # async_loop.run_until_complete(self.send_msg_async())
+                if self.send_frames:      
+                    elapsed = time.time() - self.start_time
                     self.fps = self.frame_count / elapsed
-                    self.frames_to_skip = math.ceil(self.fps/self.target_framerate) if self.fps > self.target_framerate else 0
-                    self.frame_count = 0
-                    self.start_time = time.time() 
-                self.last_size = f"{file_size:0.2f}"
-                #   print(f"Sending {file_size:0.2f} MB of frame data to WebSocket. FPS: {self.fps}")
-                async_loop.run_until_complete(self.send_data_async(image_data))
-        except Exception as e:
-            print(f"Error Sending data to WebSocket {e}")
+                    self.frames_to_skip = round(self.fps/self.target_framerate) if self.fps >= self.target_framerate else 0
+                    if elapsed > self.fps_reset_time:
+                        self.frame_count = 0 
+                        self.start_time = time.time() 
+                    else:
+                        self.frame_count += 1
+                    self.last_size = f"{file_size:0.2f}"
+                    #   print(f"Sending {file_size:0.2f} MB of frame data to WebSocket. FPS: {self.fps}")
+                    async_loop.run_until_complete(self.send_data_async(image_data))
+            except Exception as e:
+                print(f"Error Sending data to WebSocket {e}")
+            
+        
       
     async def send_data_async(self, image_data):
-      try:
-          # img_data_str = self.encode_image_data(image_data)
-          img_data_str = image_data
-          t = datetime.datetime.now()
-          await self.sio.emit(event='op_frame', data={'frame_data': img_data_str, 'datetime': t.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}, namespace=self.namespace)
-          # self.sio.wait()
-      except Exception as e:
-          print(f"Error sending data to socket {e}")
+        if not self.sio.connected:
+            try:
+                await self.sio.connect(self.url, namespaces=[self.namespace], wait_timeout=1)
+            except Exception as e:
+                self.setup_msg = e
+        else:
+            try:
+                # img_data_str = self.encode_image_data(image_data)
+                img_data_str = image_data
+                t = datetime.datetime.now()
+                await self.sio.emit(event='op_frame', data={'frame_data': img_data_str, 'datetime': t.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}, namespace=self.namespace)
+                # self.sio.wait()
+            except Exception as e:
+                print(f"Error sending data to socket {e}")
 
     async def call_backs(self):
         @self.sio.event
