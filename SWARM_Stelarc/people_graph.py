@@ -54,7 +54,8 @@ class PeopleGraph:
                     sub_graphs = nx.connected_component_subgraphs(self.nx_graph)
                     self.n_groups = len(sub_graphs) #n gives the number of sub graphs
         except Exception as e:
-            print(f"Error ugrapding graph {e}")
+            pass
+            # print(f"Error ugrading graph {e}")
 
     def calculate_edges(self):
         for i in self.nx_graph.nodes():
