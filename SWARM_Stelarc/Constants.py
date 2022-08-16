@@ -4,8 +4,22 @@ SCREEN_HEIGHT = 720
 # SCREEN_HEIGHT = 480
 # SCREEN_WIDTH = 480
 # SCREEN_HEIGHT = 270
-# PATH_win = 'C:/Users/Admin/Documents/GitHub/SWARM'
-PATH_mac = '/Users/marinig/Documents/GitHub/SWARM'
+import os
+
+if os.name == 'nt':
+  print(f"Using Windows, openpose enabled")
+  use_openpose = True
+  PATH = 'C:/Users/Admin/Documents/GitHub/SWARM'
+  openpose_modelfolder = "C:/Users/Admin/Documents/GitHub/SWARM/openpose/models"
+  start_capture_index = 2
+else:
+  print(f"Using MacBook M1, openpose disabled")
+  use_openpose = False
+  PATH = '/Users/marinig/Documents/GitHub/SWARM'
+  openpose_modelfolder = "/Users/marinig/Documents/GitHub/SWARM/openpose/models"
+  start_capture_index = 0
+print("\n")
+max_capture_index = 10  
 
 ws_url = "wss://anthropomorphicmachine.com:3005"
 ws_namespace = "/vizualization"
@@ -17,9 +31,6 @@ max_age = 100
 n_init = 20
 font_size = 19
 
-openpose_modelfolder_win = "C:/Users/Admin/Documents/GitHub/SWARM/openpose/models"
-openpose_modelfolder_mac = "/Users/marinig/Documents/GitHub/SWARM/openpose/models"
-openpose_modelfolder = ""
 
 draw_openpose = True
 draw_graph = True
@@ -29,11 +40,6 @@ draw_map = False
 
 inner_radius = 50
 outer_radius = 200
-
-max_capture_index = 10
-
-time_start = "10:45"
-time_end = "17:00"
 
 
 

@@ -15,6 +15,7 @@ class PeopleGraph:
         self.n_people = 0
         self.n_edges = 0
         self.n_groups = 0
+        self.groups = []
         self.avg_people_distance = 0
         self.avg_machine_distance = 0
         self.max_weight = 0
@@ -51,8 +52,12 @@ class PeopleGraph:
             self.n_people = self.nx_graph.number_of_nodes()
             self.n_edges = self.nx_graph.number_of_edges()
             if self.edge_threshold > 0:
-                    sub_graphs = nx.connected_component_subgraphs(self.nx_graph)
-                    self.n_groups = len(sub_graphs) #n gives the number of sub graphs
+                    self.groups = []
+                    self.n_groups = 0
+                    for c in connected_components(self.nx_graph):
+                        subgraph = self.nx_graph.subgraph(c)
+                        self.groups.append(subgraph)
+                        self.n_groups = 1 if subgraph.number_of_nodes() > 1 else 0 # n gives the number of sub graphs
         except Exception as e:
             pass
             # print(f"Error ugrading graph {e}")
@@ -139,7 +144,8 @@ class PeopleGraph:
 
         start_pos = logger.add_text_line(f"People {self.n_people}: {nodes_data}", color, start_pos)
         start_pos = logger.add_text_line(f"Links {self.n_edges}: {edges_data}", color, start_pos)
-        start_pos = logger.add_text_line(f"Groups {self.n_groups}", color, start_pos)
+        start_pos = logger.add_text_line(f"Groups (n_nodes > 1) {self.n_groups}", color, start_pos)
+        start_pos = logger.add_text_line(f"Crowd Ratio {self.n_groups/self.n_people if self.n_people > 0 else 0}", color, start_pos)
         start_pos = logger.add_text_line(f"Avg dist: {self.avg_people_distance:.2f}", color, start_pos)
         start_pos = logger.add_text_line(f"Avg_m: {self.avg_machine_distance:.2f}", color, start_pos)
         if debug:

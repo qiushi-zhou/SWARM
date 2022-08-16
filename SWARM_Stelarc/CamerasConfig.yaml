@@ -1,4 +1,3 @@
-use_openpose: false
 cameras:
   - id: 0
     name: "Camera1"

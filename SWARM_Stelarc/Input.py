@@ -16,9 +16,8 @@ import Constants
 
 # Load OpenPose:
 dir_path = os.path.dirname(os.path.realpath(__file__))
-use_openpose = True
-openpose_modelfolder = ""
-if use_openpose:
+openpose_modelfolder = Constants.openpose_modelfolder
+if Constants.use_openpose:
     try:
         # Windows Import
         if platform == "win32":
@@ -26,7 +25,6 @@ if use_openpose:
             sys.path.append(dir_path + '/../openpose/windows/python')
             os.environ['PATH'] = os.environ['PATH'] + ';' + dir_path + '/../build/x64/Release;' + dir_path + '/../build/bin;'
             import pyopenpose as op
-            openpose_modelfolder = Constants.openpose_modelfolder_win
         else:
             # Change these variables to point to the correct folder (Release/x64 etc.)
             sys.path.append('../openpose/mac/python/')
@@ -36,7 +34,6 @@ if use_openpose:
             # https://github.com/CMU-Perceptual-Computing-Lab/openpose/issues/1902#issuecomment-1024890817
             # https://stackoverflow.com/questions/53203644/caffe-is-conflicted-with-python-cv2/53386302#53386302
             from openpose import pyopenpose as op
-            openpose_modelfolder = Constants.openpose_modelfolder_mac
     except ImportError as e:
         print('Error: OpenPose library could not be found. Did you enable `BUILD_PYTHON` in CMake and have this Python script in the right folder?')
         raise e
@@ -44,7 +41,6 @@ if use_openpose:
 
 class Input:
     def __init__(self, swarm_app, cv2, debug=False):
-        global use_openpose
         self.swarm_app = swarm_app
         self.cv2 = cv2
         # from openpose import *
@@ -52,7 +48,7 @@ class Input:
         params["model_folder"] = openpose_modelfolder
         print(f"Using openpose model at {params['model_folder']}")
         params["net_resolution"] = "-1x320"
-        if use_openpose:
+        if Constants.use_openpose:
             self.openpose = op.WrapperPython()
             self.openpose.configure(params)
             self.openpose.start()

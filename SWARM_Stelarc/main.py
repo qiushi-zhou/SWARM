@@ -1,18 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import csv
 import re
+import csv
 import time
-from Input import Input
-from Scene import Scene
 from SwarmApp import SwarmAPP
-from Arduino import Arduino
 import os
 import sys
 import getopt
 import Constants
-import pygame
-import serial
+
 
 if __name__ == "__main__":
     log_dir = "./logs"

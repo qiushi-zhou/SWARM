@@ -52,8 +52,8 @@ class Arduino():
         self.p_3 = p_3
         self.last_command = None
         self.mockup_commands = mockup_commands
-        self.working_hours_start = time.strptime("10:45", "%H:%M")
-        self.working_hours_end = time.strptime("17:00", "%H:%M")
+        self.working_days = ["tue", "wed", "thu", "fri", "sat"]
+        self.working_hours = ["10:45", "17:00"]
 
         self.default_statuses = {
             'not_initialized': ArduinoStatus(0, 'Not Initialized', 'Arduino not initialized', 0),
@@ -78,16 +78,9 @@ class Arduino():
 
     def update_config(self, config_data=None):
         self.port = config_data.get('last_port', "COM4")
-        wh = config_data.get('working_hours', None)
-        if wh is not None:
-            self.working_hours_start = wh.get('from', "10:45")
-            self.working_hours_end = wh.get('to', "17:00")
-        else:
-            self.working_hours_start = "10:45"
-            self.working_hours_end = "17:00"
-
-        self.working_hours_start = time.strptime(self.working_hours_start, "%H:%M")
-        self.working_hours_end = time.strptime(self.working_hours_end, "%H:%M")
+        self.working_hours = config_data.get('working_hours', self.working_hours)
+        self.working_hours = [time.strptime(self.working_hours[0], "%H:%M"), time.strptime(self.working_hours[1], "%H:%M")]
+        self.working_days = config_data.get('working_days', self.working_days)
         s_list = config_data.get('statuses', [])
         for s in s_list:
             name = s['name']
@@ -174,7 +167,6 @@ class Arduino():
         return port
 
     def init(self):
-        print(f'Initializing Arduino...')
         if self.port is None:
             self.port = self.find_port()
             if self.port is None:
@@ -266,16 +258,17 @@ class Arduino():
     def update_status(self, blocking_wait=False, debug=True):
         try:
             now = datetime.datetime.now()
-            # print(f"{self.working_hours_start.tm_hour}:{self.working_hours_start.tm_min} <= {now.hour}:{now.minute} <= {self.working_hours_end.tm_hour}:{self.working_hours_end.tm_min}")
-            start = now.replace(hour=self.working_hours_start.tm_hour, minute=self.working_hours_start.tm_min, second=0, microsecond=0)
-            end = now.replace(hour=self.working_hours_end.tm_hour, minute=self.working_hours_end.tm_min, second=0, microsecond=0)
-            # print(f"{start} <= {now} <= {end}")
-            if start <= now <= end:
-                self.not_operational = False
-            else:
-                if debug:
+            day = now.strftime('%A').lower()
+            
+            if any([True if x in day else False for x in self.working_days]):
+                start = now.replace(hour=self.working_hours[0].tm_hour, minute=self.working_hours[0].tm_min, second=0, microsecond=0)
+                end = now.replace(hour=self.working_hours[1].tm_hour, minute=self.working_hours[1].tm_min, second=0, microsecond=0)
+                self.not_operational = not (start <= now <= end)
+            else: self.not_operational = True
+            
+            if debug:
+                if self.not_operational:
                     print(f"MACHINE NOT OPERATIONAL")
-                self.not_operational = True
 
             for s_idx in self.statuses:
                 s = self.statuses[s_idx]
@@ -358,8 +351,10 @@ class Arduino():
         now = datetime.datetime.now()
 
         time_str = f"Time of the day: {now.hour:>02d}:{now.minute:>02d}"
-        time_str += f" - Working Hours {self.working_hours_start.tm_hour:>02d}:{self.working_hours_start.tm_min:>02d} - {self.working_hours_end.tm_hour:>02d}:{self.working_hours_end.tm_min:>02d}"
+        time_str += f" - Working Hours {self.working_hours[0].tm_hour:>02d}:{self.working_hours[0].tm_min:>02d} - {self.working_hours[1].tm_hour:>02d}:{self.working_hours[1].tm_min:>02d}"
+        date_str = f"Day of the week: {now.strftime('%A')} - Working Days: {self.working_days}"
         start_pos = logger.add_text_line(time_str, color, start_pos)
+        start_pos = logger.add_text_line(date_str, color, start_pos)
         start_pos.y += logger.line_height*0.9
         start_pos = logger.add_text_line(arduino_cmd_dbg, color, start_pos)
         start_pos.y += logger.line_height
