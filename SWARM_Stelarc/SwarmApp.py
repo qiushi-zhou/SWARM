@@ -396,7 +396,7 @@ class SwarmAPP():
             if self.logger.draw_type == SwarmLogger.OPENCV:
                 self.logger.set_canvas(self.frame)
             else:
-                self.scene.update(self.cv2.cvtColor(self.frame, self.cv2.COLOR_BGR2RGB), debug=debug)
+                self.scene.update(self.frame, debug=debug)
 
             left_text_pos = Point(Constants.SCREEN_WIDTH * 0.5 + offset.x, Constants.SCREEN_HEIGHT * 0.5 + offset.y)
             right_text_pos = Point(Constants.SCREEN_WIDTH + offset.x, 0 + offset.y)
@@ -439,7 +439,7 @@ class SwarmAPP():
                     if self.ws.skipped_frames >= self.ws.frames_to_skip:
                         self.ws.skipped_frames = 0
                         image_data = io.BytesIO()
-                        pygame.image.save(self.scene.screen, image_data, "JPEG")
+                        pygame.image.save(self.scene.screen.subsurface((0,0, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)), image_data, "JPEG")
                         image_file_size = image_data.getbuffer().nbytes/(1024*1024)
                         image_data = self.encode_image_data(image_data.getvalue())
                         self.ws.send_data(image_data, image_file_size, (len(image_data) * 3) / 4 - image_data.count('=', -2), self.async_loop)
@@ -448,8 +448,9 @@ class SwarmAPP():
             
             # log.append(self.tag, f"Frame size: {self.frame.shape} FPS: {self.fps}", color=(255, 255, 0), pos=left_text_pos)
             left_text_pos = self.logger.add_text_line(f"Frame size: {self.frame.shape} FPS: {self.fps}", (255, 255, 0), left_text_pos)
-            self.ws.draw_debug(self.logger, left_text_pos)
-            left_text_pos.y += self.logger.line_height
+            if Constants.ws_enabled:
+                self.ws.draw_debug(self.logger, left_text_pos)
+                left_text_pos.y += self.logger.line_height
             self.arduino.draw_debug(self.logger, left_text_pos, debug=True)
             left_text_pos.y += self.logger.line_height
             self.update_action(left_text_pos=left_text_pos, right_text_pos=right_text_pos, debug=True)
@@ -468,4 +469,4 @@ class SwarmAPP():
 
             if debug:
                 print(f"--- End loop ---")
-            # self.cv2.waitKey(1)
+            self.cv2.waitKey(1)

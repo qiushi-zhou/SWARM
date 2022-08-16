@@ -46,6 +46,7 @@ class WebSocket:
         await self.call_backs()
         try:
           await self.sio.connect(self.url, namespaces=[self.namespace], wait_timeout=1)
+          self.setup_msg = "All GOOD!"
         except Exception as e:
           self.setup_msg = e
         # self.sio.wait()
@@ -92,6 +93,7 @@ class WebSocket:
         if not self.sio.connected:
             try:
                 await self.sio.connect(self.url, namespaces=[self.namespace], wait_timeout=1)
+                self.setup_msg = "All GOOD!"
             except Exception as e:
                 self.setup_msg = e
         else:
