@@ -443,7 +443,7 @@ class SwarmAPP():
         if draw_type == SwarmLogger.PYGAME:
             self.font = pygame.font.SysFont('Cascadia', Constants.font_size)
             self.logger = SwarmLogger(pygame, self.scene.screen, font=self.font, font_size=Constants.font_size)
-            log.add_widget(PyGameLogWidget(pygame=pygame, font=self.font, font_size=Constants.font_size, canvas=self.scene.screen))
+            # log.add_widget(PyGameLogWidget(pygame=pygame, font=self.font, font_size=Constants.font_size, canvas=self.scene.screen))
         else:
             self.logger = SwarmLogger(self.cv2, None, font=None, font_size=0.4)
 
@@ -497,16 +497,16 @@ class SwarmAPP():
                 frame_count = 0
                 start_time = time.time()
                 
-            log.append(self.tag, f"Frame size: {self.frame.shape} FPS: {self.fps}", color=(255, 255, 0), pos=left_text_pos)
-            # left_text_pos = self.logger.add_text_line(f"Frame size: {self.frame.shape} FPS: {self.fps}", (255, 255, 0), left_text_pos)
+            # log.append(self.tag, f"Frame size: {self.frame.shape} FPS: {self.fps}", color=(255, 255, 0), pos=left_text_pos)
+            left_text_pos = self.logger.add_text_line(f"Frame size: {self.frame.shape} FPS: {self.fps}", (255, 255, 0), left_text_pos)
             self.sio.draw_debug(self.logger, left_text_pos)
             left_text_pos.y += self.logger.line_height
             self.arduino.draw_debug(self.logger, left_text_pos, debug=True)
             left_text_pos.y += self.logger.line_height
             self.update_action(left_text_pos=left_text_pos, right_text_pos=right_text_pos, debug=True)
 
-            # self.logger.flush_text_lines(debug=debug, draw=True)
-            log.flush()
+            self.logger.flush_text_lines(debug=debug, draw=True)
+            # log.flush()
 
             if self.logger.draw_type == SwarmLogger.OPENCV:
                 self.scene.update(self.cv2.cvtColor(self.frame, self.cv2.COLOR_BGR2RGB), debug=debug)
