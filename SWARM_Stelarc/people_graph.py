@@ -2,7 +2,6 @@ import networkx as nx
 import math
 import numpy as np
 import itertools
-import matplotlib.pyplot as plt
 import Constants
 import utils
 from utils import Point

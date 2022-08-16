@@ -34,7 +34,7 @@ class SwarmAPP():
         self.mockup_commands = mockup_commands
         self.cv2 = cv2
         self.capture_index = Constants.start_capture_index
-        self.capture0 = None
+        self.cap = None
         self.frame = None
         self.fps = 0
         self.cameras_config = None
@@ -53,13 +53,13 @@ class SwarmAPP():
         while True:
             try:
                 if platform == "win32":
-                    self.capture0 = cv2.VideoCapture(self.capture_index, cv2.CAP_DSHOW)
+                    self.cap = cv2.VideoCapture(self.capture_index, cv2.CAP_DSHOW)
                 else:
                     # On MacOS, make sure to install opencv with "brew install opencv" and then link it with "brew link --overwrite opencv"
                     # Also remove CAP_DSHOW for MacOS
-                    self.capture0 = cv2.VideoCapture(self.capture_index, cv2.CAP_AVFOUNDATION)
+                    self.cap = cv2.VideoCapture(self.capture_index, cv2.CAP_AVFOUNDATION)
                 time.sleep(1)
-                if self.capture0.isOpened():  # Checks the stream
+                if self.cap.isOpened():  # Checks the stream
                     print(f"VideoCapture {self.capture_index} OPEN")
                     break
                 else:
@@ -71,10 +71,11 @@ class SwarmAPP():
                 print(f"Exception opening VideoCapture {self.capture_index}, stopping...")
                 return
 
-        self.capture0.set(self.cv2.CAP_PROP_FRAME_WIDTH, Constants.SCREEN_WIDTH)
-        self.capture0.set(self.cv2.CAP_PROP_FRAME_HEIGHT, Constants.SCREEN_HEIGHT)
-        self.frameSize = (int(self.capture0.get(self.cv2.CAP_PROP_FRAME_WIDTH)),
-                          int(self.capture0.get(self.cv2.CAP_PROP_FRAME_HEIGHT)))
+        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 3)
+        self.cap.set(self.cv2.CAP_PROP_FRAME_WIDTH, Constants.SCREEN_WIDTH)
+        self.cap.set(self.cv2.CAP_PROP_FRAME_HEIGHT, Constants.SCREEN_HEIGHT)
+        self.frameSize = (int(self.cap.get(self.cv2.CAP_PROP_FRAME_WIDTH)),
+                          int(self.cap.get(self.cv2.CAP_PROP_FRAME_HEIGHT)))
         # Constants.SCREEN_WIDTH = self.frameSize[0]
         # Constants.SCREEN_HEIGHT = self.frameSize[1]
         self.input = None
@@ -86,9 +87,7 @@ class SwarmAPP():
         self.scene = Scene(screen)
         self.async_loop = asyncio.get_event_loop()
         self.screenshot_filename = 'tempOP.jpeg'
-        self.ws = WebSocket(Constants.ws_url, Constants.ws_namespace, Constants.ws_enabled) 
-        self.ws.setup(self.async_loop)
-        
+        self.ws = None        
 
     def notify(self, observable, *args, **kwargs):
         print('Got', args, kwargs, 'From', observable)
@@ -366,7 +365,11 @@ class SwarmAPP():
         self.cv2.circle(map_canvas, (int(height/2), int(width/2)), Constants.inner_radius, (0, 0, 0), 2)
         self.cv2.circle(map_canvas, (int(height/2), int(width/2)), Constants.outer_radius, (0, 0, 0), 2)
         self.cv2.imshow("SWARM map", map_canvas)
-
+        
+    def encode_image_data(self, image_data):
+        img_str = base64.b64encode(image_data)
+        return "data:image/jpeg;base64," + img_str.decode()
+    
     def run(self, debug=False):
         draw_type = SwarmLogger.PYGAME
         if draw_type == SwarmLogger.PYGAME:
@@ -377,17 +380,18 @@ class SwarmAPP():
             self.logger = SwarmLogger(self.cv2, None, font=None, font_size=0.4)
 
         offset = Point(10, 10)
-        image_data = io.BytesIO()
         start_time = time.time()
-        fps_update_time = 2
+        fps_update_time = 0.05
         frame_count = 0
+        image_data = io.BytesIO()
+        image_file_size = 0
         while True:
             if debug:
                 print(f"--- Start loop ---")
                 e = datetime.datetime.now()
                 print(f"\r\n{e.strftime('%Y-%m-%d %H:%M:%S')}", end="\r")
 
-            result, self.frame = self.capture0.read()
+            result, self.frame = self.cap.read()
             # self.frame = cv2.resize(self.rame, (224, 224))
             if self.logger.draw_type == SwarmLogger.OPENCV:
                 self.logger.set_canvas(self.frame)
@@ -418,16 +422,31 @@ class SwarmAPP():
             self.update_behaviors_config()
 
             self.draw_cameras_debug(draw_graph_data=False)
-
-            # pygame.image.save(self.scene.screen, image_data, "JPEG")
-            image_data = pygame.image.tostring(pygame.display.get_surface(),"RGB")
+            
             elapsed = time.time() - start_time
             frame_count += 1
             if elapsed >= fps_update_time:
                 self.fps = int(frame_count / (elapsed))
                 frame_count = 0
-                start_time = time.time()
+                start_time = time.time() 
                 
+            if Constants.ws_enabled:
+                if self.ws is None:
+                    self.ws = WebSocket(Constants.ws_enabled, Constants.ws_url, Constants.ws_namespace, Constants.ws_send_frames, Constants.ws_framerate) 
+                    self.ws.setup(self.async_loop)   
+                if self.ws.send_frames:
+                    # Adapting framerate!
+                    if self.ws.skipped_frames >= self.ws.frames_to_skip:
+                        self.ws.skipped_frames = 0
+                        self.ws.frame_count += 1
+                        image_data = io.BytesIO()               
+                        pygame.image.save(self.scene.screen, image_data, "JPEG")
+                        image_file_size = image_data.getbuffer().nbytes/(1024*1024)
+                        image_data = self.encode_image_data(image_data.getvalue())
+                        self.ws.send_data(image_data, image_file_size, (len(image_data) * 3) / 4 - image_data.count('=', -2), self.async_loop)
+                    else:
+                        self.ws.skipped_frames += 1
+            
             # log.append(self.tag, f"Frame size: {self.frame.shape} FPS: {self.fps}", color=(255, 255, 0), pos=left_text_pos)
             left_text_pos = self.logger.add_text_line(f"Frame size: {self.frame.shape} FPS: {self.fps}", (255, 255, 0), left_text_pos)
             self.ws.draw_debug(self.logger, left_text_pos)
@@ -443,8 +462,6 @@ class SwarmAPP():
                 self.scene.update(self.cv2.cvtColor(self.frame, self.cv2.COLOR_BGR2RGB), debug=debug)
             self.scene.render()
             
-            self.ws.send_data(image_data, self.async_loop)
-            
             if Constants.draw_map:
                 if debug:
                     print(f"Updating map...")
@@ -452,4 +469,4 @@ class SwarmAPP():
 
             if debug:
                 print(f"--- End loop ---")
-            self.cv2.waitKey(1)
+            # self.cv2.waitKey(1)

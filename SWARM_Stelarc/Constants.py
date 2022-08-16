@@ -1,9 +1,7 @@
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
-# SCREEN_WIDTH = 640
+# SCREEN_WIDTH = 960
 # SCREEN_HEIGHT = 480
-# SCREEN_WIDTH = 480
-# SCREEN_HEIGHT = 270
 import os
 
 if os.name == 'nt':
@@ -21,7 +19,9 @@ else:
 print("\n")
 max_capture_index = 10  
 
-ws_enabled = False
+ws_enabled = True
+ws_send_frames = True
+ws_framerate = 16
 ws_url = "wss://anthropomorphicmachine.com:3005"
 ws_namespace = "/visualization"
 
