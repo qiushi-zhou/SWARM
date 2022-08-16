@@ -28,7 +28,6 @@ import io
 
 
 class WebSocket:
-
     def __init__(self, url, namespace, enabled=False):
         # self.sio = socketio.Client(logger=True, engineio_logger=True)
         self.sio = socketio.Client()
@@ -103,6 +102,7 @@ class SwarmAPP():
         if observable:
             observable.subscribe(self)
         self.mockup_commands = mockup_commands
+        self.use_openpose = True
         self.cv2 = cv2
         self.capture_index = 2
         self.capture0 = None
@@ -148,8 +148,7 @@ class SwarmAPP():
                           int(self.capture0.get(self.cv2.CAP_PROP_FRAME_HEIGHT)))
         # Constants.SCREEN_WIDTH = self.frameSize[0]
         # Constants.SCREEN_HEIGHT = self.frameSize[1]
-
-        self.input = Input(self, cv2)
+        self.input = None
         pygame.init()
         pygame.display.set_mode((int(Constants.SCREEN_WIDTH+Constants.SCREEN_WIDTH*0.27), Constants.SCREEN_HEIGHT))
         pygame.display.set_caption("SWARM")
@@ -195,6 +194,7 @@ class SwarmAPP():
             try:
                 with open(file_path) as file:
                     self.cameras_config = yaml.load(file, Loader=yaml.FullLoader)
+                self.use_openpose = self.cameras_config.get("use_openpose", True)
                 cameras_data = self.cameras_config.get("cameras", [])
                 for i in range(0, len(cameras_data)):
                     if len(self.cameras) <= i:
@@ -473,11 +473,14 @@ class SwarmAPP():
             if debug:
                 print(f"Arduino status updated!")
 
-            tracks, poses, frame_updated = self.input.update_trackers(self.frame)
-            if Constants.draw_openpose and frame_updated is not None:
-                self.frame = frame_updated
+            if self.use_openpose:                
+                if self.input is None:
+                    self.input = Input(self, cv2)
+                tracks, poses, frame_updated = self.input.update_trackers(self.frame)
+                if Constants.draw_openpose and frame_updated is not None:
+                    self.frame = frame_updated
 
-            self.update_tracks(tracks, poses, self.logger, debug=debug)
+                self.update_tracks(tracks, poses, self.logger, debug=debug)
 
             self.update_cameras_config()
             self.update_cameras_data(debug=debug)
