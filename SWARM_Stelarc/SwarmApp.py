@@ -19,13 +19,14 @@ import oyaml as yaml
 from Camera import Camera
 from FrameBufferData import FrameBuffer
 from utils import Point
+import asyncio
 import json
 import io
 import base64
 
 
 class SwarmAPP():
-    def __init__(self, observable=None, arduino_port="COM4", ws_enabled=False, mockup_commands=True):
+    def __init__(self, observable=None, arduino_port="COM4", mockup_commands=True):
         self.arduino = Arduino(port=arduino_port, mockup_commands=mockup_commands)
         self.tag = "SwarmApp"
         if observable:
@@ -83,10 +84,11 @@ class SwarmAPP():
         # if you want to use this module.
         screen = pygame.display.get_surface()
         self.scene = Scene(screen)
-        # self.async_loop = asyncio.get_event_loop()
+        self.async_loop = asyncio.get_event_loop()
         self.screenshot_filename = 'tempOP.jpeg'
-        self.sio = WebSocket(Constants.ws_url, Constants.ws_namespace, ws_enabled)
-        self.sio.setup()
+        self.ws = WebSocket(Constants.ws_url, Constants.ws_namespace, Constants.ws_enabled) 
+        self.ws.setup(self.async_loop)
+        
 
     def notify(self, observable, *args, **kwargs):
         print('Got', args, kwargs, 'From', observable)
@@ -418,6 +420,7 @@ class SwarmAPP():
             self.draw_cameras_debug(draw_graph_data=False)
 
             # pygame.image.save(self.scene.screen, image_data, "JPEG")
+            image_data = pygame.image.tostring(pygame.display.get_surface(),"RGB")
             elapsed = time.time() - start_time
             frame_count += 1
             if elapsed >= fps_update_time:
@@ -427,7 +430,7 @@ class SwarmAPP():
                 
             # log.append(self.tag, f"Frame size: {self.frame.shape} FPS: {self.fps}", color=(255, 255, 0), pos=left_text_pos)
             left_text_pos = self.logger.add_text_line(f"Frame size: {self.frame.shape} FPS: {self.fps}", (255, 255, 0), left_text_pos)
-            self.sio.draw_debug(self.logger, left_text_pos)
+            self.ws.draw_debug(self.logger, left_text_pos)
             left_text_pos.y += self.logger.line_height
             self.arduino.draw_debug(self.logger, left_text_pos, debug=True)
             left_text_pos.y += self.logger.line_height
@@ -439,9 +442,9 @@ class SwarmAPP():
             if self.logger.draw_type == SwarmLogger.OPENCV:
                 self.scene.update(self.cv2.cvtColor(self.frame, self.cv2.COLOR_BGR2RGB), debug=debug)
             self.scene.render()
-
-            self.sio.send_data(pygame, self.scene.screen, image_data)
-
+            
+            self.ws.send_data(image_data, self.async_loop)
+            
             if Constants.draw_map:
                 if debug:
                     print(f"Updating map...")

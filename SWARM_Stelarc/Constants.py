@@ -21,8 +21,9 @@ else:
 print("\n")
 max_capture_index = 10  
 
+ws_enabled = False
 ws_url = "wss://anthropomorphicmachine.com:3005"
-ws_namespace = "/vizualization"
+ws_namespace = "/visualization"
 
 max_cosine_distance = 1
 nn_budget = None
