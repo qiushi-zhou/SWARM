@@ -4,7 +4,7 @@ from Utils.FPSCounter import FPSCounter
 
 class WebSocketManager(SwarmComponentMeta):
     def __init__(self, logger):
-        super(WebSocketManager, self).__init__(logger, "WebSocketManager", r'./WebSocketConfig.yaml', self.update_config_data)
+        super(WebSocketManager, self).__init__(logger, "WebSocketManager", r'./Config/WebSocketConfig.yaml', self.update_config_data)
         self.ws = WebSocket()
         self.send_frames = False
         self.target_framerate = 15

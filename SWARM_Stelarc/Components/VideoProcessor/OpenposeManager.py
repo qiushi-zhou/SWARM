@@ -1,12 +1,20 @@
 from . import Input
 from ..SwarmComponentMeta import SwarmComponentMeta
+import threading
 
 class OpenposeManager(SwarmComponentMeta):
-    def __init__(self, logger, camera_manager, enabled=True):
+    def __init__(self, logger, camera_manager, enabled=True, multi_threaded=True):
         self.input = Input()
         super(OpenposeManager, self).__init__(logger, "OpenposeManager")
         self.camera_manager = camera_manager
-        self.frame = None
+        self.processed_frame = None
+        self.processed_frame_mt = None
+        self.camera_frame = None
+        self.multi_threaded = multi_threaded
+        if self.multi_threaded:
+            self.thread_started = False
+            self.read_lock = threading.Lock()
+            self.start_openpose_processor()
 
     def update_config(self):
         pass
@@ -14,18 +22,38 @@ class OpenposeManager(SwarmComponentMeta):
     def update_config_data(self, data, last_modified_time):
         pass
     
+    def start_openpose_processor(self):
+        if self.thread_started:
+            print('[!] Threaded OP processing has already been started.')
+            return None
+        self.thread_started = True
+        self.thread = threading.Thread(target=self.process_frame_async, args=())
+        self.thread.start()
+        return self
+    
+    def process_frame_async(self):        
+        while self.thread_started:
+            with self.read_lock:
+                if self.camera_frame is not None:
+                    tracks, keypoints, updated_frame = self.input.update_trackers(self.camera_frame)
+                    self.processed_frame_mt = updated_frame if updated_frame is not None else self.camera_frame
+        
     def get_updated_frame():
-        return self.frame
+        return self.processed_frame
 
     def update(self, frame, debug=True):
+        if frame is None:
+            return
         if debug:
             print(f"Updating tracks")
-
-        tracks, keypoints, updated_frame = self.input.update_trackers(frame)
-        if updated_frame is None:
-            self.frame = frame
-            return self.frame
-        self.frame = updated_frame
+        if not self.multi_threaded:
+            self.camera_frame = frame
+            tracks, keypoints, updated_frame = self.input.update_trackers(self.camera_frame)
+            self.processed_frame = updated_frame if updated_frame is not None else self.camera_frame
+        else:
+            with self.read_lock:
+                self.camera_frame = frame
+                self.processed_frame = self.processed_frame_mt
         # Reset graphs to get new points
         for camera in self.camera_manager.cameras:
             camera.p_graph.init_graph()

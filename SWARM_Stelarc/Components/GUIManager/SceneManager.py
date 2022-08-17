@@ -40,10 +40,14 @@ class SceneManager(SwarmComponentMeta):
     def update_screen_frame(self, frame):
         self.screen_delay = self.sceneClock.tick()
         self.screen.fill(self.backgroundColor)
+        if frame is None:
+            return
         pgImg = self.pygame.image.frombuffer(frame.tostring(), frame.shape[1::-1], "BGR")
         self.screen.blit(pgImg, (0,0))
     
     def update(self, frame, clean_frame=False, debug=False):
+        if frame is None:
+            return
         if debug:
             print(f"Updating scene...")
         if not clean_frame:

@@ -5,7 +5,7 @@ import datetime
 
 class SwarmManager(SwarmComponentMeta):
     def __init__(self, logger=None, arduino_manager=None):
-        super(SwarmManager, self).__init__(logger, "SwarmManager", r'./BehaviourConfig.yaml', self.update_config_data)
+        super(SwarmManager, self).__init__(logger, "SwarmManager", r'./Config/BehaviourConfig.yaml', self.update_config_data)
         self.arduino = arduino_manager.arduino
         self.behaviors = None
         self.frame_buffer = FrameBuffer(buffer_size=60)

@@ -4,7 +4,7 @@ import datetime
 
 class ArduinoManager(SwarmComponentMeta):
     def __init__(self, logger, arduino_port="COM4", mockup_commands=True):
-        super(ArduinoManager, self).__init__(logger, "ArduinoManager", r'./ArduinoConfig.yaml', self.update_config_data)
+        super(ArduinoManager, self).__init__(logger, "ArduinoManager", r'./Config/ArduinoConfig.yaml', self.update_config_data)
         self.arduino = Arduino(port=arduino_port, mockup_commands=mockup_commands)
     
     def update_config(self):

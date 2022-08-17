@@ -18,7 +18,7 @@ from Components.SwarmManager.SwarmManager import SwarmManager
 
 
 class SwarmAPP():
-    def __init__(self, arduino_port="COM4", mockup_commands=True):
+    def __init__(self, arduino_port="COM4", mockup_commands=True, multi_threaded=True):
         self.tag = "SwarmApp"
         
         self.components = []
@@ -27,14 +27,14 @@ class SwarmAPP():
         self.logger = self.scene_manager.logger     
         self.components.append(self.scene_manager)
         
-        self.video_manager = VideoInputManager(self.logger, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, Constants.start_capture_index)  
+        self.video_manager = VideoInputManager(self.logger, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, Constants.start_capture_index, multi_threaded=True)  
         self.components.append(self.video_manager)  
         
         self.cameras_manager = CamerasManager(self.logger, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)   
         self.components.append(self.cameras_manager)
         
         if Constants.use_openpose:
-            self.openpose_manager = OpenposeManager(self.logger, self.cameras_manager)
+            self.openpose_manager = OpenposeManager(self.logger, self.cameras_manager, multi_threaded=multi_threaded)
             self.components.append(self.openpose_manager)   
             
         self.arduino_manager = ArduinoManager(self.logger, arduino_port, mockup_commands)    
@@ -66,9 +66,9 @@ class SwarmAPP():
             
             self.arduino_manager.update(debug=debug)
 
-            # if Constants.use_openpose:
-            #     self.openpose_manager.update(self.frame)
-            #     frame = self.openpose_manager.get_updated_frame()
+            if Constants.use_openpose:
+                self.openpose_manager.update(self.frame)
+                frame = self.openpose_manager.get_updated_frame()
 
             self.cameras_manager.update(debug=debug)
             self.swarm_manager.update(self.cameras_manager.cameras, left_text_pos, right_text_pos, debug=True)

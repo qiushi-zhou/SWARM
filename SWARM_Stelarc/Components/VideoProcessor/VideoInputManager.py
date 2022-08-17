@@ -2,9 +2,10 @@ from Utils.FPSCounter import FPSCounter
 from ..SwarmComponentMeta import SwarmComponentMeta
 from sys import platform
 import time
+import threading
 
 class VideoInputManager(SwarmComponentMeta):
-    def __init__(self, logger, screen_w=500, screen_h=500, start_capture_index=0):
+    def __init__(self, logger, screen_w=500, screen_h=500, start_capture_index=0, multi_threaded=True):
         self.screen_w = screen_w
         self.screen_h = screen_h
         super(VideoInputManager, self).__init__(logger, "VideoInputManager")
@@ -14,9 +15,30 @@ class VideoInputManager(SwarmComponentMeta):
         self.capture_index = start_capture_index
         self.max_capture_index = 10
         self.frame = None
+        self.latest_frame = None
         self.frame_size = (0,0)
         self.fps_counter = FPSCounter()
         self.setup_capture()
+        self.multi_threaded = multi_threaded
+        if self.multi_threaded:
+            self.thread_started = False
+            self.read_lock = threading.Lock()
+            self.start_mt_stream()
+            
+    def start_mt_stream(self):
+        if self.thread_started:
+            print('[!] Threaded video capturing has already been started.')
+            return None
+        self.thread_started = True
+        self.thread = threading.Thread(target=self.get_frame_async, args=())
+        self.thread.start()
+        return self
+    
+    def get_frame_async(self):
+        while self.thread_started:
+            grabbed, frame = self.cap.read()
+            with self.read_lock:
+                self.latest_frame = frame
         
     def setup_capture(self):      
         while True:
@@ -55,11 +77,19 @@ class VideoInputManager(SwarmComponentMeta):
         return self.frame
     
     def update(self):
-        result, self.frame = self.cap.read()
-        self.fps_counter.frame_count += 1
-        self.fps_counter.update()
+        if not self.multi_threaded:
+            result, self.frame = self.cap.read()
+        else:
+            with self.read_lock:
+                self.frame = self.latest_frame
+        if self.frame is not None:
+            self.fps_counter.frame_count += 1
+            self.fps_counter.update()
         self.cv2.waitKey(1)
     
     def draw(self, left_text_pos):
-        left_text_pos = self.logger.add_text_line(f"Frame size: {self.frame.shape} FPS: {self.fps_counter.fps}", (255, 255, 0), left_text_pos)
-        pass
+        if self.frame is None:
+            shape = "NO FRAME"
+        else:
+            shape = self.frame.shape
+        left_text_pos = self.logger.add_text_line(f"Frame size: {shape}, FPS: {self.fps_counter.fps}", (255, 255, 0), left_text_pos)
