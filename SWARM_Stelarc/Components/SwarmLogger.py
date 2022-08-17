@@ -1,4 +1,4 @@
-from utils import Point
+from Utils.utils import Point
 
 class SwarmLogger:
     OPENCV = 'cv'

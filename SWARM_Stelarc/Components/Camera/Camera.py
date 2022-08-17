@@ -1,6 +1,6 @@
-from people_graph import *
 from matplotlib import path
-from utils import Point
+from Utils.utils import Point
+from .people_graph import PeopleGraph
 
 class Camera:
     def __init__(self, id, screen_w, screen_h, config_data, init_graph=True):
@@ -45,18 +45,6 @@ class Camera:
             mx = self.min_point.x + ((self.max_point.x - self.min_point.x)/2)
             my = self.max_point.y
             self.machine_position = Point(mx, my)
-    
-        # q_col = 0 if (i % 2) == 0 else 1
-        # q_row = 0 if i < 2 else 1
-        # start_x = 0 if q_col <= 0 else Constants.SCREEN_WIDTH / 2
-        # end_x = Constants.SCREEN_WIDTH / 2 if q_col <= 0 else Constants.SCREEN_WIDTH
-        # start_y = 0 if q_row <= 0 else Constants.SCREEN_HEIGHT / 2
-        # end_y = Constants.SCREEN_HEIGHT / 2 if q_row <= 0 else Constants.SCREEN_HEIGHT
-
-        # start_x += Constants.SCREEN_WIDTH * self.cameras_padding
-        # end_x -= Constants.SCREEN_WIDTH * self.cameras_padding
-        # start_y += Constants.SCREEN_HEIGHT * self.cameras_padding
-        # end_y -= Constants.SCREEN_HEIGHT * self.cameras_padding
 
     def parse_point(self, p):
         x = 0
@@ -122,7 +110,7 @@ class Camera:
         self.p_graph.update_graph(machine_pos=self.machine_position)
 
     def draw_debug(self, logger, draw_graph_data=True):
-        if not self.enabled or not Constants.draw_cameras_data:
+        if not self.enabled:
             return
         if len(self.path_vertices) > 0:
             for j in range(0, len(self.path_vertices) - 1):

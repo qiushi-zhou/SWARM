@@ -1,0 +1,5 @@
+ws_enabled: true
+ws_send_frames: true
+ws_target_framerate: 16
+ws_url: "wss://anthropomorphicmachine.com:3005"
+ws_namespace: "/visualization"
