@@ -33,14 +33,16 @@ class SwarmAPP():
         self.cameras_manager = CamerasManager(self.logger, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)   
         self.components.append(self.cameras_manager)
         
-        self.openpose_manager = OpenposeManager(self.logger, self.cameras_manager, multi_threaded=False, use_openpose=Constants.use_openpose)
-        self.components.append(self.openpose_manager)   
+        if Constants.use_processing:
+            self.openpose_manager = OpenposeManager(self.logger, self.cameras_manager, multi_threaded=False, use_openpose=Constants.use_openpose)
+            self.components.append(self.openpose_manager)   
             
         self.arduino_manager = ArduinoManager(self.logger, arduino_port, mockup_commands)    
         self.components.append(self.arduino_manager)
             
-        self.websocket_manager = WebSocketManager(self.logger)    
-        self.components.append(self.websocket_manager)
+        if Constants.use_websocket:
+            self.websocket_manager = WebSocketManager(self.logger)    
+            self.components.append(self.websocket_manager)
             
         self.swarm_manager = SwarmManager(self.logger, self.arduino_manager)
         self.components.append(self.swarm_manager)
@@ -63,28 +65,36 @@ class SwarmAPP():
             frame = self.video_manager.get_frame()
             self.frames_to_process.append(frame)
             # self.scene_manager.update(frame, clean_frame=True, debug=debug)
-            if self.openpose_manager.multi_threaded:
-                left_text_pos = self.logger.add_text_line(f"Frames to process: {len(self.frames_to_process)}, Frames Processed: {len(self.frames_processed)}", (255, 255, 0), left_text_pos)
-                if len(self.frames_to_process) < self.frame_buffer_size:
-                    return # let the buffer build first!
+            
+            if Constants.use_processing:
+                if self.openpose_manager.multi_threaded:
+                    left_text_pos = self.logger.add_text_line(f"Frames to process: {len(self.frames_to_process)}, Frames Processed: {len(self.frames_processed)}", (255, 255, 0), left_text_pos)
+                    if len(self.frames_to_process) < self.frame_buffer_size:
+                        return # let the buffer build first!
             left_text_pos = Point(Constants.SCREEN_WIDTH * 0.5 + offset.x, Constants.SCREEN_HEIGHT * 0.5 + offset.y)
             right_text_pos = Point(Constants.SCREEN_WIDTH + offset.x, 0 + offset.y)
             
             self.arduino_manager.update(debug=debug)
-
-            self.openpose_manager.update(self.frames_to_process.popleft() if self.frames_to_process else None)
-            self.frames_processed.append(self.openpose_manager.get_updated_frame())
+            new_frame_to_process = self.frames_to_process.popleft() if self.frames_to_process else None
+            if Constants.use_processing:
+                self.openpose_manager.update(new_frame_to_process)
+                self.frames_processed.append(self.openpose_manager.get_updated_frame())
+            else:
+                self.frames_processed.append(new_frame_to_process)
+            
 
             self.cameras_manager.update(debug=debug)
             
             self.video_manager.draw(left_text_pos)
             self.cameras_manager.draw(draw_graph_data=False)
             
-            self.websocket_manager.draw(left_text_pos, debug=debug)
+            if Constants.use_websocket:
+                self.websocket_manager.draw(left_text_pos, debug=debug)
             left_text_pos.y += self.logger.line_height
             
             self.swarm_manager.update(self.cameras_manager.cameras, left_text_pos, right_text_pos, debug=True)
-            self.websocket_manager.update(self.scene_manager.pygame, self.scene_manager.screen, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)
+            if Constants.use_websocket:
+                self.websocket_manager.update(self.scene_manager.pygame, self.scene_manager.screen, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)
             
             self.arduino_manager.draw(left_text_pos, debug=debug)
             left_text_pos.y += self.logger.line_height

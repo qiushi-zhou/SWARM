@@ -22,6 +22,9 @@ else:
 print("\n")
 max_capture_index = 10  
 
+use_websocket = True
+use_processing = False
+
 
 max_cosine_distance = 1
 nn_budget = None
