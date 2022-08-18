@@ -9,6 +9,6 @@ ws_fixed_frame_scaling: 1
 
 ws_frame_skip: false
 
-ws_target_framerate: 20
+ws_target_framerate: 24
 ws_url: "wss://anthropomorphicmachine.com:3005"
 ws_namespace: "/visualization" 

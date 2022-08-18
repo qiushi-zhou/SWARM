@@ -36,8 +36,6 @@ class WebSocketManager(SwarmComponentMeta):
         if self.enabled:
             if self.send_frames:
                 self.fps = self.ws.get_fps()
-                if self.fps > self.target_framerate:
-                    return
                 if self.frame_skipping:
                     if self.skipped_frames > self.frames_to_skip:
                         self.skipped_frames = 0

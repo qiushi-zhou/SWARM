@@ -41,7 +41,11 @@ class SceneManager(SwarmComponentMeta):
         self.screen_delay = self.sceneClock.tick()
         self.screen.fill(self.backgroundColor)
         pgImg = self.pygame.image.frombuffer(frame.tostring(), frame.shape[1::-1], "BGR")
-        self.screen.blit(pgImg, (0,0))
+        try:
+            self.screen.blit(pgImg, (0,0))
+        except Exception as e:
+            # Surface might be locked during blip! Rare but might happen
+            pass
     
     def update(self, frame, debug=False):
         if frame is None:

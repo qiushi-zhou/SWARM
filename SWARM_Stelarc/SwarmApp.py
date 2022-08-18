@@ -47,7 +47,7 @@ class SwarmAPP():
         self.swarm_manager = SwarmManager(self.logger, self.arduino_manager)
         self.components.append(self.swarm_manager)
         
-        self.frame_buffer_size = 1
+        self.frame_buffer_size = 3
         self.frames_processed = deque([])
         self.frames_to_process = deque([])
     
@@ -57,6 +57,8 @@ class SwarmAPP():
             if debug:
                 e = datetime.datetime.now()
                 print(f"--- Start loop ---\n\n{e.strftime('%Y-%m-%d %H:%M:%S')}")
+            left_text_pos = Point(Constants.SCREEN_WIDTH * 0.5 + offset.x, Constants.SCREEN_HEIGHT * 0.5 + offset.y)
+            right_text_pos = Point(Constants.SCREEN_WIDTH + offset.x, 0 + offset.y)
             
             for component in self.components:
                 component.update_config()
@@ -66,13 +68,10 @@ class SwarmAPP():
             self.frames_to_process.append(frame)
             # self.scene_manager.update(frame, clean_frame=True, debug=debug)
             
-            if Constants.use_processing:
-                if self.openpose_manager.multi_threaded:
-                    left_text_pos = self.logger.add_text_line(f"Frames to process: {len(self.frames_to_process)}, Frames Processed: {len(self.frames_processed)}", (255, 255, 0), left_text_pos)
-                    if len(self.frames_to_process) < self.frame_buffer_size:
-                        return # let the buffer build first!
-            left_text_pos = Point(Constants.SCREEN_WIDTH * 0.5 + offset.x, Constants.SCREEN_HEIGHT * 0.5 + offset.y)
-            right_text_pos = Point(Constants.SCREEN_WIDTH + offset.x, 0 + offset.y)
+            left_text_pos = self.logger.add_text_line(f"Frames to process: {len(self.frames_to_process)}, Frames Processed: {len(self.frames_processed)}", (255, 255, 0), left_text_pos)
+
+            if len(self.frames_to_process) < self.frame_buffer_size:
+                continue # let the buffer build first!
             
             self.arduino_manager.update(debug=debug)
             new_frame_to_process = self.frames_to_process.popleft() if self.frames_to_process else None

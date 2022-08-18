@@ -126,13 +126,18 @@ class WebSocket:
               image_bytes = self.get_frame(pygame, self.subsurface, self.frame_w, self.frame_h)
               self.send_data(image_bytes)
               self.frame_ready = False
+              self.fps_counter.update()
       
     def notify(self, surface, frame_w, frame_h):
-      if not self.frame_ready:
-        self.subsurface = surface.subsurface((0,0, frame_w, frame_h))
-        self.frame_w = frame_w
-        self.frame_h = frame_h
-        self.frame_ready = True
+      with self.read_lock:
+        if not self.frame_ready:
+          if self.fps_counter.fps > self.target_framerate:
+            self.fps_counter.update()
+            return
+          self.subsurface = surface.subsurface((0,0, frame_w, frame_h))
+          self.frame_w = frame_w
+          self.frame_h = frame_h
+          self.frame_ready = True
           
     def init(self):
       self.set_status(WebSocket.Statuses.DISCONNECTED, {self.uri})
@@ -221,7 +226,6 @@ class WebSocket:
     
     def get_fps(self):
       with self.read_lock:
-        self.fps_counter.update()
         return self.fps_counter.fps
       
     def get_frame(self, pygame, subsurface, frame_w, frame_h):
