@@ -20,6 +20,7 @@ class SwarmComponentMeta:
       try:
         if last_modified_time < os.path.getmtime(file_path):
           with open(file_path) as file:
+              print(f"Updating {tag} behavior configruation {file_path}")
               self.update_config_data_callback(yaml.load(file, Loader=yaml.FullLoader), os.path.getmtime(file_path))
       except Exception as e:
           print(f"Error opening {tag} behavior config file: {e}")

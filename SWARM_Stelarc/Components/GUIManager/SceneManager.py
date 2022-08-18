@@ -40,24 +40,17 @@ class SceneManager(SwarmComponentMeta):
     def update_screen_frame(self, frame):
         self.screen_delay = self.sceneClock.tick()
         self.screen.fill(self.backgroundColor)
-        if frame is None:
-            return
         pgImg = self.pygame.image.frombuffer(frame.tostring(), frame.shape[1::-1], "BGR")
         self.screen.blit(pgImg, (0,0))
     
-    def update(self, frame, clean_frame=False, debug=False):
+    def update(self, frame, debug=False):
         if frame is None:
+            print(f"Frame in update is None!")
             return
         if debug:
             print(f"Updating scene...")
-        if not clean_frame:
-            if self.logger.draw_type == SwarmLogger.OPENCV:
-                self.update_screen_frame(frame)
-        else:
-            if self.logger.draw_type == SwarmLogger.PYGAME:
-                self.update_screen_frame(frame)
-            else:
-                self.logger.set_canvas(frame)
+        if self.drawer_type == SceneDrawer.PYGAME:
+            self.update_screen_frame(frame)
     
     def draw(self, debug=True):
         self.logger.flush_text_lines(debug=False, draw=True)

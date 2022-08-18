@@ -1,6 +1,6 @@
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
-scaling = 0.8
+scaling = 1
 SCREEN_WIDTH = int(SCREEN_WIDTH*scaling)
 SCREEN_HEIGHT = int(SCREEN_HEIGHT*scaling)
 # SCREEN_WIDTH = 850
@@ -22,18 +22,13 @@ else:
 print("\n")
 max_capture_index = 10  
 
-ws_enabled = True
-ws_send_frames = True
-ws_framerate = 16
-ws_url = "wss://anthropomorphicmachine.com:3005"
-ws_namespace = "/visualization"
 
 max_cosine_distance = 1
 nn_budget = None
 nms_max_overlap = 1.0
 max_age = 100
 n_init = 20
-font_size = 19
+font_size = int(17*scaling)
 
 
 draw_openpose = True

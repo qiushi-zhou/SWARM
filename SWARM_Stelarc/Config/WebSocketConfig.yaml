@@ -1,5 +1,8 @@
-ws_enabled: false
+ws_enabled: true
+ws_sync_with_server: true
 ws_send_frames: true
-ws_target_framerate: 16
+ws_min_frame_scaling: 1
+ws_fixed_frame_scaling: 0.8
+ws_target_framerate: 5
 ws_url: "wss://anthropomorphicmachine.com:3005"
-ws_namespace: "/visualization"
+ws_namespace: "/visualization" 

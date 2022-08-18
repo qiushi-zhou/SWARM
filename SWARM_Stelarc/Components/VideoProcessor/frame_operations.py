@@ -13,7 +13,6 @@ class FrameOperations():
         self.SPEED_FILTER = cv.imread(os.path.join(self.FILTER_F,"SPEED.png"))
         self.CONT_FILTER = cv.imread(os.path.join(self.FILTER_F,"CONTINUE.png"))
 
-
     def average_blur(self,frame,kernel_size):
         conversion = cv.blur(frame,kernel_size)
         return conversion

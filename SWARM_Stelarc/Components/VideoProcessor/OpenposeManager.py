@@ -1,20 +1,30 @@
-from . import Input
 from ..SwarmComponentMeta import SwarmComponentMeta
 import threading
+import cv2
 
+class ProcessedFrameData:
+    def __init__(self, tracks=None, keypoints=None, frame=None):
+        self.tracks = [] if tracks is None else tracks
+        self.keypoints = [] if keypoints is None else keypoints
+        self.frame = None if frame is None else frame
+        
 class OpenposeManager(SwarmComponentMeta):
-    def __init__(self, logger, camera_manager, enabled=True, multi_threaded=True):
-        self.input = Input()
+        
+    def __init__(self, logger, camera_manager, enabled=True, multi_threaded=True, use_openpose=True):
+        self.use_openpose = use_openpose
+        if self.use_openpose:
+            from . import Input
+            self.input = Input.Input()
         super(OpenposeManager, self).__init__(logger, "OpenposeManager")
         self.camera_manager = camera_manager
-        self.processed_frame = None
-        self.processed_frame_mt = None
+        self.processed_frame_data = ProcessedFrameData()
+        self.processed_frame_data_mt = ProcessedFrameData()
         self.camera_frame = None
         self.multi_threaded = multi_threaded
         if self.multi_threaded:
             self.thread_started = False
             self.read_lock = threading.Lock()
-            self.start_openpose_processor()
+            self.start_processor()
 
     def update_config(self):
         pass
@@ -22,7 +32,7 @@ class OpenposeManager(SwarmComponentMeta):
     def update_config_data(self, data, last_modified_time):
         pass
     
-    def start_openpose_processor(self):
+    def start_processor(self):
         if self.thread_started:
             print('[!] Threaded OP processing has already been started.')
             return None
@@ -35,30 +45,51 @@ class OpenposeManager(SwarmComponentMeta):
         while self.thread_started:
             with self.read_lock:
                 if self.camera_frame is not None:
-                    tracks, keypoints, updated_frame = self.input.update_trackers(self.camera_frame)
-                    self.processed_frame_mt = updated_frame if updated_frame is not None else self.camera_frame
+                    self.processed_frame_data_mt = self.process_frame(self.use_openpose, self.camera_frame)
+                    
+    def process_frame(self, use_openpose, frame):
+        try:
+            if use_openpose:
+                tracks, keypoints, updated_frame = self.input.update_trackers(frame)
+            else:
+                imgray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                ret, thresh = cv2.threshold(imgray, 127, 255, 0)
+                contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+                cv2.drawContours(frame, contours, -1, (0,255,0), 1)
+                updated_frame = frame
+                # img_blur = cv2.GaussianBlur(frame, (21,21), sigmaX=1, borderType=cv2.BORDER_DEFAULT)
+                # edges = cv2.Canny(image=img_blur, threshold1=100, threshold2=200)
+                # updated_frame = cv2.resize(edges, (self.camera_manager.screen_w, self.camera_manager.screen_h))
+                keypoints = None
+                tracks = None
+        except Exception as e:
+            print(f"Error processing frame: {e}")
+            return ProcessedFrameData()
+        return ProcessedFrameData(tracks, keypoints, updated_frame)
         
-    def get_updated_frame():
-        return self.processed_frame
+    def get_updated_frame(self):
+        if self.processed_frame_data.frame is None:
+            print(f"Updated frame is None")
+        return self.processed_frame_data.frame
 
-    def update(self, frame, debug=True):
+    def update(self, frame, debug=False):
         if frame is None:
             return
         if debug:
             print(f"Updating tracks")
+        # tracks, keypoints, updated_frame 
         if not self.multi_threaded:
             self.camera_frame = frame
-            tracks, keypoints, updated_frame = self.input.update_trackers(self.camera_frame)
-            self.processed_frame = updated_frame if updated_frame is not None else self.camera_frame
+            self.processed_frame_data = self.process_frame(self.use_openpose, self.camera_frame)
         else:
             with self.read_lock:
                 self.camera_frame = frame
-                self.processed_frame = self.processed_frame_mt
+                self.processed_frame_data = self.processed_frame_data_mt
         # Reset graphs to get new points
         for camera in self.camera_manager.cameras:
             camera.p_graph.init_graph()
 
-        for track in tracks:
+        for track in self.processed_frame_data.tracks:
             color = (255, 255, 255)
             if not track.is_confirmed():
                 color = (0, 0, 255)
