@@ -11,7 +11,6 @@ class BackgroundTask:
         self.cleanup_fun = cleanup_fun
         self.thread_started = False
         self.name = name
-        self.thread_started = False
         self.read_lock = threading.Lock() if read_lock is None else read_lock
         self._stop = threading.Event()
 
@@ -23,11 +22,11 @@ class BackgroundTask:
             self.init_fun()
         if self.thread_started:
             print(f'[!] Threaded {self.name} has already been started.')
-            return None
+            return self
         if self.loop_fun is None:
             print(f'[!] Threaded {self.name} has no background function!')
-            return None
-        self.thread = threading.Thread(target=self.loop_fun, args=[self])
+            return self
+        self.thread = threading.Thread(target=self.loop, args=[])
         self.thread_started = True
         self.thread.start()
         return self
@@ -37,8 +36,7 @@ class BackgroundTask:
         while self.thread_started and running:
             if self._stop.isSet():
                 return
-            with self.read_lock:
-                running = self.loop_fun(self)
+            running = self.loop_fun(self)
             if not running:
                 break
         self.stop()
@@ -48,14 +46,18 @@ class BackgroundTask:
         self.thread_started = False
         if self.cleanup_fun is not None:
             self.cleanup_fun()
-
+    def __str__(self):
+        return self.name
+    def __repr__(self):
+        return self.name
 
 class BackgroundTasksManager(SwarmComponentMeta):
     def __init__(self, logger):
         super(BackgroundTasksManager, self).__init__(logger, self, "BackgroundTasksManager")
         self.tasks = []
 
-    def add_task(self, name, init_fun, loop_fun, cleanup_fun):
+    def add_task(self, name, init_fun, loop_fun, cleanup_fun, read_lock=None):
+        print(f"Adding task {name}")
         task = BackgroundTask(name, init_fun, loop_fun, cleanup_fun, read_lock)
         self.tasks.append(task)
         return task
@@ -116,5 +118,5 @@ class BackgroundTasksManager(SwarmComponentMeta):
         if debug:
             print(f"Drawing BackgroundTasks Manager!")
         running_tasks = self.get_running_tasks()
-        start_pos = self.logger.add_text_line(f"Tasks: {len(running_tasks)}", (255,0,0), start_pos)
+        start_pos = self.logger.add_text_line(f"Tasks: {running_tasks}", (255,0,0), start_pos)
         pass

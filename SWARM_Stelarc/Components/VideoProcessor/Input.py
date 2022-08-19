@@ -17,7 +17,7 @@ import Constants
 # Load OpenPose:
 dir_path = os.path.dirname(os.path.realpath(__file__))
 openpose_modelfolder = Constants.openpose_modelfolder
-if Constants.use_openpose:
+if Constants.use_processing:
     try:
         # Windows Import
         if platform == "win32":

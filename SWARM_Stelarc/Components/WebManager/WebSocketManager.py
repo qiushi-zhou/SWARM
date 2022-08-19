@@ -10,9 +10,8 @@ class WebSocketManager(SwarmComponentMeta):
         super(WebSocketManager, self).__init__(logger, tasks_manager, "WebSocketManager", r'./Config/WebSocketConfig.yaml', self.update_config_data)
         self.ws = ws
         self.tasks_manager = tasks_manager
-        self.background_task = self.tasks_manager.add_task("WebSocket", None, self.loop, None)
+        self.background_task = self.tasks_manager.add_task("WebSocket", None, self.send_packet, None).start()
         self.read_lock = self.background_task.read_lock
-        self.background_task.start()
         self.send_frames = False
         self.enabled = False
         self.frame_skipping = False
@@ -34,8 +33,32 @@ class WebSocketManager(SwarmComponentMeta):
             self.ws.update_config(self.config_data)
         self.last_modified_time = last_modified_time
 
-    def loop(self, tasks_manager):
-        self.ws.send_new_frame()
+    def send_packet(self, tasks_manager=None):
+        if self.frame_ready:
+            with tasks_manager.read_lock:
+                image_bytes = self.get_frame(self.pygame, self.subsurface, self.frame_w, self.frame_h)
+            self.send_data(image_bytes)
+            self.frame_ready = False
+            self.fps_counter.update()
+        self.ws.send_new_frame(tasks_manager)
+        return True
+
+    def get_frame(self, pygame, subsurface, frame_w, frame_h):
+        image_bytes = io.BytesIO()
+        if self.frame_scaling:
+            if self.frame_adaptive:
+                if self.fps_counter.fps < self.target_framerate:
+                    if self.min_frame_scaling < 1 and self.current_frame_scaling > self.min_frame_scaling:
+                        self.current_frame_scaling -= self.scaling_step
+                    if self.current_frame_scaling < 1:
+                        self.current_frame_scaling += self.scaling_step
+            else:
+                self.current_frame_scaling = self.fixed_frame_scaling
+            subsurface = pygame.transform.scale(subsurface, (
+            frame_w * self.current_frame_scaling, frame_h * self.current_frame_scaling))
+
+        pygame.image.save(subsurface, image_bytes, "JPEG")
+        return image_bytes
 
     def notify(self, surface, frame_w, frame_h):
         with self.read_lock:

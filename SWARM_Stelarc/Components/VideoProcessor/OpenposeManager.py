@@ -21,9 +21,10 @@ class OpenposeManager(SwarmComponentMeta):
         self.processed_frame_data_mt = ProcessedFrameData()
         self.camera_frame = None
         self.multi_threaded = multi_threaded
+        self.frame_read_lock = None
         if self.multi_threaded:
             self.background_task = self.tasks_manager.add_task("OP", None, self.process_frame_async, None)
-            self.read_lock = self.background_task.read_lock
+            self.frame_read_lock = self.background_task.read_lock
             self.background_task.start()
 
     def update_config(self):
@@ -34,7 +35,10 @@ class OpenposeManager(SwarmComponentMeta):
 
     def process_frame_async(self, task_manager):
         if self.camera_frame is not None:
-            self.processed_frame_data_mt = self.process_frame(self.use_openpose, self.camera_frame)
+            new_frame = self.process_frame(self.use_openpose, self.camera_frame)
+            with self.frame_read_lock:
+                self.processed_frame_data_mt = new_frame
+        return True
                     
     def process_frame(self, use_openpose, frame):
         try:
@@ -68,13 +72,13 @@ class OpenposeManager(SwarmComponentMeta):
             return
         if debug:
             print(f"Updating tracks")
-        # tracks, keypoints, updated_frame 
+        # tracks, keypoints, updated_frame
+        self.camera_frame = frame
         if not self.multi_threaded:
             self.camera_frame = frame
             self.processed_frame_data = self.process_frame(self.use_openpose, self.camera_frame)
         else:
-            with self.read_lock:
-                self.camera_frame = frame
+            with self.frame_read_lock:
                 self.processed_frame_data = self.processed_frame_data_mt
         # Reset graphs to get new points
         for camera in self.camera_manager.cameras:

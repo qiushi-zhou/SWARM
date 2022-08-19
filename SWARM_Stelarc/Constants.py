@@ -10,9 +10,9 @@ import os
 openpose_modelfolder = "../openpose/models"
 if os.name == 'nt':
   if 'M931' in os.environ['COMPUTERNAME']:
-    use_processing = True
+    use_processing = False
     use_websocket = False
-    PATH = 'D:\Coding\GitHub\SWARM'
+    PATH = 'D:/Coding/GitHub/SWARM'
     start_capture_index = 0
   else:
     use_processing = True
@@ -27,6 +27,7 @@ else:
   PATH = '/Users/marinig/Documents/GitHub/SWARM'
   start_capture_index = 0
 print("\n")
+openpose_modelfolder = f"{PATH}/openpose/models"
 max_capture_index = 10
 
 

@@ -111,6 +111,7 @@ distribute/
 3rdparty/windows/spinnaker/
 3rdparty/*zip
 3rdparty/windows/*zip
+*.prototxt
 
 ######################### Compilation (build, distribute & bins) Files / Folders #########################
 *.bin
@@ -304,3 +305,8 @@ output*/
 *.csv
 SWARM_Stelarc/*.csv
 openpose-1.7.0-binaries-win64-gpu-python3.7-flir-3d_recommended/*
+*.prototxt
+openpose/*/*/*
+openpose/models/pose/mpi/*.*
+openpose/models/pose/coco/*.*
+openpose/models/pose/body_25/*.*

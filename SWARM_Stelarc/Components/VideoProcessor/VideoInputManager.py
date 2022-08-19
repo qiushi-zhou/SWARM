@@ -19,19 +19,22 @@ class VideoInputManager(SwarmComponentMeta):
         self.frame_size = (0,0)
         self.fps_counter = FPSCounter()
         self.multi_threaded = multi_threaded
+        self.background_task = None
         if self.multi_threaded:
-            self.background_task = self.tasks_manager.add_task("VI", None, self.update_frame, None).start()
-            self.read_lock = self.background_task.read_lock
-            self.background_task.start()
-            self.tasks_manager.add_task("VI_start", None, self.setup_capture, None, read_lock=self.read_lock).start()
+            self.frame_read_lock = None
+            task = self.tasks_manager.add_task("VI_start", None, self.setup_capture, None)
+            task.start()
         else:
             self.setup_capture()
-    def update_frame(self, tasks_manager):
+    def update_frame(self, tasks_manager=None):
         if self.cap is not None:
             grabbed, frame = self.cap.read()
-            self.latest_frame = frame
+            with tasks_manager.read_lock:
+                if self.latest_frame is None:
+                    self.latest_frame = frame
+        return True
         
-    def setup_capture(self):      
+    def setup_capture(self, tasks_manager=None):
         while True:
             try:
                 if platform == "win32":
@@ -57,6 +60,7 @@ class VideoInputManager(SwarmComponentMeta):
         self.cap.set(self.cv2.CAP_PROP_FRAME_WIDTH, self.screen_w)
         self.cap.set(self.cv2.CAP_PROP_FRAME_HEIGHT, self.screen_h)
         self.frame_size = (int(self.cap.get(self.cv2.CAP_PROP_FRAME_WIDTH)), int(self.cap.get(self.cv2.CAP_PROP_FRAME_HEIGHT)))
+        return False
     
     def update_config(self):
       pass
@@ -68,17 +72,25 @@ class VideoInputManager(SwarmComponentMeta):
         return self.frame
     
     def update(self, debug=False):
+        self.frame = None
         if debug:
             print(f"Updating VideoInput Manager")
         if not self.multi_threaded:
             self.update_frame()
+            self.frame = self.latest_frame
+            self.latest_frame = None
         else:
-            with self.read_lock:
+            if self.frame_read_lock is None:
+                self.background_task = self.tasks_manager.add_task("VI", None, self.update_frame, None, None).start()
+                self.frame_read_lock = self.background_task.read_lock
+            with self.frame_read_lock:
                 self.frame = self.latest_frame
+                self.latest_frame = None
+
         if self.frame is not None:
             self.fps_counter.frame_count += 1
             self.fps_counter.update()
-        self.cv2.waitKey(1)
+        self.cv2.waitKey(0)
     
     def draw(self, left_text_pos, debug=False):
         if debug:

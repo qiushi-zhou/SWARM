@@ -54,7 +54,8 @@ class SceneManager(SwarmComponentMeta):
         if debug:
             print(f"Update Scene Manager!")
         if frame is None:
-            print(f"Frame in update is None!")
+            if debug:
+                print(f"Frame in update is None!")
             return
         if debug:
             print(f"Updating scene...")

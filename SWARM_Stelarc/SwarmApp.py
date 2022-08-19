@@ -8,8 +8,8 @@ import numpy as np
 import Constants
 import time
 from sys import platform
-from Components.SwarmLogger import  SwarmLogger
-from Components.GUIManager.SceneManager import *
+from Components.SwarmLogger import SwarmLogger
+from Components.GUIManager.SceneManager import SceneManager, SceneDrawerType
 from Components.BackgroundTasksManager import BackgroundTasksManager, BackgroundTask
 from Components.VideoProcessor.VideoInputManager import VideoInputManager 
 from Components.VideoProcessor.OpenposeManager import OpenposeManager 
@@ -27,7 +27,7 @@ class SwarmAPP():
         self.components = []
 
         self.tasks_manager = BackgroundTasksManager(self.logger)
-        self.scene_manager = SceneManager(self.logger, self.tasks_manager, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, Constants.font_size)
+        self.scene_manager = SceneManager(self.logger, self.tasks_manager, SceneDrawerType.PYGAME, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, Constants.font_size)
         self.components.append(self.scene_manager)
         
         self.video_manager = VideoInputManager(self.logger, self.tasks_manager, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, Constants.start_capture_index, multi_threaded=True)
@@ -40,11 +40,11 @@ class SwarmAPP():
             self.openpose_manager = OpenposeManager( self.logger, self.tasks_manager, self.cameras_manager, multi_threaded=False, use_openpose=Constants.use_processing)
             self.components.append(self.openpose_manager)   
             
-        self.arduino_manager = ArduinoManager( self.logger, self.tasks_manager, arduino_port, mockup_commands)    
+        self.arduino_manager = ArduinoManager(self.logger, self.tasks_manager, arduino_port, mockup_commands)
         self.components.append(self.arduino_manager)
             
         if Constants.use_websocket:
-            self.websocket_manager = WebSocketManager(self.logger)    
+            self.websocket_manager = WebSocketManager(self.logger, self.tasks_manager)
             self.components.append(self.websocket_manager)
             
         self.swarm_manager = SwarmManager(self.logger, self.tasks_manager, self.arduino_manager)
@@ -70,7 +70,8 @@ class SwarmAPP():
             
             for component in self.components:
                 component.update_config()
-            
+
+            self.arduino_manager.update(debug=debug)
             self.video_manager.update()
             frame = self.video_manager.get_frame()
             self.frames_to_process.append(frame)
@@ -80,8 +81,7 @@ class SwarmAPP():
 
             if len(self.frames_to_process) < self.frame_buffer_size:
                 continue # let the buffer build first!
-            
-            self.arduino_manager.update(debug=debug)
+
             new_frame_to_process = self.frames_to_process.popleft() if self.frames_to_process else None
             if Constants.use_processing:
                 self.openpose_manager.update(new_frame_to_process, debug=debug)
@@ -92,7 +92,7 @@ class SwarmAPP():
             self.cameras_manager.update(debug=debug)
             
             self.video_manager.draw(left_text_pos, debug=debug)
-            self.tasks_manager.draw()
+            self.tasks_manager.draw(left_text_pos, debug=debug)
             self.cameras_manager.draw(draw_graph_data=False, debug=debug)
             
             if Constants.use_websocket:

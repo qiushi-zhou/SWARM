@@ -110,14 +110,6 @@ class WebSocket:
         self.frame_scaling = False
         self.frame_adaptive = False
 
-    def send_new_frame(self):
-        if self.frame_ready:
-            self.update_status()
-            image_bytes = self.get_frame(pygame, self.subsurface, self.frame_w, self.frame_h)
-            self.send_data(image_bytes)
-            self.frame_ready = False
-            self.fps_counter.update()
-
     def update_frame(self, surface, frame_w, frame_h):
         if not self.frame_ready:
             if self.fps_counter.fps > self.target_framerate:
@@ -224,25 +216,6 @@ class WebSocket:
 
     def get_fps(self):
         return self.fps_counter.fps
-
-
-    def get_frame(self, pygame, subsurface, frame_w, frame_h):
-        image_bytes = io.BytesIO()
-        if self.frame_scaling:
-            if self.frame_adaptive:
-                if self.fps_counter.fps < self.target_framerate:
-                    if self.min_frame_scaling < 1 and self.current_frame_scaling > self.min_frame_scaling:
-                        self.current_frame_scaling -= self.scaling_step
-                    if self.current_frame_scaling < 1:
-                        self.current_frame_scaling += self.scaling_step
-            else:
-                self.current_frame_scaling = self.fixed_frame_scaling
-            subsurface = pygame.transform.scale(subsurface, (
-            frame_w * self.current_frame_scaling, frame_h * self.current_frame_scaling))
-
-        pygame.image.save(subsurface, image_bytes, "JPEG")
-        return image_bytes
-
 
     def send_data(self, image_bytes):
         if image_bytes is None:
