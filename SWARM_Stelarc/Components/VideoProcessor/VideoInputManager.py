@@ -5,10 +5,10 @@ import time
 import threading
 
 class VideoInputManager(SwarmComponentMeta):
-    def __init__(self, logger, screen_w=500, screen_h=500, start_capture_index=0, multi_threaded=True):
+    def __init__(self, logger, tasks_manager, screen_w=500, screen_h=500, start_capture_index=0, multi_threaded=True):
         self.screen_w = screen_w
         self.screen_h = screen_h
-        super(VideoInputManager, self).__init__(logger, "VideoInputManager")
+        super(VideoInputManager, self).__init__(logger, tasks_manager, "VideoInputManager")
         import cv2
         self.cv2 = cv2
         self.cap = None
@@ -18,27 +18,18 @@ class VideoInputManager(SwarmComponentMeta):
         self.latest_frame = None
         self.frame_size = (0,0)
         self.fps_counter = FPSCounter()
-        self.setup_capture()
         self.multi_threaded = multi_threaded
         if self.multi_threaded:
-            self.thread_started = False
-            self.read_lock = threading.Lock()
-            self.start_mt_stream()
-            
-    def start_mt_stream(self):
-        if self.thread_started:
-            print('[!] Threaded video capturing has already been started.')
-            return None
-        self.thread_started = True
-        self.thread = threading.Thread(target=self.get_frame_async, args=())
-        self.thread.start()
-        return self
-    
-    def get_frame_async(self):
-        while self.thread_started:
+            self.background_task = self.tasks_manager.add_task("VI", None, self.update_frame, None).start()
+            self.read_lock = self.background_task.read_lock
+            self.background_task.start()
+            self.tasks_manager.add_task("VI_start", None, self.setup_capture, None, read_lock=self.read_lock).start()
+        else:
+            self.setup_capture()
+    def update_frame(self, tasks_manager):
+        if self.cap is not None:
             grabbed, frame = self.cap.read()
-            with self.read_lock:
-                self.latest_frame = frame
+            self.latest_frame = frame
         
     def setup_capture(self):      
         while True:
@@ -76,9 +67,11 @@ class VideoInputManager(SwarmComponentMeta):
     def get_frame(self):
         return self.frame
     
-    def update(self):
+    def update(self, debug=False):
+        if debug:
+            print(f"Updating VideoInput Manager")
         if not self.multi_threaded:
-            result, self.frame = self.cap.read()
+            self.update_frame()
         else:
             with self.read_lock:
                 self.frame = self.latest_frame
@@ -87,7 +80,9 @@ class VideoInputManager(SwarmComponentMeta):
             self.fps_counter.update()
         self.cv2.waitKey(1)
     
-    def draw(self, left_text_pos):
+    def draw(self, left_text_pos, debug=False):
+        if debug:
+            print(f"Drawing VideoInput Manager")
         if self.frame is None:
             shape = "NO FRAME"
         else:

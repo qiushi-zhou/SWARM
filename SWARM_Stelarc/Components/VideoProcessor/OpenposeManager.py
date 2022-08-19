@@ -10,42 +10,31 @@ class ProcessedFrameData:
         
 class OpenposeManager(SwarmComponentMeta):
         
-    def __init__(self, logger, camera_manager, enabled=True, multi_threaded=True, use_openpose=True):
+    def __init__(self, logger, tasks_manager, camera_manager, enabled=True, multi_threaded=True, use_openpose=True):
         self.use_openpose = use_openpose
         if self.use_openpose:
             from . import Input
             self.input = Input.Input()
-        super(OpenposeManager, self).__init__(logger, "OpenposeManager")
+        super(OpenposeManager, self).__init__(logger, tasks_manager, "OpenposeManager")
         self.camera_manager = camera_manager
         self.processed_frame_data = ProcessedFrameData()
         self.processed_frame_data_mt = ProcessedFrameData()
         self.camera_frame = None
         self.multi_threaded = multi_threaded
         if self.multi_threaded:
-            self.thread_started = False
-            self.read_lock = threading.Lock()
-            self.start_processor()
+            self.background_task = self.tasks_manager.add_task("OP", None, self.process_frame_async, None)
+            self.read_lock = self.background_task.read_lock
+            self.background_task.start()
 
     def update_config(self):
         pass
 
     def update_config_data(self, data, last_modified_time):
         pass
-    
-    def start_processor(self):
-        if self.thread_started:
-            print('[!] Threaded OP processing has already been started.')
-            return None
-        self.thread_started = True
-        self.thread = threading.Thread(target=self.process_frame_async, args=())
-        self.thread.start()
-        return self
-    
-    def process_frame_async(self):        
-        while self.thread_started:
-            with self.read_lock:
-                if self.camera_frame is not None:
-                    self.processed_frame_data_mt = self.process_frame(self.use_openpose, self.camera_frame)
+
+    def process_frame_async(self, task_manager):
+        if self.camera_frame is not None:
+            self.processed_frame_data_mt = self.process_frame(self.use_openpose, self.camera_frame)
                     
     def process_frame(self, use_openpose, frame):
         try:
@@ -73,6 +62,8 @@ class OpenposeManager(SwarmComponentMeta):
         return self.processed_frame_data.frame
 
     def update(self, frame, debug=False):
+        if debug:
+            print(f"Updating Openpose Manager")
         if frame is None:
             return
         if debug:

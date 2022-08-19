@@ -1,17 +1,18 @@
 # -*- coding: utf-8 -*-
 from ..SwarmComponentMeta import SwarmComponentMeta
-from ..SwarmLogger import SwarmLogger
 
-class SceneDrawer:
+class SceneDrawerType:
     PYGAME = 'pygame'
     OPENCV = 'opencv'
+    NONE = 'None'
     
 class SceneManager(SwarmComponentMeta):
-    def __init__(self, drawer_type, screen_w=500, screen_h=500, font_size=16):
+    def __init__(self, logger, tasks_manager, drawer_type, screen_w=500, screen_h=500, font_size=16):
         self.screen_w = screen_w
         self.screen_h = screen_h
         self.drawer_type = drawer_type
-        if self.drawer_type == SceneDrawer.PYGAME:
+        self.logger = logger
+        if self.drawer_type == SceneDrawerType.PYGAME:
             import pygame
             self.pygame = pygame
             self.pygame.init()
@@ -20,14 +21,16 @@ class SceneManager(SwarmComponentMeta):
             self.screen = self.pygame.display.get_surface()
             self.sceneClock = self.pygame.time.Clock()
             self.font = self.pygame.font.SysFont('Cascadia', font_size)
-            self.logger = SwarmLogger(self.pygame, self.screen, font=self.font, font_size=font_size)
+            self.logger.set_drawer(self.pygame, self.screen)
+            self.logger.set_font(self.font, font_size)
             # log.add_widget(PyGameLogWidget(pygame=pygame, font=self.font, font_size=Constants.font_size, canvas=self.scene.screen))
-        else:
+        elif self.drawer_type == SceneDrawerType.OPENCV:
             import cv2
             self.cv2 = cv2
-            self.logger = SwarmLogger(self.cv2, None, font=None, font_size=0.4)
+            self.logger.set_drawer(self.cv2, self.screen)
+            self.logger.set_font(None, 0.4)
             
-        super(SceneManager, self).__init__(self.logger, "SceneManager")
+        super(SceneManager, self).__init__(self.logger, tasks_manager, "SceneManager")
         self.screen_delay = 0
         self.backgroundColor = (0, 0, 0)
     
@@ -48,15 +51,19 @@ class SceneManager(SwarmComponentMeta):
             pass
     
     def update(self, frame, debug=False):
+        if debug:
+            print(f"Update Scene Manager!")
         if frame is None:
             print(f"Frame in update is None!")
             return
         if debug:
             print(f"Updating scene...")
-        if self.drawer_type == SceneDrawer.PYGAME:
+        if self.drawer_type == SceneDrawerType.PYGAME:
             self.update_screen_frame(frame)
     
     def draw(self, debug=True):
+        if debug:
+            print(f"Draw Scene Manager!")
         self.logger.flush_text_lines(debug=False, draw=True)
-        if self.drawer_type == SceneDrawer.PYGAME:
+        if self.drawer_type == SceneDrawerType.PYGAME:
             self.pygame.display.flip()

@@ -303,3 +303,4 @@ output*/
 ../SWARM_Stelarc/*.csv
 *.csv
 SWARM_Stelarc/*.csv
+openpose-1.7.0-binaries-win64-gpu-python3.7-flir-3d_recommended/*

@@ -4,8 +4,8 @@ from Utils.utils import Point
 import datetime
 
 class SwarmManager(SwarmComponentMeta):
-    def __init__(self, logger=None, arduino_manager=None):
-        super(SwarmManager, self).__init__(logger, "SwarmManager", r'./Config/BehaviourConfig.yaml', self.update_config_data)
+    def __init__(self, logger, tasks_manager, arduino_manager=None):
+        super(SwarmManager, self).__init__(logger, tasks_manager, "SwarmManager", r'./Config/BehaviourConfig.yaml', self.update_config_data)
         self.arduino = arduino_manager.arduino
         self.behaviors = None
         self.frame_buffer = FrameBuffer(buffer_size=60)
@@ -22,7 +22,10 @@ class SwarmManager(SwarmComponentMeta):
         self.machine_mode = self.config_data.get("machine_mode", 'normal')
         self.last_modified_time = last_modified_time      
     
-    def update(self, cameras, left_text_pos, right_text_pos, debug=True):
+    def update(self, cameras, left_text_pos, right_text_pos, debug=False):
+        if debug:
+            print(f"Updating Swarm Manager")
+        debug = True
         text_debug = False
         right_text_pos_orig = Point(right_text_pos.x, right_text_pos.y)
         right_text_pos.y += self.logger.line_height*1.5
@@ -32,7 +35,7 @@ class SwarmManager(SwarmComponentMeta):
         #     return left_text_pos, right_text_pos
         for behavior in self.behaviors:
             try:
-                all_criteria_met = self.check_behavior(behavior, {}, right_text_pos, debug=debug)
+                all_criteria_met = self.check_behavior(behavior, {}, right_text_pos, debug=True)
             except Exception as e:
                 print(f"Error checking behavior {behavior.get('name', 'NONE')}: {e}")
                 all_criteria_met = False

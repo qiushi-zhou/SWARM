@@ -6,9 +6,13 @@ import math
 import time
 
 class WebSocketManager(SwarmComponentMeta):
-    def __init__(self, logger):
-        super(WebSocketManager, self).__init__(logger, "WebSocketManager", r'./Config/WebSocketConfig.yaml', self.update_config_data)
-        self.ws = ws        
+    def __init__(self, logger, tasks_manager):
+        super(WebSocketManager, self).__init__(logger, tasks_manager, "WebSocketManager", r'./Config/WebSocketConfig.yaml', self.update_config_data)
+        self.ws = ws
+        self.tasks_manager = tasks_manager
+        self.background_task = self.tasks_manager.add_task("WebSocket", None, self.loop, None)
+        self.read_lock = self.background_task.read_lock
+        self.background_task.start()
         self.send_frames = False
         self.enabled = False
         self.frame_skipping = False
@@ -29,28 +33,40 @@ class WebSocketManager(SwarmComponentMeta):
         if self.enabled:
             self.ws.update_config(self.config_data)
         self.last_modified_time = last_modified_time
+
+    def loop(self, tasks_manager):
+        self.ws.send_new_frame()
+
+    def notify(self, surface, frame_w, frame_h):
+        with self.read_lock:
+            self.ws.update_frame(surface, frame_w, frame_h)
     
-    def update(self, pygame, surface, frame_w, frame_h):
+    def update(self, pygame, surface, frame_w, frame_h, debug=False):
+        if debug:
+            print(f"Updating WebSocket Manager")
         # Image bytes should be retreived like this:    
         # pygame.image.save(self.scene.screen.subsurface((0,0, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)), image_data, "JPEG")
         if self.enabled:
             if self.send_frames:
-                self.fps = self.ws.get_fps()
+                with self.read_lock:
+                    self.fps = self.ws.get_fps()
                 if self.frame_skipping:
                     if self.skipped_frames > self.frames_to_skip:
                         self.skipped_frames = 0
-                        self.ws.notify(surface, frame_w, frame_h)
+                        self.notify(surface, frame_w, frame_h)
                         # self.ws.send_data(pygame, surface, frame_w, frame_h, self.fps_counter)
                         self.frames_to_skip = round(self.fps/self.target_framerate if self.fps > 0 else 0)
                     # self.frames_to_skip = round(self.fps_counter.fps/self.ws.target_framerate) if self.fps_counter.fps >= self.ws.target_framerate else 0
                     self.skipped_frames += 1
                     # self.fps_counter.update()
                 else:
-                    self.ws.notify(surface, frame_w, frame_h)
+                    self.notify(surface, frame_w, frame_h)
                     # self.ws.send_data(pygame, surface, frame_w, frame_h, self.fps_counter)
                 # self.fps_counter.update()
     
     def draw(self, start_pos, debug=False):
+        if debug:
+            print(f"Drawing WebSocket Manager")
         dbg_str = "WebSocket "
         if not self.enabled:
             dbg_str += "Disabled"
