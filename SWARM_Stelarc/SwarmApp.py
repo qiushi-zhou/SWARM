@@ -57,7 +57,7 @@ class SwarmAPP():
         self.last_modified_time = last_modified_time
     
     def run(self, debug=False):
-        debug = False
+        debug = True
         offset = Point(10, 10)
         running = True
         while running:
@@ -70,7 +70,7 @@ class SwarmAPP():
             left_text_pos = Point(Constants.SCREEN_WIDTH * 0.5 + offset.x, Constants.SCREEN_HEIGHT * 0.5 + offset.y)
             right_text_pos = Point(Constants.SCREEN_WIDTH + offset.x, 0 + offset.y)
 
-            utils.update_config_from_file("SwarmApp", r"Config/AppConfig.yaml", self.last_modified_time, self.update_data)
+            utils.update_config_from_file("SwarmApp", r"./Config/AppConfig.yaml", self.last_modified_time, self.update_data)
             self.tasks_manager.update_config()
             self.scene_manager.update_config()
             self.arduino_manager.update_config()
@@ -83,13 +83,15 @@ class SwarmAPP():
             self.arduino_manager.update(debug=debug)
             self.video_manager.update()
             frame = self.video_manager.get_frame()
-            # self.scene_manager.update(frame, clean_frame=True, debug=debug)
+            self.scene_manager.update(frame, debug=debug)
 
             self.openpose_manager.update(frame, debug=debug)
             self.openpose_manager.draw(left_text_pos)
+            frame_to_render = self.openpose_manager.get_updated_frame()
+            self.scene_manager.update(frame_to_render, debug=debug)
 
             self.cameras_manager.update(debug=debug)
-            
+
             self.video_manager.draw(left_text_pos, debug=debug)
             self.tasks_manager.draw(left_text_pos, debug=debug)
             self.cameras_manager.draw(draw_graph_data=False, debug=debug)
@@ -103,9 +105,6 @@ class SwarmAPP():
             self.arduino_manager.draw(left_text_pos, debug=debug)
             left_text_pos.y += self.logger.line_height
 
-            frame_to_render = self.openpose_manager.get_updated_frame()
-
-            self.scene_manager.update(frame_to_render, debug=debug)
             self.scene_manager.draw(debug=debug)
 
             if debug:

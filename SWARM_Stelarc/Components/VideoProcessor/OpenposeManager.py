@@ -85,6 +85,7 @@ class OpenposeManager(SwarmComponentMeta):
         # img_blur = cv2.GaussianBlur(frame, (21,21), sigmaX=1, borderType=cv2.BORDER_DEFAULT)
         # edges = cv2.Canny(image=img_blur, threshold1=100, threshold2=200)
         # updated_frame = cv2.resize(edges, (self.camera_manager.screen_w, self.camera_manager.screen_h))
+
         return None, None, frame
         
     def get_updated_frame(self):

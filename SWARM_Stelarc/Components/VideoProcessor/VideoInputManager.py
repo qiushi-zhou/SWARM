@@ -93,7 +93,7 @@ class VideoInputManager(SwarmComponentMeta):
             print(f"Updating VideoInput Manager")
         if not self.multi_threaded:
             self.update_frame()
-        self.cv2.waitKey(0)
+        self.cv2.waitKey(1)
     
     def draw(self, left_text_pos, debug=False):
         if debug:

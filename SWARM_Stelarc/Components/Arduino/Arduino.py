@@ -265,9 +265,9 @@ class Arduino():
                 self.not_operational = not (start <= now <= end)
             else: self.not_operational = True
             
-            if debug:
-                if self.not_operational:
-                    print(f"MACHINE NOT OPERATIONAL")
+            # if debug:
+            #     if self.not_operational:
+            #         print(f"MACHINE NOT OPERATIONAL")
 
             for s_idx in self.statuses:
                 s = self.statuses[s_idx]
