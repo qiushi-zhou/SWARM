@@ -1,14 +1,17 @@
 from ..SwarmComponentMeta import SwarmComponentMeta
 import threading
 import cv2
+import time
 from collections import deque
 from ..Utils.utils import Point
+from ..Utils.FPSCounter import FPSCounter
+
 
 class ProcessedFrameData:
     def __init__(self, tracks=None, keypoints=None, frame=None):
         self.tracks = [] if tracks is None else tracks
         self.keypoints = [] if keypoints is None else keypoints
-        self.frame = None if frame is None else frame.copy()
+        self.frame = None if frame is None else frame
         
 class OpenposeManager(SwarmComponentMeta):
     def __init__(self, logger, tasks_manager, camera_manager, use_processing=False, use_openpose=False):
@@ -21,10 +24,13 @@ class OpenposeManager(SwarmComponentMeta):
         self.frame_buffer_size = 3
         self.frames_to_process = deque([])
         self.frames_processed = deque([])
-        self.camera_frame = None
+        self.latest_frame_data = None
         self.multi_threaded = False
         self.background_task = None
-        self.frame_read_lock = None
+        self.processing_lock = threading.Lock()
+        self.processed_lock = threading.Lock()
+        self.fps_counter = FPSCounter()
+        self.latest_fps = 0
 
     def update_config(self, use_processing=False, use_openpose=False, use_multithread=False):
         if use_openpose and self.input is None:
@@ -39,7 +45,6 @@ class OpenposeManager(SwarmComponentMeta):
         if enabled:
             if not self.multi_threaded:
                 self.background_task = self.tasks_manager.add_task("OP", None, self.processing_loop, None)
-                self.frame_read_lock = self.background_task.read_lock
                 self.background_task.start()
         else:
             if self.multi_threaded:
@@ -51,12 +56,12 @@ class OpenposeManager(SwarmComponentMeta):
         pass
 
     def processing_loop(self, task_manager=None):
-        with self.frame_read_lock:
-            if len(self.frames_to_process) <= 0:
-                return True
+        if len(self.frames_to_process) <= 0:
+            return True
+        with self.processing_lock:
             to_process = self.frames_to_process.popleft()
         processed = self.process_frame(to_process)
-        with self.frame_read_lock:
+        with self.processed_lock:
             self.frames_processed.append(processed)
         return True
 
@@ -72,6 +77,9 @@ class OpenposeManager(SwarmComponentMeta):
                 tracks = None
                 keypoints = None
                 updated_frame = to_process
+            self.fps_counter.frame_count += 1
+            self.fps_counter.update()
+            self.latest_fps = self.fps_counter.fps
             return ProcessedFrameData(tracks, keypoints, updated_frame)
         except Exception as e:
             print(f"Error processing frame: {e}")
@@ -81,22 +89,21 @@ class OpenposeManager(SwarmComponentMeta):
         imgray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         ret, thresh = cv2.threshold(imgray, 127, 255, 0)
         contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        cv2.drawContours(frame, contours, -1, (0, 255, 0), 1)
-        # img_blur = cv2.GaussianBlur(frame, (21,21), sigmaX=1, borderType=cv2.BORDER_DEFAULT)
+        frame = cv2.blur(frame, (51,51), borderType=cv2.BORDER_DEFAULT)
+        frame = cv2.drawContours(frame, contours, -1, (0, 255, 0), 1)
         # edges = cv2.Canny(image=img_blur, threshold1=100, threshold2=200)
-        # updated_frame = cv2.resize(edges, (self.camera_manager.screen_w, self.camera_manager.screen_h))
+        # frame = cv2.resize(edges, (self.camera_manager.screen_w, self.camera_manager.screen_h))
 
         return None, None, frame
         
     def get_updated_frame(self):
-        processed_frame = None
         if self.multi_threaded:
-            with self.frame_read_lock:
-                if len(self.frames_processed) > 0:
-                    processed_frame = self.frames_processed.popleft().frame
+            if len(self.frames_processed) > 1:
+                with self.processed_lock:
+                    self.latest_frame_data = self.frames_processed.popleft()
+            return self.latest_frame_data.frame if self.latest_frame_data is not None else None
         else:
-            processed_frame = self.processed_frame_data.frame
-        return processed_frame
+            return self.processed_frame_data.frame
 
     def update(self, camera_frame, debug=False):
         if debug:
@@ -109,15 +116,15 @@ class OpenposeManager(SwarmComponentMeta):
         if not self.multi_threaded:
             self.processed_frame_data = self.process_frame(camera_frame)
         else:
-            with self.frame_read_lock:
-                self.frames_to_process.append(camera_frame.copy())
-                if len(self.frames_processed) > 0:
-                    self.processed_frame_data = self.frames_processed[0] # just peeking to get its data
+            with self.processing_lock:
+                self.processed_frame_data = self.latest_frame_data
         # Reset graphs to get new points
-        for camera in self.camera_manager.cameras:
-            camera.p_graph.init_graph()
         if self.processed_frame_data is None:
             return
+
+        for camera in self.camera_manager.cameras:
+            camera.p_graph.init_graph()
+
         for track in self.processed_frame_data.tracks:
             color = (255, 255, 255)
             if not track.is_confirmed():
@@ -150,6 +157,6 @@ class OpenposeManager(SwarmComponentMeta):
             if debug:
                 print(f"Center: ({center_x:.2f}, {center_y:.2f})")
 
-    def draw(self, text_pos):
-        text_pos = self.logger.add_text_line(f"Frames to process: {len(self.frames_to_process)}, Frames Processed: {len(self.frames_processed)}", (255, 255, 0), text_pos)
+    def draw(self, text_pos, debug=False):
+        text_pos = self.logger.add_text_line(f"OP - FPS: {self.latest_fps} Frames to process: {len(self.frames_to_process)}, Processed: {len(self.frames_processed)}", (255, 255, 0), text_pos)
         pass

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import time
 import datetime
 import Constants
 from Components.SwarmLogger import SwarmLogger
@@ -57,7 +58,7 @@ class SwarmAPP():
         self.last_modified_time = last_modified_time
     
     def run(self, debug=False):
-        debug = True
+        debug = False
         offset = Point(10, 10)
         running = True
         while running:
@@ -83,16 +84,15 @@ class SwarmAPP():
             self.arduino_manager.update(debug=debug)
             self.video_manager.update()
             frame = self.video_manager.get_frame()
-            self.scene_manager.update(frame, debug=debug)
 
             self.openpose_manager.update(frame, debug=debug)
-            self.openpose_manager.draw(left_text_pos)
             frame_to_render = self.openpose_manager.get_updated_frame()
-            self.scene_manager.update(frame_to_render, debug=debug)
+            self.scene_manager.update(frame_to_render, debug=False)
 
             self.cameras_manager.update(debug=debug)
 
             self.video_manager.draw(left_text_pos, debug=debug)
+            self.openpose_manager.draw(left_text_pos, debug=debug)
             self.tasks_manager.draw(left_text_pos, debug=debug)
             self.cameras_manager.draw(draw_graph_data=False, debug=debug)
 
