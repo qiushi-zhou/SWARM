@@ -1,6 +1,6 @@
 from ..SwarmComponentMeta import SwarmComponentMeta
 from .FrameBufferData import FrameBuffer
-from Utils.utils import Point
+from ..Utils.utils import Point
 import datetime
 
 class SwarmManager(SwarmComponentMeta):

@@ -1,9 +1,6 @@
 import networkx as nx
 import math
-import numpy as np
-import itertools
-import Constants
-from Utils.utils import Point
+from ..Utils.utils import Point
 
 class PeopleGraph:
     def __init__(self, edge_threshold=-1):

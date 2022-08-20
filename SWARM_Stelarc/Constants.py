@@ -10,23 +10,18 @@ import os
 openpose_modelfolder = "../openpose/models"
 if os.name == 'nt':
   if 'M931' in os.environ['COMPUTERNAME']:
-    use_processing = False
-    use_websocket = False
     PATH = 'D:/Coding/GitHub/SWARM'
     start_capture_index = 0
   else:
-    use_processing = True
-    use_websocket = True
     PATH = 'C:/Users/Admin/Documents/GitHub/SWARM'
     start_capture_index = 2
   print(f"Using Windows, openpose enabled. Capture index: {start_capture_index}")
 else:
   print(f"Using MacBook M1, openpose disabled")
-  use_processing = False
-  use_websocket = True
   PATH = '/Users/marinig/Documents/GitHub/SWARM'
   start_capture_index = 0
 print("\n")
+
 openpose_modelfolder = f"{PATH}/openpose/models"
 max_capture_index = 10
 

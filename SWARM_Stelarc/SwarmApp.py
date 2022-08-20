@@ -1,29 +1,30 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import os.path
-from Utils.pylogger import log, FileLogWidget, ConsoleLogWidget, PyGameLogWidget
-from Utils.utils import *
 import datetime
-import numpy as np
 import Constants
-import time
-from sys import platform
 from Components.SwarmLogger import SwarmLogger
 from Components.GUIManager.SceneManager import SceneManager, SceneDrawerType
-from Components.BackgroundTasksManager import BackgroundTasksManager, BackgroundTask
+from Components.BackgroundTasksManager import BackgroundTasksManager
 from Components.VideoProcessor.VideoInputManager import VideoInputManager 
 from Components.VideoProcessor.OpenposeManager import OpenposeManager 
 from Components.Camera.CamerasManager import CamerasManager
 from Components.Arduino.ArduinoManager import ArduinoManager
 from Components.WebManager.WebSocketManager import WebSocketManager
 from Components.SwarmManager.SwarmManager import SwarmManager
-from collections import deque
+from Components.Utils.utils import Point
+from Components.Utils import utils
 
 
 class SwarmAPP():
     def __init__(self, arduino_port="COM4", mockup_commands=True, multi_threaded=True):
         self.tag = "SwarmApp"
         self.logger = SwarmLogger()
+        self.last_modified_time = -1
+        self.use_processing = False
+        self.use_openpose = False
+        self.multithreaded_processing = False
+        self.use_websocket = False
+        utils.update_config_from_file("SwarmApp", r"Config/AppConfig.yaml", self.last_modified_time, self.update_data)
         self.components = []
 
         self.tasks_manager = BackgroundTasksManager(self.logger)
@@ -35,24 +36,25 @@ class SwarmAPP():
         
         self.cameras_manager = CamerasManager( self.logger, self.tasks_manager, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)   
         self.components.append(self.cameras_manager)
-        
-        if Constants.use_processing:
-            self.openpose_manager = OpenposeManager( self.logger, self.tasks_manager, self.cameras_manager, multi_threaded=False, use_openpose=Constants.use_processing)
-            self.components.append(self.openpose_manager)   
+
+        self.openpose_manager = OpenposeManager( self.logger, self.tasks_manager, self.cameras_manager, use_processing=self.use_processing, use_openpose=self.use_openpose)
+        self.components.append(self.openpose_manager)
             
         self.arduino_manager = ArduinoManager(self.logger, self.tasks_manager, arduino_port, mockup_commands)
         self.components.append(self.arduino_manager)
-            
-        if Constants.use_websocket:
-            self.websocket_manager = WebSocketManager(self.logger, self.tasks_manager)
-            self.components.append(self.websocket_manager)
+
+        self.websocket_manager = WebSocketManager(self.logger, self.tasks_manager, self.scene_manager.screen, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)
+        self.components.append(self.websocket_manager)
             
         self.swarm_manager = SwarmManager(self.logger, self.tasks_manager, self.arduino_manager)
         self.components.append(self.swarm_manager)
-        
-        self.frame_buffer_size = 3
-        self.frames_processed = deque([])
-        self.frames_to_process = deque([])
+
+    def update_data(self, data, last_modified_time):
+        self.use_processing = data.get("use_processing", False)
+        self.use_openpose = data.get("use_openpose", False)
+        self.multithreaded_processing = data.get("multithreaded_processing", False)
+        self.use_websocket = data.get("use_websocket", False)
+        self.last_modified_time = last_modified_time
     
     def run(self, debug=False):
         debug = False
@@ -67,46 +69,43 @@ class SwarmAPP():
                 print(f"--- Start loop ---\n\n{e.strftime('%Y-%m-%d %H:%M:%S')}")
             left_text_pos = Point(Constants.SCREEN_WIDTH * 0.5 + offset.x, Constants.SCREEN_HEIGHT * 0.5 + offset.y)
             right_text_pos = Point(Constants.SCREEN_WIDTH + offset.x, 0 + offset.y)
-            
-            for component in self.components:
-                component.update_config()
+
+            utils.update_config_from_file("SwarmApp", r"Config/AppConfig.yaml", self.last_modified_time, self.update_data)
+            self.tasks_manager.update_config()
+            self.scene_manager.update_config()
+            self.arduino_manager.update_config()
+            self.video_manager.update_config()
+            self.openpose_manager.update_config(self.use_processing, self.use_openpose, self.multithreaded_processing)
+            self.websocket_manager.update_config(self.use_websocket)
+            self.swarm_manager.update_config()
+            self.cameras_manager.update_config()
 
             self.arduino_manager.update(debug=debug)
             self.video_manager.update()
             frame = self.video_manager.get_frame()
-            self.frames_to_process.append(frame)
             # self.scene_manager.update(frame, clean_frame=True, debug=debug)
-            
-            left_text_pos = self.logger.add_text_line(f"Frames to process: {len(self.frames_to_process)}, Frames Processed: {len(self.frames_processed)}", (255, 255, 0), left_text_pos)
 
-            if len(self.frames_to_process) < self.frame_buffer_size:
-                continue # let the buffer build first!
-
-            new_frame_to_process = self.frames_to_process.popleft() if self.frames_to_process else None
-            if Constants.use_processing:
-                self.openpose_manager.update(new_frame_to_process, debug=debug)
-                self.frames_processed.append(self.openpose_manager.get_updated_frame())
-            else:
-                self.frames_processed.append(new_frame_to_process)
+            self.openpose_manager.update(frame, debug=debug)
+            self.openpose_manager.draw(left_text_pos)
 
             self.cameras_manager.update(debug=debug)
             
             self.video_manager.draw(left_text_pos, debug=debug)
             self.tasks_manager.draw(left_text_pos, debug=debug)
             self.cameras_manager.draw(draw_graph_data=False, debug=debug)
-            
-            if Constants.use_websocket:
-                self.websocket_manager.draw(left_text_pos, debug=debug)
+
+            self.websocket_manager.draw(left_text_pos, debug=debug)
             left_text_pos.y += self.logger.line_height
             
             self.swarm_manager.update(self.cameras_manager.cameras, left_text_pos, right_text_pos, debug=False)
-            if Constants.use_websocket:
-                self.websocket_manager.update(self.scene_manager.pygame, self.scene_manager.screen, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)
+            self.websocket_manager.update()
             
             self.arduino_manager.draw(left_text_pos, debug=debug)
             left_text_pos.y += self.logger.line_height
 
-            self.scene_manager.update(self.frames_processed.popleft() if self.frames_processed else None, debug=debug)
+            frame_to_render = self.openpose_manager.get_updated_frame()
+
+            self.scene_manager.update(frame_to_render, debug=debug)
             self.scene_manager.draw(debug=debug)
 
             if debug:

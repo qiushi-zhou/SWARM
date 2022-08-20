@@ -1,4 +1,3 @@
-ws_enabled: true
 ws_sync_with_server: false
 ws_send_frames: true
 

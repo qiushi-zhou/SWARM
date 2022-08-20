@@ -1,5 +1,5 @@
 from matplotlib import path
-from Utils.utils import Point
+from ..Utils.utils import Point
 from .people_graph import PeopleGraph
 
 class Camera:

@@ -1,4 +1,4 @@
-from Utils.utils import Point
+from .Utils.utils import Point
 from .GUIManager.SceneManager import SceneManager, SceneDrawerType
 
 class SwarmLogger:

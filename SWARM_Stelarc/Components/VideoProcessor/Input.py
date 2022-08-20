@@ -4,7 +4,7 @@ import sys
 import os
 from sys import platform
 import time
-from deep_sort.detection import Detection
+from ..deep_sort.detection import Detection
 from deep_sort.tracker import Tracker as DeepTracker
 from deep_sort import nn_matching
 from deep_sort import preprocessing

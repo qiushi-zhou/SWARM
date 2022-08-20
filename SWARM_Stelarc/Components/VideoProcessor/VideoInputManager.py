@@ -1,7 +1,8 @@
-from Utils.FPSCounter import FPSCounter
+from ..Utils.FPSCounter import FPSCounter
 from ..SwarmComponentMeta import SwarmComponentMeta
 from sys import platform
 import time
+from collections import deque
 import threading
 
 class VideoInputManager(SwarmComponentMeta):
@@ -14,24 +15,27 @@ class VideoInputManager(SwarmComponentMeta):
         self.cap = None
         self.capture_index = start_capture_index
         self.max_capture_index = 10
-        self.frame = None
-        self.latest_frame = None
+        self.frame_buffer = deque([])
+        self.frame_shape = None
         self.frame_size = (0,0)
         self.fps_counter = FPSCounter()
+        self.last_fps = 0
         self.multi_threaded = multi_threaded
         self.background_task = None
         if self.multi_threaded:
-            self.frame_read_lock = None
-            task = self.tasks_manager.add_task("VI_start", None, self.setup_capture, None)
-            task.start()
+            self.background_task = self.tasks_manager.add_task("VI_start", None, self.setup_capture, None).start()
+            self.frame_read_lock = self.background_task.read_lock
         else:
             self.setup_capture()
     def update_frame(self, tasks_manager=None):
         if self.cap is not None:
             grabbed, frame = self.cap.read()
-            with tasks_manager.read_lock:
-                if self.latest_frame is None:
-                    self.latest_frame = frame
+            with self.frame_read_lock:
+                self.frame_buffer.append(frame)
+                self.frame_shape = frame.shape
+                self.fps_counter.frame_count += 1
+                self.fps_counter.update()
+                self.last_fps = self.fps_counter.fps
         return True
         
     def setup_capture(self, tasks_manager=None):
@@ -60,6 +64,9 @@ class VideoInputManager(SwarmComponentMeta):
         self.cap.set(self.cv2.CAP_PROP_FRAME_WIDTH, self.screen_w)
         self.cap.set(self.cv2.CAP_PROP_FRAME_HEIGHT, self.screen_h)
         self.frame_size = (int(self.cap.get(self.cv2.CAP_PROP_FRAME_WIDTH)), int(self.cap.get(self.cv2.CAP_PROP_FRAME_HEIGHT)))
+        if self.multi_threaded:
+            self.background_task = self.tasks_manager.add_task("VI", None, self.update_frame, None, None).start()
+            self.frame_read_lock = self.background_task.read_lock
         return False
     
     def update_config(self):
@@ -67,36 +74,28 @@ class VideoInputManager(SwarmComponentMeta):
         
     def update_config_data(self, data, last_modified_time):
       pass
+
+    def get_last_frame(self):
+        if len(self.frame_buffer) > 0:
+            if len(self.frame_buffer) == 1:
+                return self.frame_buffer[0]
+            return self.frame_buffer.popleft()
+        return None
   
     def get_frame(self):
-        return self.frame
+        if self.multi_threaded:
+            with self.frame_read_lock:
+                return self.get_last_frame()
+        return self.get_last_frame()
     
     def update(self, debug=False):
-        self.frame = None
         if debug:
             print(f"Updating VideoInput Manager")
         if not self.multi_threaded:
             self.update_frame()
-            self.frame = self.latest_frame
-            self.latest_frame = None
-        else:
-            if self.frame_read_lock is None:
-                self.background_task = self.tasks_manager.add_task("VI", None, self.update_frame, None, None).start()
-                self.frame_read_lock = self.background_task.read_lock
-            with self.frame_read_lock:
-                self.frame = self.latest_frame
-                self.latest_frame = None
-
-        if self.frame is not None:
-            self.fps_counter.frame_count += 1
-            self.fps_counter.update()
         self.cv2.waitKey(0)
     
     def draw(self, left_text_pos, debug=False):
         if debug:
             print(f"Drawing VideoInput Manager")
-        if self.frame is None:
-            shape = "NO FRAME"
-        else:
-            shape = self.frame.shape
-        left_text_pos = self.logger.add_text_line(f"Frame size: {shape}, FPS: {self.fps_counter.fps}", (255, 255, 0), left_text_pos)
+        left_text_pos = self.logger.add_text_line(f"Frame size: {self.frame_shape}, FPS: {self.last_fps}", (255, 255, 0), left_text_pos)

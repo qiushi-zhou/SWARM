@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from ..SwarmComponentMeta import SwarmComponentMeta
+import threading
 
 class SceneDrawerType:
     PYGAME = 'pygame'
@@ -12,6 +13,7 @@ class SceneManager(SwarmComponentMeta):
         self.screen_h = screen_h
         self.drawer_type = drawer_type
         self.logger = logger
+        self.read_lock = threading.Lock()
         if self.drawer_type == SceneDrawerType.PYGAME:
             import pygame
             self.pygame = pygame
@@ -43,28 +45,26 @@ class SceneManager(SwarmComponentMeta):
     def update_screen_frame(self, frame):
         self.screen_delay = self.sceneClock.tick()
         self.screen.fill(self.backgroundColor)
-        pgImg = self.pygame.image.frombuffer(frame.tostring(), frame.shape[1::-1], "BGR")
-        try:
-            self.screen.blit(pgImg, (0,0))
-        except Exception as e:
-            # Surface might be locked during blip! Rare but might happen
-            pass
+        if frame is not None:
+            try:
+                pgImg = self.pygame.image.frombuffer(frame.tostring(), frame.shape[1::-1], "BGR")
+                self.screen.blit(pgImg, (0,0))
+            except Exception as e:
+                # Surface might be locked during blip! Rare but might happen
+                pass
     
     def update(self, frame, debug=False):
         if debug:
-            print(f"Update Scene Manager!")
-        if frame is None:
-            if debug:
+            print(f"Updating Scene Manager!")
+            if frame is None:
                 print(f"Frame in update is None!")
-            return
-        if debug:
-            print(f"Updating scene...")
         if self.drawer_type == SceneDrawerType.PYGAME:
             self.update_screen_frame(frame)
     
     def draw(self, debug=True):
         if debug:
             print(f"Draw Scene Manager!")
-        self.logger.flush_text_lines(debug=False, draw=True)
-        if self.drawer_type == SceneDrawerType.PYGAME:
-            self.pygame.display.flip()
+        with self.read_lock:
+            self.logger.flush_text_lines(debug=False, draw=True)
+            if self.drawer_type == SceneDrawerType.PYGAME:
+                self.pygame.display.flip()
