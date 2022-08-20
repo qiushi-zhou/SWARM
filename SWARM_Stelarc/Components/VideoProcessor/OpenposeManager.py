@@ -27,28 +27,24 @@ class OpenposeManager(SwarmComponentMeta):
         self.frame_read_lock = None
 
     def update_config(self, use_processing=False, use_openpose=False, use_multithread=False):
-        print(f"PRE - OP: {self.use_openpose}, P: {self.use_processing}, MT: {self.multi_threaded}")
-        if not use_processing and not use_openpose:
-            use_multithread = False
-        if use_openpose:
-            if self.input is None:
-                from . import Input
-                self.input = Input.Input()
+        if use_openpose and self.input is None:
+            from . import Input
+            self.input = Input.Input()
 
         self.use_processing = use_processing
         self.use_openpose = use_openpose
         self.set_enabled_mt(use_multithread)
-        print(f"POST - OP: {self.use_openpose}, P: {self.use_processing}, MT: {self.multi_threaded}")
 
     def set_enabled_mt(self, enabled):
-        if enabled and not self.multi_threaded:
-            self.background_task = self.tasks_manager.add_task("OP", None, self.processing_loop, None)
-            self.frame_read_lock = self.background_task.read_lock
-            self.background_task.start()
-            return
-        if not enabled:
-            if self.background_task:
-                self.background_task.stop()
+        if enabled:
+            if not self.multi_threaded:
+                self.background_task = self.tasks_manager.add_task("OP", None, self.processing_loop, None)
+                self.frame_read_lock = self.background_task.read_lock
+                self.background_task.start()
+        else:
+            if self.multi_threaded:
+                if self.background_task:
+                    self.background_task.stop()
         self.multi_threaded = enabled
 
     def update_config_data(self, data, last_modified_time):
@@ -62,6 +58,7 @@ class OpenposeManager(SwarmComponentMeta):
         processed = self.process_frame(to_process)
         with self.frame_read_lock:
             self.frames_processed.append(processed)
+        return True
 
     def process_frame(self, to_process):
         if to_process is None:
@@ -91,6 +88,7 @@ class OpenposeManager(SwarmComponentMeta):
         return None, None, frame
         
     def get_updated_frame(self):
+        processed_frame = None
         if self.multi_threaded:
             with self.frame_read_lock:
                 if len(self.frames_processed) > 0:
@@ -98,7 +96,6 @@ class OpenposeManager(SwarmComponentMeta):
         else:
             processed_frame = self.processed_frame_data.frame
         return processed_frame
-
 
     def update(self, camera_frame, debug=False):
         if debug:
@@ -118,7 +115,8 @@ class OpenposeManager(SwarmComponentMeta):
         # Reset graphs to get new points
         for camera in self.camera_manager.cameras:
             camera.p_graph.init_graph()
-
+        if self.processed_frame_data is None:
+            return
         for track in self.processed_frame_data.tracks:
             color = (255, 255, 255)
             if not track.is_confirmed():
