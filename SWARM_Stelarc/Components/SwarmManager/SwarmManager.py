@@ -22,7 +22,7 @@ class SwarmManager(SwarmComponentMeta):
         self.machine_mode = self.config_data.get("machine_mode", 'normal')
         self.last_modified_time = last_modified_time      
     
-    def update(self, cameras, left_text_pos, right_text_pos, debug=False):
+    def update(self, cameras, left_text_pos, right_text_pos, debug=False, surfaces=None):
         if debug:
             print(f"Updating Swarm Manager")
         debug = True
@@ -56,33 +56,33 @@ class SwarmManager(SwarmComponentMeta):
                     if not debug:
                         return
         curr_behavior_name = self.current_behavior.get('name', 'NONE').upper() if self.current_behavior is not None else '-'
-        right_text_pos_orig = self.logger.add_text_line(f"Current Behaviour: {curr_behavior_name}", (255, 0, 0), right_text_pos_orig)
-        right_text_pos_orig = self.logger.add_text_line(f"Behaviour Type: {self.machine_mode}", (255, 0, 0), right_text_pos_orig)
+        right_text_pos_orig = self.logger.add_text_line(f"Current Behaviour: {curr_behavior_name}", (255, 0, 0), right_text_pos_orig, surfaces)
+        right_text_pos_orig = self.logger.add_text_line(f"Behaviour Type: {self.machine_mode}", (255, 0, 0), right_text_pos_orig, surfaces)
         b_color = (150, 150, 150) if curr_behavior_name == "None" else (255, 255, 0)
-        left_text_pos = self.logger.add_text_line(f"Running Action {curr_behavior_name}", b_color, left_text_pos)
+        left_text_pos = self.logger.add_text_line(f"Running Action {curr_behavior_name}", b_color, left_text_pos, surfaces)
         data = self.frame_buffer.people_data
         left_text_pos = self.logger.add_text_line(
             f"People - avg: {data.avg:.2f}, minmax: [{data.min:.2f}, {data.max:.2f}], n: {data.non_zeroes}/{self.frame_buffer.size()}",
-            b_color, left_text_pos)
+            b_color, left_text_pos, surfaces)
         data = self.frame_buffer.groups_data
         left_text_pos = self.logger.add_text_line(
             f"Groups - avg: {data.avg:.2f}, minmax: [{data.min:.2f}, {data.max:.2f}], n: {data.non_zeroes}/{self.frame_buffer.size()}",
-            b_color, left_text_pos)
+            b_color, left_text_pos, surfaces)
         left_text_pos = self.logger.add_text_line(
             f"Groups Ratio- avg: {self.frame_buffer.group_ratio:.2f}, minmax: [{data.min:.2f}, {data.max:.2f}], n: {data.non_zeroes}/{self.frame_buffer.size()}",
-            b_color, left_text_pos)
+            b_color, left_text_pos, surfaces)
         data = self.frame_buffer.distance_data
         left_text_pos = self.logger.add_text_line(
             f"P_Distance - avg: {data.avg:.2f}, minmax: [{data.min:.2f}, {data.max:.2f}], n: {data.non_zeroes}/{self.frame_buffer.size()}",
-            b_color, left_text_pos)
+            b_color, left_text_pos, surfaces)
         data = self.frame_buffer.machine_distance_data
         left_text_pos = self.logger.add_text_line(
             f"M_Distance - avg: {data.avg:.2f}, minmax: [{data.min:.2f}, {data.max:.2f}], n: {data.non_zeroes}/{self.frame_buffer.size()}",
-            b_color, left_text_pos)
+            b_color, left_text_pos, surfaces)
         return
     
     
-    def check_behavior(self, behavior, curr_behavior, right_text_pos, debug=False):
+    def check_behavior(self, behavior, curr_behavior, right_text_pos, debug=False, surfaces=None):
         right_text_pos_orig = Point(right_text_pos.x, right_text_pos.y)
         right_text_pos.y += self.logger.line_height
         behavior_type = behavior.get('type', 'normal')
@@ -126,14 +126,14 @@ class SwarmManager(SwarmComponentMeta):
                 return False
         right_text_pos.y += self.logger.line_height
         if debug:
-            self.logger.add_text_line(f"{prefix} {name.upper()} {postfix} {criteria_met}/{total_enabled_criteria}", color, right_text_pos_orig)
+            self.logger.add_text_line(f"{prefix} {name.upper()} {postfix} {criteria_met}/{total_enabled_criteria}", color, right_text_pos_orig, surfaces)
         
         if not enabled:
             return False        
         return criteria_met == total_enabled_criteria
       
       
-    def check_parameter(self, param, param_name, behavior, is_running, frame_buffer, text_pos, inactive_color, active_color, debug=False):
+    def check_parameter(self, param, param_name, behavior, is_running, frame_buffer, text_pos, inactive_color, active_color, debug=False, surfaces=None):
         param_name = param_name.lower()
         enabled = param.get("enabled", True)
         if not enabled:
@@ -147,9 +147,9 @@ class SwarmManager(SwarmComponentMeta):
             elapsed = (datetime.datetime.now() - last_time).seconds
             if debug:
                 if is_running:
-                    text_pos = self.logger.add_text_line(f"{param_name}: {elapsed}/{timeout}", active_color, text_pos)
+                    text_pos = self.logger.add_text_line(f"{param_name}: {elapsed}/{timeout}", active_color, text_pos, surfaces)
                 else:
-                    text_pos = self.logger.add_text_line(f"  {param_name}: {elapsed}/{timeout}", inactive_color, text_pos)
+                    text_pos = self.logger.add_text_line(f"  {param_name}: {elapsed}/{timeout}", inactive_color, text_pos, surfaces)
             if elapsed >= timeout:
                 return True, enabled
             return False, enabled
@@ -174,7 +174,7 @@ class SwarmManager(SwarmComponentMeta):
                 color = (inactive_color[0] * 1.5, inactive_color[1] * 1.5, inactive_color[2] * 1.5)
             else:
                 color = inactive_color
-        text_pos = self.logger.add_text_line(f"  {param_name}: {min_value} < {value:.2f} < {max_value}", color, text_pos)
+        text_pos = self.logger.add_text_line(f"  {param_name}: {min_value} < {value:.2f} < {max_value}", color, text_pos, s_names=surfaces)
         return criteria_met, enabled
     
     def draw(self, *args, **kwargs):

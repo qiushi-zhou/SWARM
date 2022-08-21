@@ -15,7 +15,7 @@ class VideoInputManager(SwarmComponentMeta):
         self.cap = None
         self.capture_index = start_capture_index
         self.max_capture_index = 10
-        self.buffer_size = 10
+        self.buffer_size = 3
         self.latest_frame = None
         self.frame_buffer = deque([])
         self.frame_shape = None
@@ -96,7 +96,7 @@ class VideoInputManager(SwarmComponentMeta):
             self.update_frame()
         self.cv2.waitKey(1)
     
-    def draw(self, left_text_pos, debug=False):
+    def draw(self, left_text_pos, debug=False, surfaces=None):
         if debug:
             print(f"Drawing VideoInput Manager")
-        left_text_pos = self.logger.add_text_line(f"VI - FPS: {self.last_fps}, Frame Buffer: {len(self.frame_buffer)}, Size: {self.frame_shape}", (255, 255, 0), left_text_pos)
+        left_text_pos = self.logger.add_text_line(f"VI - FPS: {self.last_fps}, Frame Buffer: {len(self.frame_buffer)}, Size: {self.frame_shape}", (255, 255, 0), left_text_pos, surfaces)

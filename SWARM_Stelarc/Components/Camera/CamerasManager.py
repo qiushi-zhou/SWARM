@@ -29,11 +29,9 @@ class CamerasManager(SwarmComponentMeta):
             if camera.enabled:
                 camera.update_graph()
                 
-    def draw(self, *args, **kwargs):
-        debug = kwargs.get('debug', True)
+    def draw(self, debug=False, draw_graph_data=True, surfaces=None):
         if debug:
             print(f"Draw Cameras Manager")
-        draw_graph_data = kwargs.get('draw_graph_data', True)
         for i in range(0, len(self.cameras)):
             camera = self.cameras[i]
-            camera.draw_debug(self.logger, draw_graph_data=draw_graph_data)
+            camera.draw_debug(self.logger, draw_graph_data=draw_graph_data, surfaces=surfaces)

@@ -109,7 +109,7 @@ class Camera:
             return
         self.p_graph.update_graph(machine_pos=self.machine_position)
 
-    def draw_debug(self, logger, draw_graph_data=True):
+    def draw_debug(self, logger, draw_graph_data=True, surfaces=None):
         if not self.enabled:
             return
         if len(self.path_vertices) > 0:
@@ -117,11 +117,11 @@ class Camera:
                 p1 = self.path_vertices[j]
                 p2 = self.path_vertices[j + 1]
                 thickness = 2
-                logger.draw_line(p1, p2, self.color, thickness)
-            self.p_graph.draw_edges(logger)
-            self.p_graph.draw_nodes(logger)
+                logger.draw_line(p1, p2, self.color, thickness, surfaces)
+            self.p_graph.draw_edges(logger, surfaces)
+            self.p_graph.draw_nodes(logger, surfaces)
             self.p_graph.draw_dist_from_machine(logger,
-                                                Point(int(self.machine_position.x), int(self.machine_position.y)))
+                                                Point(int(self.machine_position.x), int(self.machine_position.y)), surfaces)
         if draw_graph_data:
             self.p_graph.draw_debug_text(logger, Point(int(self.text_position.x), int(self.text_position.y)),
-                                         camera_n=self.id)
+                                         camera_n=self.id, surfaces=surfaces)

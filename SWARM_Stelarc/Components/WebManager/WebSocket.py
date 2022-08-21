@@ -55,7 +55,7 @@ def frame_received(*args):
     if len(args) > 0:
         data = args[0]
         # print(f"Received ACK from server{data}")
-    ws.set_status(Statuses.CONNECTED, f"{ws.uri} {data}", debug=False)
+    ws.set_status(Statuses.CONNECTED, f"Frame received", debug=True)
 
 
 # @sio.event(namespace='/visualization')
@@ -86,7 +86,7 @@ class WebSocket:
     def __init__(self):
         global sio
         self.sync_with_server = False
-        self.max_wait_timeout = 2
+        self.max_wait_timeout = 10
         self.wait_time = 0
         self.sio = sio
         self.tag = "WebSocket"
@@ -168,6 +168,7 @@ class WebSocket:
         if self.status.id != Statuses.CONNECTED.id:
             return False
         try:
+            self.set_status(Statuses.WAITING, "Send_data", debug=True)
             self.sio.emit(event='op_frame', data=dict_data, namespace=self.namespace, callback=frame_received)
         except Exception as e:
             print(f"Error Sending frame data to WebSocket {e}")

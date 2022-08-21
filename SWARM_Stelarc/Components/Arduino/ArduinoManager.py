@@ -22,7 +22,7 @@ class ArduinoManager(SwarmComponentMeta):
             print(f"Arduino status updated!")
         self.arduino.update_status()
 
-    def draw(self, start_pos, debug=False):
+    def draw(self, start_pos, debug=False, surfaces=None):
         if debug:
             print(f"Drawing Arduino Manager")
 
@@ -44,10 +44,10 @@ class ArduinoManager(SwarmComponentMeta):
         time_str = f"Time of the day: {now.hour:>02d}:{now.minute:>02d}"
         time_str += f" - Working Hours {arduino.working_hours[0].tm_hour:>02d}:{arduino.working_hours[0].tm_min:>02d} - {arduino.working_hours[1].tm_hour:>02d}:{arduino.working_hours[1].tm_min:>02d}"
         date_str = f"Day of the week: {now.strftime('%A')} - Working Days: {arduino.working_days}"
-        start_pos = self.logger.add_text_line(time_str, color, start_pos)
-        start_pos = self.logger.add_text_line(date_str, color, start_pos)
+        start_pos = self.logger.add_text_line(time_str, color, start_pos, surfaces)
+        start_pos = self.logger.add_text_line(date_str, color, start_pos, surfaces)
         start_pos.y += self.logger.line_height * 0.9
-        start_pos = self.logger.add_text_line(arduino_cmd_dbg, color, start_pos)
+        start_pos = self.logger.add_text_line(arduino_cmd_dbg, color, start_pos, surfaces)
         start_pos.y += self.logger.line_height
 
         for s_idx in arduino.statuses:
@@ -68,5 +68,5 @@ class ArduinoManager(SwarmComponentMeta):
             else:
                 arduino_status_dbg += f" Waiting: {remaining} s {s.extra}"
 
-            start_pos = self.logger.add_text_line(arduino_status_dbg, color, start_pos)
+            start_pos = self.logger.add_text_line(arduino_status_dbg, color, start_pos, surfaces)
         return

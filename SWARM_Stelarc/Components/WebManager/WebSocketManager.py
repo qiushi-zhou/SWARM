@@ -1,3 +1,5 @@
+import threading
+
 from .WebSocket import ws, WebSocket
 from ..SwarmComponentMeta import SwarmComponentMeta
 from ..Utils.FPSCounter import FPSCounter
@@ -27,12 +29,14 @@ class SwarmData:
 
 
 class WebSocketManager(SwarmComponentMeta):
-    def __init__(self, logger, tasks_manager, surface, frame_w, frame_h):
+    def __init__(self, logger, tasks_manager, frame_w, frame_h):
         super(WebSocketManager, self).__init__(logger, tasks_manager, "WebSocketManager", r'./Config/WebSocketConfig.yaml', self.update_config_data)
         self.ws = ws
         self.tasks_manager = tasks_manager
-        self.buffer_size = 200
+
+        self.buffer_size = 10
         self.data_to_send = deque([])
+        self.screen_updated = False
         self.send_frames = False
         self.enabled = True
         self.last_file_size = -1
@@ -53,27 +57,31 @@ class WebSocketManager(SwarmComponentMeta):
         self.fps_counter = FPSCounter()
         self.last_fps = self.fps_counter.fps
 
-        self.surface = surface
         self.frame_w = frame_w
         self.frame_h = frame_h
+        self.surface = pygame.Surface((frame_w, frame_h))
+        self.logger.add_surface(self.surface, self.tag)
+        # self.surface = pygame.Surface((frame_w, frame_h))
         self.enqueue_task = None
         self.send_task = None
+        self.read_lock = threading.Lock()
     
     def update_config(self, use_websocket=False):
         super().update_config_from_file(self.tag, self.config_filename, self.last_modified_time)
-        self.enabled = use_websocket
-        if self.enabled:
-            self.ws.update_config(self.config_data)
-            self.enqueue_task = self.tasks_manager.add_task("WebSocket", None, self.enqueue_data, None).start()
-            self.read_lock = self.enqueue_task.read_lock
-            self.send_task = self.tasks_manager.add_task("WebSocket", None, self.send_packets, self.read_lock).start()
+        self.ws.update_config(self.config_data)
+        if use_websocket:
+            if not self.enabled or self.enqueue_task is None:
+                self.enqueue_task = self.tasks_manager.add_task("WS_Q", None, self.enqueue_data, self.read_lock).start()
+                self.send_task = self.tasks_manager.add_task("WS_S", None, self.send_packets, self.read_lock).start()
         else:
-            if self.enqueue_task:
-                self.enqueue_task.stop()
-                self.enqueue_task = None
-            if self.send_task:
-                self.send_task.stop()
-                self.send_task = None
+            if self.enabled:
+                if self.enqueue_task:
+                    self.enqueue_task.stop()
+                    self.enqueue_task = None
+                if self.send_task:
+                    self.send_task.stop()
+                    self.send_task = None
+        self.enabled = use_websocket
         
     def update_config_data(self, data, last_modified_time):
         self.config_data = data
@@ -91,26 +99,26 @@ class WebSocketManager(SwarmComponentMeta):
         with self.read_lock:
             if len(self.data_to_send) <= 0:
                 return True
-        self.ws.update_status()
+        # self.ws.update_status()
         if self.ws.is_ready():
-            data_json = self.data_to_send.popleft().get_json()
-            self.ws.send_data(data_json)
+            if len(self.data_to_send) > 0:
+                data_json = self.data_to_send.popleft().get_json()
+                self.ws.send_data(data_json)
+                self.fps_counter.frame_count += 1
+                self.fps_counter.update()
+                self.last_fps = self.fps_counter.fps
         return True
 
     def enqueue_data(self, tasks_manager=None):
         image_bytes = None
         if self.send_frames:
+            if len(self.data_to_send) > self.buffer_size:
+                return True
             with self.read_lock:
-                if len(self.data_to_send) > self.buffer_size:
-                    return True
-                image_bytes = self.get_frame()
-                self.last_file_size = image_bytes.getbuffer().nbytes / 1024*1024
+                image_bytes = self.get_frame(self.surface)
+            self.last_file_size = image_bytes.getbuffer().nbytes / 1024*1024
         graph_data = self.get_graph_data()
         self.data_to_send.append(SwarmData(image_bytes, graph_data))
-        with self.read_lock:
-            self.fps_counter.frame_count += 1
-            self.fps_counter.update()
-            self.last_fps = self.fps_counter.fps
         return True
 
     def get_graph_data(self):
@@ -129,31 +137,30 @@ class WebSocketManager(SwarmComponentMeta):
             self.current_frame_scaling = 1.0
         return self.current_frame_scaling
 
-    def get_frame(self):
+    def get_frame(self, surface):
         scaling_factor = self.update_scaling()
         image_bytes = io.BytesIO()
-        subsurface = pygame.transform.scale(self.surface, (self.frame_w * scaling_factor, self.frame_h * scaling_factor))
+        subsurface = pygame.transform.scale(surface, (self.frame_w * scaling_factor, self.frame_h * scaling_factor))
         pygame.image.save(subsurface, image_bytes, "JPEG")
         return image_bytes
-
-    def notify(self, surface, frame_w, frame_h):
-        with self.read_lock:
-            self.ws.update_frame(surface, frame_w, frame_h)
     
     def update(self, debug=False):
         if debug:
             print(f"Updating WebSocket Manager")
+
+    def update_surface(self, frame):
+        with self.read_lock:
+            self.logger.draw_frame((0,0,0), frame, self.tag)
     
-    def draw(self, start_pos, debug=False):
+    def draw(self, start_pos, debug=False, surfaces=None):
         if debug:
             print(f"Drawing WebSocket Manager")
         dbg_str = "WebSocket "
         if not self.enabled:
             dbg_str += "Disabled"
-            start_pos = self.logger.add_text_line(dbg_str, (255, 50, 0), start_pos)
+            start_pos = self.logger.add_text_line(dbg_str, (255, 50, 0), start_pos, surfaces)
         else:
-            with self.read_lock:
-                status_dbg_str = self.ws.status.get_dbg_text(self.ws)
-                ws_dbg_str = f"WebSocket FPS: {int(self.last_fps)}, FS: {self.current_frame_scaling:0.2f}, File Size: {self.last_file_size}"
-            start_pos = self.logger.add_text_line(status_dbg_str, (255, 50, 0), start_pos)
-            start_pos = self.logger.add_text_line(ws_dbg_str, (255, 50, 0), start_pos)
+            status_dbg_str = self.ws.status.get_dbg_text(self.ws)
+            ws_dbg_str = f"WebSocket FPS: {int(self.last_fps)}, FS: {self.current_frame_scaling:0.2f}, File Size: {self.last_file_size}"
+            start_pos = self.logger.add_text_line(status_dbg_str, (255, 50, 0), start_pos, surfaces)
+            start_pos = self.logger.add_text_line(ws_dbg_str, (255, 50, 0), start_pos, surfaces)

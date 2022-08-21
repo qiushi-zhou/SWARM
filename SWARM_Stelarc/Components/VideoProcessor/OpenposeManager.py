@@ -21,7 +21,7 @@ class OpenposeManager(SwarmComponentMeta):
         super(OpenposeManager, self).__init__(logger, tasks_manager, "OpenposeManager")
         self.camera_manager = camera_manager
         self.processed_frame_data = None
-        self.frame_buffer_size = 3
+        self.frame_buffer_size = 2
         self.frames_to_process = deque([])
         self.frames_processed = deque([])
         self.multi_threaded = False
@@ -99,8 +99,9 @@ class OpenposeManager(SwarmComponentMeta):
         if camera_frame is None:
             return None
         if self.multi_threaded:
-            with self.processing_lock:
-                self.frames_to_process.append(camera_frame)
+            if len(self.frames_to_process) < self.frame_buffer_size:
+                with self.processing_lock:
+                    self.frames_to_process.append(camera_frame)
             with self.processed_lock:
                 if len(self.frames_processed) > 0:
                     self.processed_frame_data = self.frames_processed[0]
@@ -111,7 +112,7 @@ class OpenposeManager(SwarmComponentMeta):
 
         return self.processed_frame_data.frame if self.processed_frame_data is not None else None
 
-    def update(self, debug=False):
+    def update(self, debug=False, surfaces=None):
         if debug:
             print(f"Updating Openpose Manager")
         # Reset graphs to get new points
@@ -146,13 +147,13 @@ class OpenposeManager(SwarmComponentMeta):
                         p1 = Point(kp1[0], kp1[1])
                         p2 = Point(kp2[0], kp2[1])
                         if p1.x > 1 and p1.y > 1 and p2.x > 1 and p2.y > 1:
-                            self.logger.draw_line(p1, p2, color, thickness)
+                            self.logger.draw_line(p1, p2, color, thickness, surfaces)
             for camera in self.camera_manager.cameras:
                 # camera.check_track([p1,p2], center_p)
                 camera.check_track([center_p], center_p)
             if debug:
                 print(f"Center: ({center_x:.2f}, {center_y:.2f})")
 
-    def draw(self, text_pos, debug=False):
-        text_pos = self.logger.add_text_line(f"OP - FPS: {self.latest_fps} Frames to process: {len(self.frames_to_process)}, Processed: {len(self.frames_processed)}", (255, 255, 0), text_pos)
+    def draw(self, text_pos, debug=False, surfaces=None):
+        text_pos = self.logger.add_text_line(f"OP - FPS: {self.latest_fps} Frames to process: {len(self.frames_to_process)}, Processed: {len(self.frames_processed)}", (255, 255, 0), text_pos, surfaces)
         pass

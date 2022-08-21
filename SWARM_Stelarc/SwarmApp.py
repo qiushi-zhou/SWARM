@@ -44,7 +44,7 @@ class SwarmAPP():
         self.arduino_manager = ArduinoManager(self.logger, self.tasks_manager, arduino_port, mockup_commands)
         self.components.append(self.arduino_manager)
 
-        self.websocket_manager = WebSocketManager(self.logger, self.tasks_manager, self.scene_manager.screen, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)
+        self.websocket_manager = WebSocketManager(self.logger, self.tasks_manager, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)
         self.components.append(self.websocket_manager)
             
         self.swarm_manager = SwarmManager(self.logger, self.tasks_manager, self.arduino_manager)
@@ -74,38 +74,40 @@ class SwarmAPP():
             utils.update_config_from_file("SwarmApp", r"./Config/AppConfig.yaml", self.last_modified_time, self.update_data)
             self.tasks_manager.update_config()
             self.scene_manager.update_config()
-            self.arduino_manager.update_config()
             self.video_manager.update_config()
             self.openpose_manager.update_config(self.use_processing, self.use_openpose, self.multithreaded_processing)
-            self.websocket_manager.update_config(self.use_websocket)
             self.swarm_manager.update_config()
             self.cameras_manager.update_config()
 
+            self.arduino_manager.update_config()
             self.arduino_manager.update(debug=debug)
+
+            self.websocket_manager.update_config(self.use_websocket)
             self.video_manager.update()
             frame = self.video_manager.get_frame()
 
             processed_frame = self.openpose_manager.update_frames(frame)
-            self.openpose_manager.update(debug=debug)
+            self.openpose_manager.update(debug=debug, surfaces=[self.scene_manager.tag, self.websocket_manager.tag])
             self.scene_manager.update(processed_frame, debug=False)
+            self.websocket_manager.update_surface(processed_frame)
 
             self.cameras_manager.update(debug=debug)
 
-            self.video_manager.draw(left_text_pos, debug=debug)
-            self.openpose_manager.draw(left_text_pos, debug=debug)
-            self.tasks_manager.draw(left_text_pos, debug=debug)
-            self.cameras_manager.draw(draw_graph_data=False, debug=debug)
+            self.video_manager.draw(left_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
+            self.openpose_manager.draw(left_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
+            self.tasks_manager.draw(left_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
+            self.cameras_manager.draw(draw_graph_data=False, debug=debug, surfaces=[self.scene_manager.tag])
 
-            self.websocket_manager.draw(left_text_pos, debug=debug)
+            self.websocket_manager.draw(left_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
             left_text_pos.y += self.logger.line_height
             
-            self.swarm_manager.update(self.cameras_manager.cameras, left_text_pos, right_text_pos, debug=False)
+            self.swarm_manager.update(self.cameras_manager.cameras, left_text_pos, right_text_pos, debug=False, surfaces=[self.scene_manager.tag])
             self.websocket_manager.update()
             
-            self.arduino_manager.draw(left_text_pos, debug=debug)
+            self.arduino_manager.draw(left_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
             left_text_pos.y += self.logger.line_height
 
-            self.scene_manager.draw(debug=debug)
+            self.scene_manager.draw(debug=debug, surfaces=[self.scene_manager.tag])
 
             if debug:
                 print(f"--- End loop ---\n")

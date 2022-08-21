@@ -9,10 +9,10 @@ class SceneDrawerType:
     
 class SceneManager(SwarmComponentMeta):
     def __init__(self, logger, tasks_manager, drawer_type, screen_w=500, screen_h=500, font_size=16):
+        super(SceneManager, self).__init__(logger, tasks_manager, "SceneManager")
         self.screen_w = screen_w
         self.screen_h = screen_h
         self.drawer_type = drawer_type
-        self.logger = logger
         self.read_lock = threading.Lock()
         if self.drawer_type == SceneDrawerType.PYGAME:
             import pygame
@@ -23,7 +23,8 @@ class SceneManager(SwarmComponentMeta):
             self.screen = self.pygame.display.get_surface()
             self.sceneClock = self.pygame.time.Clock()
             self.font = self.pygame.font.SysFont('Cascadia', font_size)
-            self.logger.set_drawer(self.pygame, self.screen)
+            self.logger.set_drawer(self.pygame)
+            self.logger.add_surface(self.screen, self.tag)
             self.logger.set_font(self.font, font_size)
             # log.add_widget(PyGameLogWidget(pygame=pygame, font=self.font, font_size=Constants.font_size, canvas=self.scene.screen))
         elif self.drawer_type == SceneDrawerType.OPENCV:
@@ -31,8 +32,7 @@ class SceneManager(SwarmComponentMeta):
             self.cv2 = cv2
             self.logger.set_drawer(self.cv2, self.screen)
             self.logger.set_font(None, 0.4)
-            
-        super(SceneManager, self).__init__(self.logger, tasks_manager, "SceneManager")
+
         self.screen_delay = 0
         self.backgroundColor = (0, 0, 0)
     
@@ -42,29 +42,20 @@ class SceneManager(SwarmComponentMeta):
     def update_config_data(self, data, last_modified_time):
         pass
     
-    def update_screen_frame(self, frame):
-        self.screen_delay = self.sceneClock.tick()
-        self.screen.fill(self.backgroundColor)
-        if frame is not None:
-            try:
-                pgImg = self.pygame.image.frombuffer(frame.tostring(), frame.shape[1::-1], "BGR")
-                self.screen.blit(pgImg, (0,0))
-            except Exception as e:
-                # Surface might be locked during blip! Rare but might happen
-                pass
-    
-    def update(self, frame, debug=False):
+    def update(self, frame, debug=False, surfaces=None):
         if debug:
             print(f"Updating Scene Manager!")
             if frame is None:
                 print(f"Frame in update is None!")
         if self.drawer_type == SceneDrawerType.PYGAME:
-            self.update_screen_frame(frame)
+            self.screen_delay = self.sceneClock.tick()
+            self.logger.draw_frame(self.backgroundColor, frame, self.tag)
     
-    def draw(self, debug=True):
+    def draw(self, debug=True, surfaces=None):
         if debug:
             print(f"Draw Scene Manager!")
-        with self.read_lock:
-            self.logger.flush_text_lines(debug=False, draw=True)
-            if self.drawer_type == SceneDrawerType.PYGAME:
-                self.pygame.display.flip()
+        self.logger.flush_text_lines(debug=False, draw=False, s_names=surfaces)
+        # with self.read_lock:
+        #     self.logger.flush_text_lines(debug=False, draw=True, s_names=surfaces)
+        #     if self.drawer_type == SceneDrawerType.PYGAME:
+        #         self.pygame.display.flip()

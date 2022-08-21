@@ -118,9 +118,9 @@ class BackgroundTasksManager(SwarmComponentMeta):
             print(f"Updating BackgroundTasks Manager!")
         pass
 
-    def draw(self, start_pos, debug=True):
+    def draw(self, start_pos, debug=True, surfaces=None):
         if debug:
             print(f"Drawing BackgroundTasks Manager!")
         running_tasks = self.get_running_tasks()
-        start_pos = self.logger.add_text_line(f"Tasks: {running_tasks}", (255,0,0), start_pos)
+        start_pos = self.logger.add_text_line(f"Tasks: {running_tasks}", (255,0,0), start_pos, surfaces)
         pass
