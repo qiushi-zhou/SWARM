@@ -85,9 +85,9 @@ class SwarmAPP():
             self.video_manager.update()
             frame = self.video_manager.get_frame()
 
-            self.openpose_manager.update(frame, debug=debug)
-            frame_to_render = self.openpose_manager.get_updated_frame()
-            self.scene_manager.update(frame_to_render, debug=False)
+            processed_frame = self.openpose_manager.update_frames(frame)
+            self.openpose_manager.update(debug=debug)
+            self.scene_manager.update(processed_frame, debug=False)
 
             self.cameras_manager.update(debug=debug)
 

@@ -15,7 +15,8 @@ class VideoInputManager(SwarmComponentMeta):
         self.cap = None
         self.capture_index = start_capture_index
         self.max_capture_index = 10
-        self.buffer_size = 3
+        self.buffer_size = 10
+        self.latest_frame = None
         self.frame_buffer = deque([])
         self.frame_shape = None
         self.frame_size = (0,0)
@@ -78,17 +79,15 @@ class VideoInputManager(SwarmComponentMeta):
         
     def update_config_data(self, data, last_modified_time):
       pass
-
-    def get_last_frame(self):
-        if len(self.frame_buffer) > 0:
-            with self.frame_read_lock:
-                return self.frame_buffer.popleft()
-        return None
   
     def get_frame(self):
         if self.multi_threaded:
-            return self.get_last_frame()
-        return self.get_last_frame()
+            with self.frame_read_lock:
+                if len(self.frame_buffer) > 0:
+                    self.latest_frame = self.frame_buffer[0]
+                if len(self.frame_buffer) > 1:
+                    self.frame_buffer.popleft()
+        return self.latest_frame
     
     def update(self, debug=False):
         if debug:
