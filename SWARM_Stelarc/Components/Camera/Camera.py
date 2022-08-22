@@ -118,10 +118,10 @@ class Camera:
                 p2 = self.path_vertices[j + 1]
                 thickness = 2
                 logger.draw_line(p1, p2, self.color, thickness, surfaces)
-            self.p_graph.draw_edges(logger, surfaces)
-            self.p_graph.draw_nodes(logger, surfaces)
+            self.p_graph.draw_edges(logger, surfaces=surfaces)
+            self.p_graph.draw_nodes(logger, surfaces=surfaces)
             self.p_graph.draw_dist_from_machine(logger,
-                                                Point(int(self.machine_position.x), int(self.machine_position.y)), surfaces)
+                                                Point(int(self.machine_position.x), int(self.machine_position.y)), surfaces=surfaces)
         if draw_graph_data:
             self.p_graph.draw_debug_text(logger, Point(int(self.text_position.x), int(self.text_position.y)),
                                          camera_n=self.id, surfaces=surfaces)

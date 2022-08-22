@@ -35,7 +35,7 @@ class SwarmManager(SwarmComponentMeta):
         #     return left_text_pos, right_text_pos
         for behavior in self.behaviors:
             try:
-                all_criteria_met = self.check_behavior(behavior, {}, right_text_pos, debug=True)
+                all_criteria_met = self.check_behavior(behavior, {}, right_text_pos, debug=True, surfaces=surfaces)
             except Exception as e:
                 print(f"Error checking behavior {behavior.get('name', 'NONE')}: {e}")
                 all_criteria_met = False
@@ -56,29 +56,29 @@ class SwarmManager(SwarmComponentMeta):
                     if not debug:
                         return
         curr_behavior_name = self.current_behavior.get('name', 'NONE').upper() if self.current_behavior is not None else '-'
-        right_text_pos_orig = self.logger.add_text_line(f"Current Behaviour: {curr_behavior_name}", (255, 0, 0), right_text_pos_orig, surfaces)
-        right_text_pos_orig = self.logger.add_text_line(f"Behaviour Type: {self.machine_mode}", (255, 0, 0), right_text_pos_orig, surfaces)
+        right_text_pos_orig = self.logger.add_text_line(f"Current Behaviour: {curr_behavior_name}", (255, 0, 0), right_text_pos_orig, s_names=surfaces)
+        right_text_pos_orig = self.logger.add_text_line(f"Behaviour Type: {self.machine_mode}", (255, 0, 0), right_text_pos_orig, s_names=surfaces)
         b_color = (150, 150, 150) if curr_behavior_name == "None" else (255, 255, 0)
-        left_text_pos = self.logger.add_text_line(f"Running Action {curr_behavior_name}", b_color, left_text_pos, surfaces)
+        left_text_pos = self.logger.add_text_line(f"Running Action {curr_behavior_name}", b_color, left_text_pos, s_names=surfaces)
         data = self.frame_buffer.people_data
         left_text_pos = self.logger.add_text_line(
             f"People - avg: {data.avg:.2f}, minmax: [{data.min:.2f}, {data.max:.2f}], n: {data.non_zeroes}/{self.frame_buffer.size()}",
-            b_color, left_text_pos, surfaces)
+            b_color, left_text_pos, s_names=surfaces)
         data = self.frame_buffer.groups_data
         left_text_pos = self.logger.add_text_line(
             f"Groups - avg: {data.avg:.2f}, minmax: [{data.min:.2f}, {data.max:.2f}], n: {data.non_zeroes}/{self.frame_buffer.size()}",
-            b_color, left_text_pos, surfaces)
+            b_color, left_text_pos, s_names=surfaces)
         left_text_pos = self.logger.add_text_line(
             f"Groups Ratio- avg: {self.frame_buffer.group_ratio:.2f}, minmax: [{data.min:.2f}, {data.max:.2f}], n: {data.non_zeroes}/{self.frame_buffer.size()}",
-            b_color, left_text_pos, surfaces)
+            b_color, left_text_pos, s_names=surfaces)
         data = self.frame_buffer.distance_data
         left_text_pos = self.logger.add_text_line(
             f"P_Distance - avg: {data.avg:.2f}, minmax: [{data.min:.2f}, {data.max:.2f}], n: {data.non_zeroes}/{self.frame_buffer.size()}",
-            b_color, left_text_pos, surfaces)
+            b_color, left_text_pos, s_names=surfaces)
         data = self.frame_buffer.machine_distance_data
         left_text_pos = self.logger.add_text_line(
             f"M_Distance - avg: {data.avg:.2f}, minmax: [{data.min:.2f}, {data.max:.2f}], n: {data.non_zeroes}/{self.frame_buffer.size()}",
-            b_color, left_text_pos, surfaces)
+            b_color, left_text_pos, s_names=surfaces)
         return
     
     
@@ -118,7 +118,7 @@ class SwarmManager(SwarmComponentMeta):
         parameters = behavior.get("parameters", [])
         for param_name in parameters:
             try:
-                criterium_met, is_enabled = self.check_parameter(parameters[param_name], param_name, behavior, is_running, self.frame_buffer, right_text_pos, inactive_color, active_color, debug=debug)
+                criterium_met, is_enabled = self.check_parameter(parameters[param_name], param_name, behavior, is_running, self.frame_buffer, right_text_pos, inactive_color, active_color, debug=debug, surfaces=surfaces)
                 criteria_met += 1 if criterium_met else 0
                 total_enabled_criteria += 1 if is_enabled else 0
             except Exception as e:
@@ -126,7 +126,7 @@ class SwarmManager(SwarmComponentMeta):
                 return False
         right_text_pos.y += self.logger.line_height
         if debug:
-            self.logger.add_text_line(f"{prefix} {name.upper()} {postfix} {criteria_met}/{total_enabled_criteria}", color, right_text_pos_orig, surfaces)
+            self.logger.add_text_line(f"{prefix} {name.upper()} {postfix} {criteria_met}/{total_enabled_criteria}", color, right_text_pos_orig, s_names=surfaces)
         
         if not enabled:
             return False        

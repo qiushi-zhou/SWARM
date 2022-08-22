@@ -85,11 +85,14 @@ class SwarmAPP():
             self.websocket_manager.update_config(self.use_websocket)
             self.video_manager.update()
             frame = self.video_manager.get_frame()
-
+            processed_frame = frame
             processed_frame = self.openpose_manager.update_frames(frame)
+            self.websocket_manager.update_frame(processed_frame)
             self.openpose_manager.update(debug=debug, surfaces=[self.scene_manager.tag, self.websocket_manager.tag])
+            self.openpose_manager.update(debug=debug, surfaces=[self.scene_manager.tag])
             self.scene_manager.update(processed_frame, debug=False)
-            self.websocket_manager.update_surface(processed_frame)
+
+            # self.websocket_manager.update_surface(processed_frame)
 
             self.cameras_manager.update(debug=debug)
 
@@ -102,7 +105,6 @@ class SwarmAPP():
             left_text_pos.y += self.logger.line_height
             
             self.swarm_manager.update(self.cameras_manager.cameras, left_text_pos, right_text_pos, debug=False, surfaces=[self.scene_manager.tag])
-            self.websocket_manager.update()
             
             self.arduino_manager.draw(left_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
             left_text_pos.y += self.logger.line_height

@@ -10,18 +10,22 @@ from collections import deque
 import datetime
 import base64
 import pygame
+import cv2
+import asyncio
 
 class SwarmData:
-    def __init__(self, image_bytes=None, graph_data=None):
-        self.image_bytes = image_bytes
+    def __init__(self, image_data=None, graph_data=None):
+        self.image_data = image_data
         self.graph_data = graph_data
         self.time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
 
     def get_json(self):
         data = {}
-        if self.image_bytes is not None:
-            img_str = base64.b64encode(self.image_bytes.getvalue())
-            data['frame_data'] = "data:image/jpeg;base64," + img_str.decode()
+        if self.image_data is not None:
+            retval, buffer = cv2.imencode('.jpg', self.image_data)
+            img_str = base64.b64encode(buffer).decode()
+            # img_str = base64.b64encode(self.image_data.getvalue()).decode()
+            data['frame_data'] = "data:image/jpeg;base64," + img_str
         if self.graph_data is not None:
             data['graph_data'] = self.graph_data
         data['datetime'] = self.time
@@ -31,6 +35,7 @@ class SwarmData:
 class WebSocketManager(SwarmComponentMeta):
     def __init__(self, logger, tasks_manager, frame_w, frame_h):
         super(WebSocketManager, self).__init__(logger, tasks_manager, "WebSocketManager", r'./Config/WebSocketConfig.yaml', self.update_config_data)
+        self.loop = asyncio.get_event_loop()
         self.ws = ws
         self.tasks_manager = tasks_manager
 
@@ -70,8 +75,8 @@ class WebSocketManager(SwarmComponentMeta):
         super().update_config_from_file(self.tag, self.config_filename, self.last_modified_time)
         self.ws.update_config(self.config_data)
         if use_websocket:
-            if not self.enabled or self.enqueue_task is None:
-                self.enqueue_task = self.tasks_manager.add_task("WS_Q", None, self.enqueue_data, self.read_lock).start()
+            if not self.enabled or self.send_task is None:
+                # self.enqueue_task = self.tasks_manager.add_task("WS_Q", None, self.enqueue_data, self.read_lock).start()
                 self.send_task = self.tasks_manager.add_task("WS_S", None, self.send_packets, self.read_lock).start()
         else:
             if self.enabled:
@@ -95,18 +100,24 @@ class WebSocketManager(SwarmComponentMeta):
         self.frame_skipping = data.get("ws_frame_skip", False)
         self.last_modified_time = last_modified_time
 
-    def send_packets(self, tasks_manager=None):
-        with self.read_lock:
-            if len(self.data_to_send) <= 0:
-                return True
-        # self.ws.update_status()
+    async def send_image(self, data):
         if self.ws.is_ready():
-            if len(self.data_to_send) > 0:
-                data_json = self.data_to_send.popleft().get_json()
-                self.ws.send_data(data_json)
-                self.fps_counter.frame_count += 1
-                self.fps_counter.update()
-                self.last_fps = self.fps_counter.fps
+            data_json = data.get_json()
+            await self.ws.send_data(data_json)
+
+    def send_packets(self, tasks_manager=None):
+        if len(self.data_to_send) <= 0:
+            return True
+        # self.ws.update_status()
+        data = self.data_to_send.popleft()
+        self.loop.run_until_complete(self.send_image(data))
+        # data_json = self.data_to_send.popleft().get_json()
+        # self.loop.run_until_complete(self.ws.send_data(data_json))
+        # asyncio.create_task(self.ws.send_data(data_json))
+        # self.ws.send_data(data_json)
+        self.fps_counter.frame_count += 1
+        self.fps_counter.update()
+        self.last_fps = self.fps_counter.fps
         return True
 
     def enqueue_data(self, tasks_manager=None):
@@ -120,6 +131,16 @@ class WebSocketManager(SwarmComponentMeta):
         graph_data = self.get_graph_data()
         self.data_to_send.append(SwarmData(image_bytes, graph_data))
         return True
+
+    def update_frame(self, cv2_frame):
+        if cv2_frame is None:
+            return
+        # with self.read_lock:
+        # scaling_factor = 0.7
+        # cv2_frame = cv2.resize(cv2_frame, (int(self.frame_w * scaling_factor), int(self.frame_h * scaling_factor)))
+        graph_data = self.get_graph_data()
+        # self.loop.run_until_complete(self.send_image(SwarmData(cv2_frame, graph_data)))
+        self.data_to_send.append(SwarmData(cv2_frame, graph_data))
 
     def get_graph_data(self):
         return None

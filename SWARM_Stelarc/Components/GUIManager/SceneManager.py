@@ -54,8 +54,6 @@ class SceneManager(SwarmComponentMeta):
     def draw(self, debug=True, surfaces=None):
         if debug:
             print(f"Draw Scene Manager!")
-        self.logger.flush_text_lines(debug=False, draw=False, s_names=surfaces)
-        # with self.read_lock:
-        #     self.logger.flush_text_lines(debug=False, draw=True, s_names=surfaces)
-        #     if self.drawer_type == SceneDrawerType.PYGAME:
-        #         self.pygame.display.flip()
+        self.logger.flush_text_lines(debug=False, draw=True, s_names=surfaces)
+        if self.drawer_type == SceneDrawerType.PYGAME:
+            self.pygame.display.flip()

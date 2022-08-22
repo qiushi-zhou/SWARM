@@ -4,10 +4,10 @@ ws_send_frames: true
 ws_frame_scaling: true
 ws_frame_adaptive: false
 ws_min_frame_scaling: 0.5 # adaptive fame scaling
-ws_fixed_frame_scaling: 0.9
+ws_fixed_frame_scaling: 1
 
 ws_frame_skip: false
 
-ws_target_framerate: 40
+ws_target_framerate: 120
 ws_url: "wss://anthropomorphicmachine.com:3005"
 ws_namespace: "/visualization" 

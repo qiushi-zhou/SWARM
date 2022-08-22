@@ -15,7 +15,7 @@ class VideoInputManager(SwarmComponentMeta):
         self.cap = None
         self.capture_index = start_capture_index
         self.max_capture_index = 10
-        self.buffer_size = 3
+        self.buffer_size = 5
         self.latest_frame = None
         self.frame_buffer = deque([])
         self.frame_shape = None

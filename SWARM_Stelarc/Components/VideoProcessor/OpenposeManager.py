@@ -21,7 +21,7 @@ class OpenposeManager(SwarmComponentMeta):
         super(OpenposeManager, self).__init__(logger, tasks_manager, "OpenposeManager")
         self.camera_manager = camera_manager
         self.processed_frame_data = None
-        self.frame_buffer_size = 2
+        self.frame_buffer_size = 5
         self.frames_to_process = deque([])
         self.frames_processed = deque([])
         self.multi_threaded = False
@@ -98,15 +98,15 @@ class OpenposeManager(SwarmComponentMeta):
     def update_frames(self, camera_frame):
         if camera_frame is None:
             return None
+        # camera_frame = camera_frame.copy()
         if self.multi_threaded:
             if len(self.frames_to_process) < self.frame_buffer_size:
-                with self.processing_lock:
-                    self.frames_to_process.append(camera_frame)
-            with self.processed_lock:
-                if len(self.frames_processed) > 0:
-                    self.processed_frame_data = self.frames_processed[0]
-                if len(self.frames_processed) > 1:
-                    self.frames_processed.popleft()
+                self.frames_to_process.append(camera_frame)
+            if len(self.frames_processed) > 1:
+                self.processed_frame_data = self.frames_processed.popleft()
+            elif len(self.frames_processed) > 0:
+                # self.frames_processed.popleft()
+                self.processed_frame_data = self.frames_processed[0]
         else:
             self.processed_frame_data = self.process_frame(camera_frame)
 

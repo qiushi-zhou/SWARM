@@ -1,13 +1,6 @@
 import socketio
 import time
-import io
-import datetime
-import math
 import asyncio
-import json
-import base64
-import cv2
-import pygame
 
 class Status:
     def __init__(self, _id, name, description):
@@ -32,34 +25,34 @@ Statuses.CONNECTED = Status(2, "CONNECTED", "Socket.io connected")
 Statuses.WAITING = Status(3, "WAITING", "Socket.io connected")
 Statuses.DISCONNECTED = Status(4, "DISCONNECTED", "Socket.io lost connection")
 
-# sio = socketio.AsyncClient(logger=True, engineio_logger=True)
-sio = socketio.Client()
+sio = socketio.AsyncClient(logger=False, engineio_logger=False)
+# sio = socketio.Client()
 
 # @sio.event(namespace='/visualization')
-def connect():
+async def connect():
     global ws
     ws.set_status(Statuses.CONNECTED, f"{ws.uri}")
 
 
 # @sio.event(namespace='/visualization')
-def connect_error(data):
+async def connect_error(data):
     global ws
     print(f"CONNECTION ERROR!")
     ws.set_status(Statuses.DISCONNECTED, f"{ws.uri} {data}")
 
 
 # @sio.event(namespace='/visualization')
-def frame_received(*args):
+async def frame_received(*args):
     global ws
     data = ""
     if len(args) > 0:
         data = args[0]
         # print(f"Received ACK from server{data}")
-    ws.set_status(Statuses.CONNECTED, f"Frame received", debug=True)
+    ws.set_status(Statuses.CONNECTED, f"Frame received", debug=False)
 
 
 # @sio.event(namespace='/visualization')
-def op_frame_new(*args):
+async def op_frame_new(*args):
     global ws
     if len(args) > 0:
         data = args[0]
@@ -68,13 +61,13 @@ def op_frame_new(*args):
 
 
 # @sio.event(namespace='/visualization')
-def disconnect():
+async def disconnect():
     global ws
     ws.set_status(Statuses.DISCONNECTED, f"{ws.uri}")
 
 
 # @sio.event(namespace='/visualization')
-def hey(*args):
+async def hey(*args):
     global ws
     if len(args) > 0:
         data = args[0]
@@ -85,6 +78,7 @@ def hey(*args):
 class WebSocket:
     def __init__(self):
         global sio
+        self.loop = asyncio.get_event_loop()
         self.sync_with_server = False
         self.max_wait_timeout = 10
         self.wait_time = 0
@@ -150,7 +144,9 @@ class WebSocket:
                 return False
             elif self.status.id in [Statuses.DISCONNECTED.id, Statuses.NOT_INITIALIZED.id]:
                 self.set_status(Statuses.CONNECTING, self.uri)
-                self.sio.connect(self.url, namespaces=[self.namespace], wait_timeout=1)
+
+                self.loop.run_until_complete(self.sio.connect(self.url, namespaces=[self.namespace], wait_timeout=1))
+                # self.sio.connect(self.url, namespaces=[self.namespace], wait_timeout=1)
                 # time.sleep(1) # Otherwise it might get stuck in a loop as the status will change to connected WHILE it was in the "sio.connected" else
                 return False
             else:
@@ -162,14 +158,18 @@ class WebSocket:
 
     def send_msg(self):
         print(f"Sending msg websocket")
-        self.sio.emit(event='test_msg', namespace=self.namespace)
+        self.loop.run_until_complete(self.sio.emit(event='test_msg', namespace=self.namespace))
+        # self.sio.emit(event='test_msg', namespace=self.namespace)
 
-    def send_data(self, dict_data):
-        if self.status.id != Statuses.CONNECTED.id:
-            return False
+    async def send_data(self, dict_data):
+        # if self.status.id != Statuses.CONNECTED.id:
+        #     return False
         try:
-            self.set_status(Statuses.WAITING, "Send_data", debug=True)
-            self.sio.emit(event='op_frame', data=dict_data, namespace=self.namespace, callback=frame_received)
+            if self.sync_with_server:
+                self.set_status(Statuses.WAITING, "Send_data", debug=False)
+                await self.sio.emit(event='op_frame', data=dict_data, namespace=self.namespace, callback=frame_received)
+            else:
+                await self.sio.emit(event='op_frame', data=dict_data, namespace=self.namespace)
         except Exception as e:
             print(f"Error Sending frame data to WebSocket {e}")
             self.set_status(Statuses.DISCONNECTED, f"{e}")
