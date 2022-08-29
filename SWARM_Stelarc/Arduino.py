@@ -52,8 +52,8 @@ class Arduino():
         self.p_3 = p_3
         self.last_command = None
         self.mockup_commands = mockup_commands
-        self.working_days = ["tue", "wed", "thu", "fri", "sat"]
-        self.working_hours = ["10:45", "17:00"]
+        self.working_days = ["tue", "wed", "thu", "fri", "sat", "sun"]
+        self.working_hours = ["10:45", "21:00"]
 
         self.default_statuses = {
             'not_initialized': ArduinoStatus(0, 'Not Initialized', 'Arduino not initialized', 0),

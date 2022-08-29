@@ -79,7 +79,7 @@ behaviors:
         max: 0
       avg_distance_between_people:
         enabled: true
-        min: 50
+        min: 20
         max: 400
       avg_distance_from_machine:
         enabled: true
