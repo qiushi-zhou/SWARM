@@ -1,5 +1,3 @@
-from Camera import Camera
-from utils import Point
 
 class SingleFrameData():
     def __init__(self, cameras=None):

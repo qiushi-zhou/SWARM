@@ -4,12 +4,12 @@ import sys
 import os
 from sys import platform
 import time
-from deep_sort.detection import Detection
+from ..deep_sort.detection import Detection
 from deep_sort.tracker import Tracker as DeepTracker
 from deep_sort import nn_matching
 from deep_sort import preprocessing
 from tools import generate_detections as gdet
-from utils import poses2boxes
+from Utils.utils import poses2boxes
 import Constants
 
 # app = Flask(__name__)
@@ -17,7 +17,7 @@ import Constants
 # Load OpenPose:
 dir_path = os.path.dirname(os.path.realpath(__file__))
 openpose_modelfolder = Constants.openpose_modelfolder
-if Constants.use_openpose:
+if Constants.use_processing:
     try:
         # Windows Import
         if platform == "win32":
@@ -40,9 +40,7 @@ if Constants.use_openpose:
 
 
 class Input:
-    def __init__(self, swarm_app, cv2, debug=False):
-        self.swarm_app = swarm_app
-        self.cv2 = cv2
+    def __init__(self, debug=False):
         # from openpose import *
         params = dict()
         params["model_folder"] = openpose_modelfolder
@@ -95,20 +93,20 @@ class Input:
                            "RLeg": collections.deque(self.queue_size * [0], self.queue_size), "LLeg": collections.deque(self.queue_size * [0], self.queue_size)}
         '''
 
-    def print_csv(self, track, csv_writer):
-        s = str(time.time() - self.start_time) + ',' + str(track.track_id)
-        for i in track.last_seen_detection.pose:
-            for j in i:
-                s += (',' + str(j))
-        csv_writer.writerow([s])
-        s = ""
+    # def print_csv(self, track, csv_writer):
+    #     s = str(time.time() - self.start_time) + ',' + str(track.track_id)
+    #     for i in track.last_seen_detection.pose:
+    #         for j in i:
+    #             s += (',' + str(j))
+    #     csv_writer.writerow([s])
+    #     s = ""
 
-    def print_csvforVideo(self, track, csv_writer):
-        s = str(self.capture0.get(self.cv2.CAP_PROP_POS_MSEC)) + ',' + str(track.track_id)
-        for i in track.last_seen_detection.pose:
-            for j in i:
-                s += (',' + str(j))
-        csv_writer.writerow([s])
+    # def print_csvforVideo(self, track, csv_writer):
+    #     s = str(self.capture0.get(self.cv2.CAP_PROP_POS_MSEC)) + ',' + str(track.track_id)
+    #     for i in track.last_seen_detection.pose:
+    #         for j in i:
+    #             s += (',' + str(j))
+    #     csv_writer.writerow([s])
 
     def update_trackers(self, frame):
         datum = op.Datum()

@@ -1,10 +1,6 @@
 import networkx as nx
 import math
-import numpy as np
-import itertools
-import Constants
-import utils
-from utils import Point
+from ..Utils.utils import Point
 
 class PeopleGraph:
     def __init__(self, edge_threshold=-1):
@@ -109,26 +105,26 @@ class PeopleGraph:
             normalized = 1
         return normalized
 
-    def draw_nodes(self, logger, debug=False):
+    def draw_nodes(self, logger, debug=False, surfaces=None):
         color = (255, 255, 255)
         for node, node_data in self.nx_graph.nodes(data=True):
-            logger.draw_circle(Point(node.pos[0], node.pos[1]), (255, 255, 255), 3, 3)
+            logger.draw_circle(Point(node.pos[0], node.pos[1]), (255, 255, 255), 3, 3, s_names=surfaces)
 
-    def draw_edges(self, logger, debug=False):
+    def draw_edges(self, logger, debug=False, surfaces=None):
         if self.edges_calculated:
             thickness = 1
             # thickness = int((self.normalize_weight(w['weight'])+1) * 2)
             for i, j, w in self.nx_graph.edges(data=True):
-                logger.draw_line(Point(i.pos[0], i.pos[1]), Point(j.pos[0], j.pos[1]), (0, 0, 255), thickness)
+                logger.draw_line(Point(i.pos[0], i.pos[1]), Point(j.pos[0], j.pos[1]), (0, 0, 255), thickness, s_names=surfaces)
                 if debug:
                     print(f"thickness (max: {self.min_weight}, min: {self.max_weight}, Original: {w['weight']} Normalized: {thickness}")
 
-    def draw_dist_from_machine(self, logger, m_pos, debug=False):
+    def draw_dist_from_machine(self, logger, m_pos, debug=False, surfaces=None):
         for node, node_data in self.nx_graph.nodes(data=True):
-            logger.draw_line(Point(node.pos[0], node.pos[1]), Point(m_pos.x, m_pos.y), (255, 0, 0), 1)
-        logger.draw_circle(Point(m_pos.x, m_pos.y), (255, 255, 255), 3, 3)
+            logger.draw_line(Point(node.pos[0], node.pos[1]), Point(m_pos.x, m_pos.y), (255, 0, 0), 1, s_names=surfaces)
+        logger.draw_circle(Point(m_pos.x, m_pos.y), (255, 255, 255), 3, 3, s_names=surfaces)
 
-    def draw_debug_text(self, logger, start_pos, camera_n=0, debug=False):
+    def draw_debug_text(self, logger, start_pos, camera_n=0, debug=False, surfaces=None):
         nodes_data = ""
         for node in self.nx_graph.nodes():
             nodes_data = f"{nodes_data}, ({node.pos[0]:.2f}, {node.pos[1]:.2f})"
@@ -141,11 +137,23 @@ class PeopleGraph:
 
         color = (255, 255, 0)
 
-        start_pos = logger.add_text_line(f"People {self.n_people}: {nodes_data}", color, start_pos)
-        start_pos = logger.add_text_line(f"Links {self.n_edges}: {edges_data}", color, start_pos)
-        start_pos = logger.add_text_line(f"Groups (n_nodes > 1) {self.n_groups}", color, start_pos)
-        start_pos = logger.add_text_line(f"Crowd Ratio {self.n_groups/self.n_people if self.n_people > 0 else 0}", color, start_pos)
-        start_pos = logger.add_text_line(f"Avg dist: {self.avg_people_distance:.2f}", color, start_pos)
-        start_pos = logger.add_text_line(f"Avg_m: {self.avg_machine_distance:.2f}", color, start_pos)
+        start_pos = logger.add_text_line(f"People {self.n_people}: {nodes_data}", color, start_pos, s_names=surfaces)
+        start_pos = logger.add_text_line(f"Links {self.n_edges}: {edges_data}", color, start_pos, s_names=surfaces)
+        start_pos = logger.add_text_line(f"Groups (n_nodes > 1) {self.n_groups}", color, start_pos, s_names=surfaces)
+        start_pos = logger.add_text_line(f"Crowd Ratio {self.n_groups/self.n_people if self.n_people > 0 else 0}", color, start_pos, s_names=surfaces)
+        start_pos = logger.add_text_line(f"Avg dist: {self.avg_people_distance:.2f}", color, start_pos, s_names=surfaces)
+        start_pos = logger.add_text_line(f"Avg_m: {self.avg_machine_distance:.2f}", color, start_pos, s_names=surfaces)
         if debug:
             print(f"Camera {camera_n:<2} - Nodes: {self.nx_graph.number_of_nodes():<3} Edges: {self.nx_graph.number_of_edges():<3}")
+
+    def get_graph_data(self):
+        data = {}
+        data["nodes"] = []
+        data["edges"] = []
+        for node, node_data in self.nx_graph.nodes(data=True):
+            data["nodes"].append({'x': node.pos[0], 'y': node.pos[1]})
+        for i, j, w in self.nx_graph.edges(data=True):
+            data["edges"].append({'p1': {'x': i.pos[0], 'y': i.pos[1]},'p2': {'x': j.pos[0], 'y': j.pos[1]}, 'weight': w['weight']})
+        return data
+
+

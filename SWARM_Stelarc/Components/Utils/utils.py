@@ -1,6 +1,18 @@
 import numpy as np
 from numba import jit
 import itertools
+import oyaml as yaml
+import os
+
+
+def update_config_from_file(tag, file_path, last_modified_time, callback):
+    try:
+        if last_modified_time < os.path.getmtime(file_path):
+            with open(file_path) as file:
+                print(f"Updating {tag} behavior configuration {file_path}")
+                callback(yaml.load(file, Loader=yaml.FullLoader), os.path.getmtime(file_path))
+    except Exception as e:
+        print(f"Error opening {tag} behavior config file: {e}")
 
 class Point:
     def __init__(self, x, y, z=None):

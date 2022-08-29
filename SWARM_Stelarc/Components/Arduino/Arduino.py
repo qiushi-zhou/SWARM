@@ -74,7 +74,6 @@ class Arduino():
         self.ser = serial.Serial()
         self.ser.baudrate = self.bps
         self.ser.port = self.port
-        self.update_status()
 
     def update_config(self, config_data=None):
         self.port = config_data.get('last_port', "COM4")
@@ -266,9 +265,9 @@ class Arduino():
                 self.not_operational = not (start <= now <= end)
             else: self.not_operational = True
             
-            if debug:
-                if self.not_operational:
-                    print(f"MACHINE NOT OPERATIONAL")
+            # if debug:
+            #     if self.not_operational:
+            #         print(f"MACHINE NOT OPERATIONAL")
 
             for s_idx in self.statuses:
                 s = self.statuses[s_idx]
@@ -324,7 +323,7 @@ class Arduino():
                         if not blocking_wait:
                             break
         except Exception as e:
-            print(f"Error updating Arduino's status")
+            print(f"Error updating Arduino's status {e}")
         return self.status
 
     def receive(self, prefix="Received from Arduino", debug=False):
@@ -334,47 +333,3 @@ class Arduino():
             if debug:
                 print(f"{prefix}: {ret}", end="")
         return ret
-
-    def draw_debug(self, logger, start_pos, debug=False):
-        prefix = "(Normal)"
-        color = (0, 255, 0)
-        if self.mockup_commands:
-            prefix = "(Mockup Commands)"
-            color = (0, 0, 255)
-        if self.not_operational:
-            prefix = "(Not Operational )"
-            color = (255, 0, 0)
-        arduino_cmd_dbg = f"{prefix} Last Command: {self.last_command}"
-        if self.last_command is not None:
-            arduino_cmd_dbg += f" sent at {self.statuses['command_sent'].started_time.strftime('%Y-%m-%d %H:%M:%S')}"
-
-        now = datetime.datetime.now()
-
-        time_str = f"Time of the day: {now.hour:>02d}:{now.minute:>02d}"
-        time_str += f" - Working Hours {self.working_hours[0].tm_hour:>02d}:{self.working_hours[0].tm_min:>02d} - {self.working_hours[1].tm_hour:>02d}:{self.working_hours[1].tm_min:>02d}"
-        date_str = f"Day of the week: {now.strftime('%A')} - Working Days: {self.working_days}"
-        start_pos = logger.add_text_line(time_str, color, start_pos)
-        start_pos = logger.add_text_line(date_str, color, start_pos)
-        start_pos.y += logger.line_height*0.9
-        start_pos = logger.add_text_line(arduino_cmd_dbg, color, start_pos)
-        start_pos.y += logger.line_height
-
-        for s_idx in self.statuses:
-            s = self.statuses[s_idx]
-            color = (0, 120, 120)
-            arduino_status_dbg = "  "
-            timeout = s.get_timeout(self.mockup_commands, self.not_operational)
-            remaining = timeout
-            if self.status.id == s.id:
-                color = (0, 180, 255)
-                arduino_status_dbg = "> "
-                elapsed = (datetime.datetime.now() - s.started_time).seconds
-                remaining = timeout - elapsed
-            arduino_status_dbg += f"{s.id} "
-            arduino_status_dbg += f"{s.title} - "
-            if timeout > 0:
-                arduino_status_dbg += f" Wait: {remaining} / {timeout} s {s.extra}"
-            else: arduino_status_dbg += f" Waiting: {remaining} s {s.extra}"
-
-            start_pos = logger.add_text_line(arduino_status_dbg, color, start_pos)
-        return

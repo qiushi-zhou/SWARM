@@ -1,4 +1,4 @@
-opencv_python==4.5.2.52
+opencv_python==4.5.5
 pygame==2.0.1
 imagiz==0.5
 pykalman==0.9.5
@@ -10,3 +10,8 @@ numba==0.53.1
 pyserial==3.5
 scikit_learn==0.22.2
 tensorflow==1.15
+numba==0.56.0
+pygame==2.1.2
+oyaml==6.0
+websocket-client==1.3.3
+python-socketio==5.7.1

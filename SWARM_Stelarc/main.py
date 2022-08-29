@@ -36,6 +36,6 @@ if __name__ == "__main__":
                              "LBigToe.x", "LBigToe.y", "LSmallToe.x", "LSmallToe.y", "LHeel.x", "LHeel.y",
                              "RBigToe.x", "RBigToe.y", "RSmallToe.x", "RSmallToe.y", "RHeel.x", "RHeel.y"])
 
-        swarm = SwarmAPP(arduino_port="COM4", mockup_commands=True)
+        swarm = SwarmAPP(arduino_port="COM4", mockup_commands=True, multi_threaded=True)
         # swarm = SwarmAPP(arduino_port="COM3", mockup_commands=True)
         swarm.run(debug=False)

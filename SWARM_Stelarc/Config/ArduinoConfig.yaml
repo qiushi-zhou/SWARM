@@ -1,4 +1,4 @@
-working_hours: ["09:00", "17:45"]  # 24hrs
+working_hours: ["09:00", "21:45"]  # 24hrs
 working_days: [tue, wed, thu, fri, sat]
 statuses:
   - name: not_initialized
