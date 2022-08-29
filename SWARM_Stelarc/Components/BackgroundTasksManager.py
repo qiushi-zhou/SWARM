@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import asyncio
+
 from .SwarmComponentMeta import SwarmComponentMeta
 from .SwarmLogger import SwarmLogger
 import threading

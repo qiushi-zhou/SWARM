@@ -11,7 +11,8 @@ class FPSCounter():
       
     def update(self):
       elapsed = time.time() - self.start_time
-      self.fps = int(self.frame_count / (elapsed))
-      if elapsed >= self.reset_time:
-        self.reset()
+      if elapsed > 0:
+          self.fps = int(self.frame_count / (elapsed))
+          if elapsed >= self.reset_time:
+            self.reset()
       

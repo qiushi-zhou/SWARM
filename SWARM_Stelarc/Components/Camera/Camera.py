@@ -125,3 +125,10 @@ class Camera:
         if draw_graph_data:
             self.p_graph.draw_debug_text(logger, Point(int(self.text_position.x), int(self.text_position.y)),
                                          camera_n=self.id, surfaces=surfaces)
+    def get_data(self):
+        data = {}
+        data['graph'] = self.p_graph.get_graph_data()
+        data['machine_pos'] = {'x': self.machine_position.x, 'y': self.machine_position.y}
+        data['camera_path'] = self.path_points
+        data['screen'] = {'width': self.screen_w, 'height': self.screen_h}
+        return data

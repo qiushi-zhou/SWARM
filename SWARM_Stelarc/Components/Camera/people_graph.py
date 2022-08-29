@@ -145,3 +145,15 @@ class PeopleGraph:
         start_pos = logger.add_text_line(f"Avg_m: {self.avg_machine_distance:.2f}", color, start_pos, s_names=surfaces)
         if debug:
             print(f"Camera {camera_n:<2} - Nodes: {self.nx_graph.number_of_nodes():<3} Edges: {self.nx_graph.number_of_edges():<3}")
+
+    def get_graph_data(self):
+        data = {}
+        data["nodes"] = []
+        data["edges"] = []
+        for node, node_data in self.nx_graph.nodes(data=True):
+            data["nodes"].append({'x': node.pos[0], 'y': node.pos[1]})
+        for i, j, w in self.nx_graph.edges(data=True):
+            data["edges"].append({'p1': {'x': i.pos[0], 'y': i.pos[1]},'p2': {'x': j.pos[0], 'y': j.pos[1]}, 'weight': w['weight']})
+        return data
+
+

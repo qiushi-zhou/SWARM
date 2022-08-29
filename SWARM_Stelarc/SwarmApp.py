@@ -85,10 +85,8 @@ class SwarmAPP():
             self.websocket_manager.update_config(self.use_websocket)
             self.video_manager.update()
             frame = self.video_manager.get_frame()
-            processed_frame = frame
             processed_frame = self.openpose_manager.update_frames(frame)
-            self.websocket_manager.update_frame(processed_frame)
-            self.openpose_manager.update(debug=debug, surfaces=[self.scene_manager.tag, self.websocket_manager.tag])
+            self.websocket_manager.update_data(processed_frame, self.cameras_manager.get_cameras_data())
             self.openpose_manager.update(debug=debug, surfaces=[self.scene_manager.tag])
             self.scene_manager.update(processed_frame, debug=False)
 

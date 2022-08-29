@@ -30,10 +30,10 @@ class VideoInputManager(SwarmComponentMeta):
         else:
             self.setup_capture()
 
-    def update_frame(self, tasks_manager=None):
+    def update_frame(self, tasks_manager=None, async_loop=None):
         if self.cap is not None:
             if len(self.frame_buffer) >= self.buffer_size:
-                return True
+               return True
             grabbed, frame = self.cap.read()
             self.frame_shape = frame.shape
             with self.frame_read_lock:
@@ -43,7 +43,7 @@ class VideoInputManager(SwarmComponentMeta):
             self.last_fps = self.fps_counter.fps
         return True
         
-    def setup_capture(self, tasks_manager=None):
+    def setup_capture(self, tasks_manager=None, async_loop=None):
         while True:
             try:
                 if platform == "win32":
@@ -81,12 +81,13 @@ class VideoInputManager(SwarmComponentMeta):
       pass
   
     def get_frame(self):
+        if len(self.frame_buffer) <= 0:
+            return None
         if self.multi_threaded:
             with self.frame_read_lock:
-                if len(self.frame_buffer) > 0:
-                    self.latest_frame = self.frame_buffer[0]
-                if len(self.frame_buffer) > 1:
-                    self.frame_buffer.popleft()
+                self.latest_frame = self.frame_buffer.popleft()
+        else:
+            self.latest_frame = self.frame_buffer.popleft()
         return self.latest_frame
     
     def update(self, debug=False):

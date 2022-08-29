@@ -19,7 +19,15 @@ class CamerasManager(SwarmComponentMeta):
                 self.cameras.append(Camera(i, self.screen_w, self.screen_h, cameras_data[i]))
             else:
                 self.cameras[i].update_config(self.screen_w, self.screen_h, cameras_data[i])
-        self.last_modified_time = last_modified_time      
+        self.last_modified_time = last_modified_time
+
+    def get_cameras_data(self):
+        data = {}
+        data['cameras'] = []
+        for camera in self.cameras:
+            if camera.enabled:
+                data['cameras'].append(camera.get_data())
+        return data
     
     def update(self, *args, **kwargs):
         debug = kwargs.get('debug', True)

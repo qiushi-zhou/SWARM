@@ -6,8 +6,8 @@ ws_frame_adaptive: false
 ws_min_frame_scaling: 0.5 # adaptive fame scaling
 ws_fixed_frame_scaling: 1
 
-ws_frame_skip: false
+ws_frame_skip: true
 
-ws_target_framerate: 120
+ws_target_framerate: 60
 ws_url: "wss://anthropomorphicmachine.com:3005"
 ws_namespace: "/visualization" 
