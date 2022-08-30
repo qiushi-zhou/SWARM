@@ -5,7 +5,6 @@ from . import kalman_filter
 from . import my_filter
 from . import linear_assignment
 from . import iou_matching
-from pykalman import KalmanFilter
 from .track import Track
 
 

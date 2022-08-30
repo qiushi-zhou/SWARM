@@ -18,7 +18,7 @@ class SceneManager(SwarmComponentMeta):
             import pygame
             self.pygame = pygame
             self.pygame.init()
-            self.pygame.display.set_mode((int(self.screen_w + self.screen_h*0.27), self.screen_h))
+            self.pygame.display.set_mode((int(self.screen_w + self.screen_w*0.24), self.screen_h))
             self.pygame.display.set_caption("SWARM")
             self.screen = self.pygame.display.get_surface()
             self.sceneClock = self.pygame.time.Clock()

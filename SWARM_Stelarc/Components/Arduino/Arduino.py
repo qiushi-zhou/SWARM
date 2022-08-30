@@ -308,12 +308,13 @@ class Arduino():
                 else:
                     while True:
                         try:
-                            received = self.receive(debug=debug, prefix="Waiting for completiong msg")
+                            received = self.receive(debug=False, prefix="Waiting for completiong msg")
                             if received is None:
                                 received = ""
                         except serial.serialutil.SerialException:
                             received = ""
                         if "runcomp" in received:
+                            print(f"Command Completed: {received} ")
                             self.status = self.statuses['cooling_down']
                             self.status.extra = received.replace('\x00', '')
                             # print(f"Command Completed! Cooling down for {self.status.get_timeout(self.mockup_commands, self.not_operational)} seconds...")

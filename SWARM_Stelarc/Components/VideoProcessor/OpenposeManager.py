@@ -22,7 +22,7 @@ class OpenposeManager(SwarmComponentMeta):
         super(OpenposeManager, self).__init__(logger, tasks_manager, "OpenposeManager")
         self.camera_manager = camera_manager
         self.processed_frame_data = None
-        self.buffer_size = 2
+        self.buffer_size = 3
         self.frames_to_process = deque([])
         self.frames_processed = deque([])
         self.multi_threaded = False
@@ -60,10 +60,15 @@ class OpenposeManager(SwarmComponentMeta):
 
     def processing_loop(self, task_manager=None, async_loop=None):
         if len(self.frames_to_process) <= 0:
+            time.sleep(0.1)
             return True
         with self.processing_lock:
             to_process = self.frames_to_process.popleft()
-        processed = self.process_frame(to_process)
+        processed = to_process
+        try:
+            processed = self.process_frame(to_process)
+        except Exception as e:
+            pass
         with self.processed_lock:
             self.frames_processed.append(processed)
         return True
@@ -86,7 +91,8 @@ class OpenposeManager(SwarmComponentMeta):
             self.latest_fps = self.fps_counter.fps
             to_process.tracks = tracks
             to_process.keypoints = keypoints
-            to_process.frame = updated_frame
+            if updated_frame is not None:
+                to_process.frame = updated_frame
             return to_process
         except Exception as e:
             print(f"Error processing frame: {e}")
@@ -104,17 +110,16 @@ class OpenposeManager(SwarmComponentMeta):
         return None, None, frame
 
     def update_frames(self, camera_frame):
-        ret = self.processed_frame_data.frame if self.processed_frame_data is not None else None
-        if camera_frame is None:
-            return ret
         # camera_frame = camera_frame.copy()
         if self.multi_threaded:
-            if len(self.frames_to_process) < self.buffer_size:
-                self.frames_to_process.append(FrameData(frame=camera_frame))
+            if camera_frame is not None:
+                if len(self.frames_to_process) < self.buffer_size:
+                    self.frames_to_process.append(FrameData(frame=camera_frame))
             if len(self.frames_processed) > 0:
-                self.processed_frame_data = self.frames_processed.popleft()
-                return self.processed_frame_data.frame
-            return ret
+                new_processed = self.frames_processed.popleft()
+                if new_processed is not None and new_processed.frame is not None:
+                    self.processed_frame_data = new_processed
+            return self.processed_frame_data.frame if self.processed_frame_data is not None else None
         else:
             self.processed_frame_data = self.process_frame(FrameData(frame=camera_frame))
             return self.processed_frame_data.frame

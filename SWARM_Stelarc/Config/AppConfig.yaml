@@ -1,4 +1,4 @@
-use_processing: true
-use_openpose: false
+use_processing: false
+use_openpose: true
 multithreaded_processing: true
-use_websocket: true
+use_websocket: false
