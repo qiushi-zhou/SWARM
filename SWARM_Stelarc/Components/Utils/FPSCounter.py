@@ -9,7 +9,8 @@ class FPSCounter():
       self.frame_count = 0
       self.start_time = time.time()
       
-    def update(self):
+    def update(self, new_frames=0):
+      self.frame_count += new_frames
       elapsed = time.time() - self.start_time
       if elapsed > 0:
           self.fps = int(self.frame_count / (elapsed))

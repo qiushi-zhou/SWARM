@@ -15,9 +15,8 @@ class FrameData:
         self.processed = False
 
 class OpenposeManager(SwarmComponentMeta):
-    def __init__(self, logger, tasks_manager, camera_manager, use_processing=False, use_openpose=False):
-        self.use_processing = use_processing
-        self.use_openpose = use_openpose
+    def __init__(self, logger, tasks_manager, camera_manager):
+        self.processing_type = "simple"
         self.input = None
         super(OpenposeManager, self).__init__(logger, tasks_manager, "OpenposeManager")
         self.camera_manager = camera_manager
@@ -25,35 +24,33 @@ class OpenposeManager(SwarmComponentMeta):
         self.buffer_size = 2
         self.frames_to_process = deque([])
         self.frames_processed = deque([])
-        self.multi_threaded = False
-        self.background_task = None
+        self.multithread = False
+        self.background_task = self.tasks_manager.add_task("OP", None, self.processing_loop, None)
         self.processing_lock = threading.Lock()
         self.processed_lock = threading.Lock()
         self.fps_counter = FPSCounter()
-        self.latest_fps = 0
 
-    def update_config(self, use_processing=False, use_openpose=False, use_multithread=False):
-        if use_openpose and self.input is None:
+    def init(self, processing_type="simple"):
+        self.processing_type = processing_type
+
+    def update_config(self, multithread=False):
+        if self.processing_type == "op" and self.input is None:
             from . import Input
-            print(f"Initializing input")
+            print(f"Initializing input for OP")
             self.input = Input.Input()
 
-        self.use_processing = use_processing
-        self.use_openpose = use_openpose
-        self.set_enabled_mt(use_multithread)
+        self.set_mt(multithread)
 
-    def set_enabled_mt(self, enabled):
-        if enabled:
-            if not self.multi_threaded:
-                self.background_task = self.tasks_manager.add_task("OP", None, self.processing_loop, None)
+    def set_mt(self, enable):
+        if enable:
+            if not self.multithread:
                 print(f"Starting background task")
                 self.background_task.start()
         else:
-            if self.multi_threaded:
-                if self.background_task:
-                    print(f"Stopping background task")
-                    self.background_task.stop()
-        self.multi_threaded = enabled
+            if self.multithread:
+                print(f"Stopping background task")
+                self.background_task.stop()
+        self.multithread = enable
 
     def update_config_data(self, data, last_modified_time):
         pass
@@ -72,18 +69,16 @@ class OpenposeManager(SwarmComponentMeta):
         if to_process is None:
             return FrameData()
         try:
-            if self.use_openpose:
+            if self.processing_type == "op":
                 tracks, keypoints, updated_frame = self.input.update_trackers(to_process.frame)
                 to_process.processed = True
-            elif self.use_processing:
+            elif self.processing_type == "simple":
                 tracks, keypoints, updated_frame = self.simple_processing(to_process.frame)
                 to_process.processed = True
             else:
                 tracks, keypoints, updated_frame = (None, None, to_process.frame)
                 to_process.processed = False
-            self.fps_counter.frame_count += 1
-            self.fps_counter.update()
-            self.latest_fps = self.fps_counter.fps
+            self.fps_counter.update(new_frames=1)
             to_process.tracks = tracks
             to_process.keypoints = keypoints
             to_process.frame = updated_frame
@@ -100,24 +95,21 @@ class OpenposeManager(SwarmComponentMeta):
         frame = cv2.drawContours(frame, contours, -1, (0, 255, 0), 1)
         # edges = cv2.Canny(image=img_blur, threshold1=100, threshold2=200)
         # frame = cv2.resize(edges, (self.camera_manager.screen_w, self.camera_manager.screen_h))
-
         return None, None, frame
 
-    def update_frames(self, camera_frame):
-        ret = self.processed_frame_data.frame if self.processed_frame_data is not None else None
-        if camera_frame is None:
-            return ret
-        # camera_frame = camera_frame.copy()
-        if self.multi_threaded:
-            if len(self.frames_to_process) < self.buffer_size:
-                self.frames_to_process.append(FrameData(frame=camera_frame))
-            if len(self.frames_processed) > 0:
-                self.processed_frame_data = self.frames_processed.popleft()
+    def get_processed_frame(self, camera_frame):
+        if camera_frame is not None:
+            # camera_frame = camera_frame.copy()
+            if self.multithread:
+                if len(self.frames_to_process) < self.buffer_size:
+                    self.frames_to_process.append(FrameData(frame=camera_frame))
+                if len(self.frames_processed) > 0:
+                    self.processed_frame_data = self.frames_processed.popleft()
+                    return self.processed_frame_data.frame
+            else:
+                self.processed_frame_data = self.process_frame(FrameData(frame=camera_frame))
                 return self.processed_frame_data.frame
-            return ret
-        else:
-            self.processed_frame_data = self.process_frame(FrameData(frame=camera_frame))
-            return self.processed_frame_data.frame
+        return None if self.processed_frame_data is None else self.processed_frame_data.frame
 
     def update(self, debug=False, surfaces=None):
         if debug:
@@ -163,5 +155,5 @@ class OpenposeManager(SwarmComponentMeta):
                 print(f"Center: ({center_x:.2f}, {center_y:.2f})")
 
     def draw(self, text_pos, debug=False, surfaces=None):
-        text_pos = self.logger.add_text_line(f"OP - FPS: {self.latest_fps}, Frames to process: {len(self.frames_to_process)}, Processed: {len(self.frames_processed)}", (255, 255, 0), text_pos, surfaces)
+        text_pos = self.logger.add_text_line(f"OP - FPS: {self.fps_counter.fps}, Frames to process: {len(self.frames_to_process)}, Processed: {len(self.frames_processed)}", (255, 255, 0), text_pos, surfaces)
         pass

@@ -1,4 +1,5 @@
-use_processing: true
-use_openpose: false
-multithreaded_processing: true
-use_websocket: true
+processing: "op" # "op" or "simple" or "none"
+mt_capture: true
+mt_processing: true
+mt_networking: true
+websocket_enabled: true

@@ -1,13 +1,14 @@
-ws_sync_with_server: true
-ws_send_frames: true
+multi_thread: true
+sync_with_server: true
+send_frames: true
 
-ws_frame_scaling: true
-ws_frame_adaptive: false
-ws_min_frame_scaling: 0.5 # adaptive fame scaling
-ws_fixed_frame_scaling: 1
+frame_scaling: true
+frame_adaptive: false
+min_frame_scaling: 0.5 # adaptive fame scaling
+fixed_frame_scaling: 1
 
-ws_frame_skip: true
+frame_skip: true
 
-ws_target_framerate: 60
-ws_url: "wss://anthropomorphicmachine.com:3005"
-ws_namespace: "/visualization" 
+target_framerate: 60
+url: "wss://anthropomorphicmachine.com:3005"
+namespace: "/visualization"

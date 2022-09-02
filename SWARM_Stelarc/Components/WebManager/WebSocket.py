@@ -109,10 +109,10 @@ class WebSocket:
         self.status.extra = extra
 
     def update_config(self, data):
-        self.sync_with_server = data.get("ws_sync_with_server", False)
-        url = data.get("ws_url", self.url)
+        self.sync_with_server = data.get("sync_with_server", False)
+        url = data.get("url", self.url)
         recreate = url != self.url
-        namespace = data.get("ws_namespace", self.namespace)
+        namespace = data.get("namespace", self.namespace)
         recreate = recreate or namespace != self.namespace
         if recreate:
             print(f"WebSocket URI changed from {self.url}{self.namespace} to {url}{namespace}, reconnecting")

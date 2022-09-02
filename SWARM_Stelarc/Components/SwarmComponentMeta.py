@@ -13,7 +13,7 @@ class SwarmComponentMeta:
       self.last_modified_time = -1
       self.update_config_data_callback = update_config_data_callback if update_config_data_callback is not None else self.update_config_data
 
-   def init():
+   def init(self):
       pass
 
    def update_config(self):
