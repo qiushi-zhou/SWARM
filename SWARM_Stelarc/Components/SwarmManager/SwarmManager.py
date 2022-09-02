@@ -23,8 +23,8 @@ class SwarmManager(SwarmComponentMeta):
         self.last_modified_time = last_modified_time      
     
     def update(self, cameras, left_text_pos, right_text_pos, debug=False, surfaces=None):
-        if debug:
-            print(f"Updating Swarm Manager")
+        # if debug:
+        #     print(f"Updating Swarm Manager")
         debug = True
         text_debug = False
         right_text_pos_orig = Point(right_text_pos.x, right_text_pos.y)

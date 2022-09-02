@@ -24,7 +24,8 @@ print("\n")
 
 openpose_modelfolder = f"{PATH}/openpose/models"
 max_capture_index = 10
-
+use_processing=True
+use_openpose=True
 
 max_cosine_distance = 1
 nn_budget = None

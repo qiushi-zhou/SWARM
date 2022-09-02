@@ -4,12 +4,11 @@ import sys
 import os
 from sys import platform
 import time
-from ..deep_sort.detection import Detection
-from deep_sort.tracker import Tracker as DeepTracker
-from deep_sort import nn_matching
-from deep_sort import preprocessing
+from Components.VideoProcessor.deep_sort.detection import Detection
+from Components.VideoProcessor.deep_sort import nn_matching, preprocessing
+from Components.VideoProcessor.deep_sort.tracker import Tracker as DeepTracker
 from tools import generate_detections as gdet
-from Utils.utils import poses2boxes
+from Components.Utils.utils import poses2boxes
 import Constants
 
 # app = Flask(__name__)

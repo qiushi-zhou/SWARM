@@ -1,12 +1,14 @@
 from .Arduino import Arduino
 from ..SwarmComponentMeta import SwarmComponentMeta
 import datetime
+import time
 
 
 class ArduinoManager(SwarmComponentMeta):
     def __init__(self, logger, tasks_manager, arduino_port="COM4", mockup_commands=True):
         super(ArduinoManager, self).__init__(logger, tasks_manager, "ArduinoManager", r'./Config/ArduinoConfig.yaml',
                                              self.update_config_data)
+        self.background_task = None
         self.arduino = Arduino(port=arduino_port, mockup_commands=mockup_commands)
 
     def update_config(self):
@@ -16,6 +18,16 @@ class ArduinoManager(SwarmComponentMeta):
         self.config_data = data
         self.arduino.update_config(self.config_data)
         self.last_modified_time = last_modified_time
+        if self.background_task is None:
+            self.background_task = self.tasks_manager.add_task("AR", None, self.update_arduino_status, None)
+            print(f"Starting AR background task")
+            self.background_task.start()
+
+    def update_arduino_status(self, task_manager=None):
+        self.arduino.update_status()
+        if self.arduino.status.id != self.arduino.statuses['not_initialized'].id:
+            time.sleep(0.1)
+        return True
 
     def update(self, debug=False):
         if debug:

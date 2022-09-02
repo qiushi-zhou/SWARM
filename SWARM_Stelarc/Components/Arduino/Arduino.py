@@ -52,8 +52,8 @@ class Arduino():
         self.p_3 = p_3
         self.last_command = None
         self.mockup_commands = mockup_commands
-        self.working_days = ["tue", "wed", "thu", "fri", "sat"]
-        self.working_hours = ["10:45", "17:00"]
+        self.working_days = ["tue", "wed", "thu", "fri", "sat", "sun"]
+        self.working_hours = ["10:45", "21:00"]
 
         self.default_statuses = {
             'not_initialized': ArduinoStatus(0, 'Not Initialized', 'Arduino not initialized', 0),
@@ -308,12 +308,13 @@ class Arduino():
                 else:
                     while True:
                         try:
-                            received = self.receive(debug=debug, prefix="Waiting for completiong msg")
+                            received = self.receive(debug=False, prefix="Waiting for completiong msg")
                             if received is None:
                                 received = ""
                         except serial.serialutil.SerialException:
                             received = ""
                         if "runcomp" in received:
+                            print(f"Command Completed: {received} ")
                             self.status = self.statuses['cooling_down']
                             self.status.extra = received.replace('\x00', '')
                             # print(f"Command Completed! Cooling down for {self.status.get_timeout(self.mockup_commands, self.not_operational)} seconds...")

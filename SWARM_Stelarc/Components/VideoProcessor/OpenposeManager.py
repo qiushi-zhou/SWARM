@@ -21,7 +21,7 @@ class OpenposeManager(SwarmComponentMeta):
         super(OpenposeManager, self).__init__(logger, tasks_manager, "OpenposeManager")
         self.camera_manager = camera_manager
         self.processed_frame_data = None
-        self.buffer_size = 2
+        self.buffer_size = 3
         self.frames_to_process = deque([])
         self.frames_processed = deque([])
         self.multithread = False
@@ -57,10 +57,15 @@ class OpenposeManager(SwarmComponentMeta):
 
     def processing_loop(self, task_manager=None, async_loop=None):
         if len(self.frames_to_process) <= 0:
+            time.sleep(0.1)
             return True
         with self.processing_lock:
             to_process = self.frames_to_process.popleft()
-        processed = self.process_frame(to_process)
+        processed = to_process
+        try:
+            processed = self.process_frame(to_process)
+        except Exception as e:
+            pass
         with self.processed_lock:
             self.frames_processed.append(processed)
         return True
@@ -81,7 +86,8 @@ class OpenposeManager(SwarmComponentMeta):
             self.fps_counter.update(new_frames=1)
             to_process.tracks = tracks
             to_process.keypoints = keypoints
-            to_process.frame = updated_frame
+            if updated_frame is not None:
+                to_process.frame = updated_frame
             return to_process
         except Exception as e:
             print(f"Error processing frame: {e}")
