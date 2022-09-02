@@ -74,8 +74,8 @@ class WebSocketManager(SwarmComponentMeta):
         self.read_lock = threading.Lock()
         # self.surface = pygame.Surface((frame_w, frame_h))
         self.enqueue_task = None
-        self.send_task = self.tasks_manager.add_task("WS_S", None, self.send_loop, None, self.read_lock)
         self.main_loop = asyncio.new_event_loop()
+        self.send_task = self.tasks_manager.add_task("WS_S", None, self.send_loop, None, self.read_lock)
 
     def update_config(self):
         super().update_config_from_file(self.tag, self.config_filename, self.last_modified_time)
@@ -116,15 +116,24 @@ class WebSocketManager(SwarmComponentMeta):
     def send_frame(self, swarm_data):
         data_json = swarm_data.get_json()
         # self.ws.update_status()
-        self.ws.start_async_task(data_json['frame_data'])
+        # self.ws.start_async_task(data_json['frame_data'])
+        self.main_loop.run_until_complete(self.ws.send_image_data(data_json['frame_data']))
+        self.fps_counter.update(1)
         # self.ws.send_image_data(data_json['frame_data'])
 
     async def send_frame_async(self, swarm_data):
         data_json = swarm_data.get_json()
         # self.ws.update_status()
         if self.ws.is_ready():
-            await self.ws.send_image_data(data_json['frame_data'])
-            self.fps_counter.update(1)
+            try:
+                await self.ws.send_image_data(data_json['frame_data'])
+                self.fps_counter.update(1)
+                return True
+            except Exception as e:
+                print(f"Exception sending data! {e}")
+                return True
+        return True
+        # print(f"not ready!")
 
     async def send_graph_data(self, swarm_data):
         data_json = swarm_data.get_json()
@@ -132,9 +141,11 @@ class WebSocketManager(SwarmComponentMeta):
         # self.fps_counter.update(1)
 
     def send_loop(self, tasks_manager=None, async_loop=None):
-        loop = asyncio.get_running_loop()
+        # loop = asyncio.get_running_loop()
+        loop = self.main_loop
         if self.frame_skipping:
             if self.fps_counter.fps > self.target_framerate:
+                self.fps_counter.update()
                 return True
         try:
             if len(self.data_to_send) > 0:
@@ -143,9 +154,7 @@ class WebSocketManager(SwarmComponentMeta):
                     loop.run_until_complete(self.send_frame_async(swarm_data))
             # self.main_loop.run_until_complete(self.send_graph_data(swarm_data))
         except Exception as e:
-            pass
-            # print(f"Error running main loop: {e}")
-
+            print(f"Error running send loop: {e}")
         return True
 
     def enqueue_data(self, tasks_manager=None):

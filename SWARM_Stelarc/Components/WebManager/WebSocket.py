@@ -165,7 +165,12 @@ class WebSocket:
 
     def send_msg(self):
         print(f"Sending msg websocket")
-        # self.loop.run_until_complete(self.sio.emit(event='test_msg', namespace=self.namespace, callback=frame_received))
+        self.loop.run_until_complete(self.sio.emit(event='test_msg', namespace=self.namespace, callback=frame_received))
+        # self.sio.emit(event='test_msg', namespace=self.namespace)
+
+    async def send_msg_async(self):
+        print(f"Sending msg websocket")
+        await self.sio.emit(event='test_msg', namespace=self.namespace, callback=frame_received)
         # self.sio.emit(event='test_msg', namespace=self.namespace)
 
     def start_async_task(self, dict_data):
@@ -173,7 +178,7 @@ class WebSocket:
         self.sio.start_background_task(ws.sio.emit, event='frame_data_in', data=dict_data, namespace=self.namespace)
 
     async def send_image_data(self, dict_data):
-        prnt(f"Thread ws: {current_thread().ident }")
+        print(f"Thread ws: {threading.current_thread().getName() }")
         # if self.status.id != Statuses.CONNECTED.id:
         #     return False
         try:

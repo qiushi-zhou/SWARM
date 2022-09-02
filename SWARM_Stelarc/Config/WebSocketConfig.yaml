@@ -1,4 +1,4 @@
-sync_with_server: true
+sync_with_server: false
 send_frames: true
 
 frame_scaling: true
