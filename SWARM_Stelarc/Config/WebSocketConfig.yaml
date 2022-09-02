@@ -1,4 +1,3 @@
-multi_thread: true
 sync_with_server: true
 send_frames: true
 

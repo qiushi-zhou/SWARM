@@ -16,26 +16,25 @@ import Constants
 # Load OpenPose:
 dir_path = os.path.dirname(os.path.realpath(__file__))
 openpose_modelfolder = Constants.openpose_modelfolder
-if Constants.use_processing:
-    try:
-        # Windows Import
-        if platform == "win32":
-            # Change these variables to point to the correct folder (Release/x64 etc.)
-            sys.path.append(dir_path + '/../openpose/windows/python')
-            os.environ['PATH'] = os.environ['PATH'] + ';' + dir_path + '/../build/x64/Release;' + dir_path + '/../build/bin;'
-            import pyopenpose as op
-        else:
-            # Change these variables to point to the correct folder (Release/x64 etc.)
-            sys.path.append('../openpose/mac/python/')
-            # If you run `make install` (default path is `/usr/local/python` for Ubuntu), you can also access the OpenPose/python module from there. This will install OpenPose and the python library at your desired installation path. Ensure that this is in your python path in order to use it.
-            # sys.path.append('/usr/local/python')
-            # Fix Issue with attempt to free invalid pointer:
-            # https://github.com/CMU-Perceptual-Computing-Lab/openpose/issues/1902#issuecomment-1024890817
-            # https://stackoverflow.com/questions/53203644/caffe-is-conflicted-with-python-cv2/53386302#53386302
-            from openpose import pyopenpose as op
-    except ImportError as e:
-        print('Error: OpenPose library could not be found. Did you enable `BUILD_PYTHON` in CMake and have this Python script in the right folder?')
-        raise e
+try:
+    # Windows Import
+    if platform == "win32":
+        # Change these variables to point to the correct folder (Release/x64 etc.)
+        sys.path.append(dir_path + '/../openpose/windows/python')
+        os.environ['PATH'] = os.environ['PATH'] + ';' + dir_path + '/../build/x64/Release;' + dir_path + '/../build/bin;'
+        import pyopenpose as op
+    else:
+        # Change these variables to point to the correct folder (Release/x64 etc.)
+        sys.path.append('../openpose/mac/python/')
+        # If you run `make install` (default path is `/usr/local/python` for Ubuntu), you can also access the OpenPose/python module from there. This will install OpenPose and the python library at your desired installation path. Ensure that this is in your python path in order to use it.
+        # sys.path.append('/usr/local/python')
+        # Fix Issue with attempt to free invalid pointer:
+        # https://github.com/CMU-Perceptual-Computing-Lab/openpose/issues/1902#issuecomment-1024890817
+        # https://stackoverflow.com/questions/53203644/caffe-is-conflicted-with-python-cv2/53386302#53386302
+        from openpose import pyopenpose as op
+except ImportError as e:
+    print('Error: OpenPose library could not be found. Did you enable `BUILD_PYTHON` in CMake and have this Python script in the right folder?')
+    raise e
 
 
 class Input:
@@ -45,10 +44,9 @@ class Input:
         params["model_folder"] = openpose_modelfolder
         print(f"Using openpose model at {params['model_folder']}")
         params["net_resolution"] = "-1x320"
-        if Constants.use_openpose:
-            self.openpose = op.WrapperPython()
-            self.openpose.configure(params)
-            self.openpose.start()
+        self.openpose = op.WrapperPython()
+        self.openpose.configure(params)
+        self.openpose.start()
 
         max_cosine_distance = Constants.max_cosine_distance
         nn_budget = Constants.nn_budget

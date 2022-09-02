@@ -3,6 +3,7 @@ import datetime
 import socketio
 import time
 import asyncio
+import threading
 
 class Status:
     def __init__(self, _id, name, description):
@@ -20,6 +21,11 @@ class Statuses:
     pass
 
 
+async def send_test(dict_data, namespace):
+    global ws
+    print(f"Sending test!")
+    await ws.sio.emit(event='frame_data_in', data=dict_data, namespace=namespace)
+
 Statuses.NOT_INITIALIZED = Status(-1, "NOT INITIALIZED", "Socket.io created but not initialized")
 Statuses.INITIALIZED = Status(0, "INITIALIZED", "Socket.io setup but not connected")
 Statuses.CONNECTING = Status(1, "CONNECTING", "Socket.io is trying to connect")
@@ -27,12 +33,13 @@ Statuses.CONNECTED = Status(2, "CONNECTED", "Socket.io connected")
 Statuses.WAITING = Status(3, "WAITING", "Socket.io connected")
 Statuses.DISCONNECTED = Status(4, "DISCONNECTED", "Socket.io lost connection")
 
-sio = socketio.AsyncClient(logger=False, engineio_logger=False, )
+sio = socketio.AsyncClient(logger=False, engineio_logger=False)
 # sio = socketio.Client()
 
 # @sio.event(namespace='/visualization')
 async def connect():
     global ws
+    print(f"Connected")
     ws.set_status(Statuses.CONNECTED, f"{ws.uri}")
 
 # @sio.event(namespace='/visualization')
@@ -44,6 +51,7 @@ async def connect_error(data):
 
 # @sio.event(namespace='/visualization')
 def frame_received(*args):
+    global ws
     print(f"elapsed: {(ws.last_emit - datetime.datetime.now()).microseconds/1000}")
     ws.set_status(Statuses.CONNECTED, f"Frame received", debug=False)
 
@@ -157,20 +165,22 @@ class WebSocket:
 
     def send_msg(self):
         print(f"Sending msg websocket")
-        self.loop.run_until_complete(self.sio.emit(event='test_msg', namespace=self.namespace, callback=frame_received))
+        # self.loop.run_until_complete(self.sio.emit(event='test_msg', namespace=self.namespace, callback=frame_received))
         # self.sio.emit(event='test_msg', namespace=self.namespace)
 
+    def start_async_task(self, dict_data):
+        global ws
+        self.sio.start_background_task(ws.sio.emit, event='frame_data_in', data=dict_data, namespace=self.namespace)
+
     async def send_image_data(self, dict_data):
+        prnt(f"Thread ws: {current_thread().ident }")
         # if self.status.id != Statuses.CONNECTED.id:
         #     return False
         try:
             if self.sync_with_server:
-                if not self.is_ready():
-                    return True
                 self.set_status(Statuses.WAITING, "Send_data", debug=False)
                 self.last_emit = datetime.datetime.now()
                 await self.sio.emit(event='frame_data_in', data=dict_data, namespace=self.namespace, callback=frame_received)
-                # await self.sio.emit(event='frame_data_in', data=dict_data, namespace=self.namespace)
             else:
                 await self.sio.emit(event='frame_data_in', data=dict_data, namespace=self.namespace)
         except Exception as e:

@@ -1,4 +1,5 @@
 import threading
+from concurrent.futures import ThreadPoolExecutor
 
 from .WebSocket import ws, WebSocket, Statuses
 from ..SwarmComponentMeta import SwarmComponentMeta
@@ -42,12 +43,11 @@ class SwarmData:
 class WebSocketManager(SwarmComponentMeta):
     def __init__(self, logger, tasks_manager, frame_w, frame_h):
         super(WebSocketManager, self).__init__(logger, tasks_manager, "WebSocketManager", r'./Config/WebSocketConfig.yaml', self.update_config_data)
-        self.main_loop = asyncio.get_event_loop()
         self.ws = ws
         self.tasks_manager = tasks_manager
         self.multi_threaded = False
 
-        self.target_framerate = 5
+        self.target_framerate = 60
         self.buffer_size = self.target_framerate
         self.data_to_send = deque([])
         self.screen_updated = False
@@ -73,36 +73,31 @@ class WebSocketManager(SwarmComponentMeta):
         self.logger.add_surface(self.surface, self.tag)
         self.read_lock = threading.Lock()
         # self.surface = pygame.Surface((frame_w, frame_h))
-        self.enqueue_task = self.tasks_manager.add_task("WS_S", None, self.send_loop, self.read_lock)
-        self.send_task = None
+        self.enqueue_task = None
+        self.send_task = self.tasks_manager.add_task("WS_S", None, self.send_loop, None, self.read_lock)
+        self.main_loop = asyncio.new_event_loop()
 
-    def update_config(self, enabled=False):
+    def update_config(self):
         super().update_config_from_file(self.tag, self.config_filename, self.last_modified_time)
         clear_queue = self.ws.update_config(self.config_data)
-        self.enabled = enabled
-        if self.enabled:
-            if self.multi_threaded:
-                # self.enqueue_task.start()
-                self.send_task.start()
-        else:
-            # self.enqueue_task.stop()
-            self.send_task.stop()
-        self.enabled = enabled
         if clear_queue:
             self.data_to_send.clear()
 
-    def set_mt(self, enabled):
-        if enabled:
-            if not self.multi_threaded:
-                self.enqueue_task.start()
-                self.send_task.start()
-            self.multi_threaded = True
-            return
 
-        if self.multi_threaded:
-            self.enqueue_task.stop()
-            self.send_task.stop()
-        self.multi_threaded = False
+    def init(self):
+        if self.enabled:
+            if not self.multi_threaded:
+                if self.send_task.is_running():
+                    print(f"Stopping {self.send_task.name} background task")
+                    self.send_task.stop()
+            else:
+                if not self.send_task.is_running():
+                    print(f"Starting {self.send_task.name} background task")
+                    self.send_task.start()
+        else:
+            if self.send_task.is_running():
+                print(f"Stopping {self.send_task.name} background task")
+                self.send_task.stop()
 
     def update_config_data(self, data, last_modified_time):
         self.config_data = data
@@ -117,23 +112,35 @@ class WebSocketManager(SwarmComponentMeta):
         self.frame_skipping = data.get("frame_skip", False)
         self.last_modified_time = last_modified_time
 
-    async def send_image_data(self, swarm_data):
+
+    def send_frame(self, swarm_data):
         data_json = swarm_data.get_json()
-        await self.ws.send_image_data(data_json['frame_data'])
+        # self.ws.update_status()
+        self.ws.start_async_task(data_json['frame_data'])
+        # self.ws.send_image_data(data_json['frame_data'])
+
+    async def send_frame_async(self, swarm_data):
+        data_json = swarm_data.get_json()
+        # self.ws.update_status()
+        if self.ws.is_ready():
+            await self.ws.send_image_data(data_json['frame_data'])
+            self.fps_counter.update(1)
 
     async def send_graph_data(self, swarm_data):
         data_json = swarm_data.get_json()
         await self.ws.send_graph_data(data_json['frame_data'])
+        # self.fps_counter.update(1)
 
     def send_loop(self, tasks_manager=None, async_loop=None):
+        loop = asyncio.get_running_loop()
         if self.frame_skipping:
             if self.fps_counter.fps > self.target_framerate:
-                self.fps_counter.update(1)
                 return True
         try:
-            swarm_data = self.data_to_send.popleft()
-            self.main_loop.run_until_complete(self.send_image_data(swarm_data))
-            self.fps_counter.update(1)
+            if len(self.data_to_send) > 0:
+                swarm_data = self.data_to_send.popleft()
+                if swarm_data is not None:
+                    loop.run_until_complete(self.send_frame_async(swarm_data))
             # self.main_loop.run_until_complete(self.send_graph_data(swarm_data))
         except Exception as e:
             pass
@@ -151,7 +158,7 @@ class WebSocketManager(SwarmComponentMeta):
         self.data_to_send.append(SwarmData(image_bytes, graph_data))
         return True
 
-    def update_data(self, cv2_frame, cameras_data):
+    def enqueue_frame(self, cv2_frame, cameras_data, draw=False):
         if cv2_frame is None:
             return
         # with self.read_lock:
@@ -163,7 +170,12 @@ class WebSocketManager(SwarmComponentMeta):
                 return
             self.data_to_send.append(SwarmData(cv2.resize(cv2_frame, (640, 480)), cameras_data))
         else:
-            self.send_image_data(SwarmData(cv2.resize(cv2_frame, (640, 480)), cameras_data))
+            swarm_data = SwarmData(cv2.resize(cv2_frame, (640, 480)), cameras_data)
+            self.send_frame(swarm_data)
+
+        if draw:
+            self.logger.draw_frame((0, 0, 0), cv2_frame, self.tag)
+            # self.main_loop.run_until_complete(self.send_frame_async(swarm_data))
 
     def update_scaling(self):
         if self.frame_scaling:
@@ -184,17 +196,7 @@ class WebSocketManager(SwarmComponentMeta):
         subsurface = pygame.transform.scale(surface, (self.frame_w * scaling_factor, self.frame_h * scaling_factor))
         pygame.image.save(subsurface, image_bytes, "JPEG")
         return image_bytes
-    
-    def update(self, debug=False):
-        if debug:
-            print(f"Updating WebSocket Manager")
 
-    def update_surface(self, frame):
-        if self.multi_threaded:
-            with self.read_lock:
-                self.logger.draw_frame((0,0,0), frame, self.tag)
-        else:
-            self.logger.draw_frame((0,0,0), frame, self.tag)
     
     def draw(self, start_pos, debug=False, surfaces=None):
         if debug:
@@ -205,9 +207,7 @@ class WebSocketManager(SwarmComponentMeta):
             start_pos = self.logger.add_text_line(dbg_str, (255, 50, 0), start_pos, surfaces)
         else:
             status_dbg_str = self.ws.status.get_dbg_text(self.ws)
-            mt_data = ""
-            if self.multi_threaded:
-                mt_data = " Buffer: {len(self.data_to_send)}"
+            mt_data = f" Buffer: {len(self.data_to_send)}"
             dbg_str = f"WebSocket FPS: {int(self.fps_counter.fps)}, FS: {self.current_frame_scaling:0.2f},{mt_data} File Size: {self.last_file_size}"
             start_pos = self.logger.add_text_line(status_dbg_str, (255, 50, 0), start_pos, surfaces)
             start_pos = self.logger.add_text_line(dbg_str, (255, 50, 0), start_pos, surfaces)

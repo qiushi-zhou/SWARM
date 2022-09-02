@@ -1,5 +1,6 @@
-processing: "op" # "op" or "simple" or "none"
+processing: "simple" # "op" or "simple" or "none"
 mt_capture: true
 mt_processing: true
-mt_networking: true
+mt_arduino: false
 websocket_enabled: true
+mt_networking: false

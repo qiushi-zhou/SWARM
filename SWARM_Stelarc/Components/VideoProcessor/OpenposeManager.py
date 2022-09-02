@@ -24,33 +24,27 @@ class OpenposeManager(SwarmComponentMeta):
         self.buffer_size = 3
         self.frames_to_process = deque([])
         self.frames_processed = deque([])
-        self.multithread = False
+        self.multi_threaded = False
         self.background_task = self.tasks_manager.add_task("OP", None, self.processing_loop, None)
         self.processing_lock = threading.Lock()
         self.processed_lock = threading.Lock()
         self.fps_counter = FPSCounter()
 
-    def init(self, processing_type="simple"):
-        self.processing_type = processing_type
+    def init(self):
+        if not self.multi_threaded:
+            if self.background_task.is_running():
+                print(f"Stopping {self.background_task.name} background task")
+                self.background_task.stop()
+        else:
+            if not self.background_task.is_running():
+                print(f"Starting {self.background_task.name} background task")
+                self.background_task.start()
 
-    def update_config(self, multithread=False):
+    def update_config(self):
         if self.processing_type == "op" and self.input is None:
             from . import Input
             print(f"Initializing input for OP")
             self.input = Input.Input()
-
-        self.set_mt(multithread)
-
-    def set_mt(self, enable):
-        if enable:
-            if not self.multithread:
-                print(f"Starting background task")
-                self.background_task.start()
-        else:
-            if self.multithread:
-                print(f"Stopping background task")
-                self.background_task.stop()
-        self.multithread = enable
 
     def update_config_data(self, data, last_modified_time):
         pass
@@ -83,7 +77,7 @@ class OpenposeManager(SwarmComponentMeta):
             else:
                 tracks, keypoints, updated_frame = (None, None, to_process.frame)
                 to_process.processed = False
-            self.fps_counter.update(new_frames=1)
+            self.fps_counter.update(1)
             to_process.tracks = tracks
             to_process.keypoints = keypoints
             if updated_frame is not None:
@@ -106,7 +100,7 @@ class OpenposeManager(SwarmComponentMeta):
     def get_processed_frame(self, camera_frame):
         if camera_frame is not None:
             # camera_frame = camera_frame.copy()
-            if self.multithread:
+            if self.multi_threaded:
                 if len(self.frames_to_process) < self.buffer_size:
                     self.frames_to_process.append(FrameData(frame=camera_frame))
                 if len(self.frames_processed) > 0:

@@ -8,20 +8,27 @@ class ArduinoManager(SwarmComponentMeta):
     def __init__(self, logger, tasks_manager, arduino_port="COM4", mockup_commands=True):
         super(ArduinoManager, self).__init__(logger, tasks_manager, "ArduinoManager", r'./Config/ArduinoConfig.yaml',
                                              self.update_config_data)
-        self.background_task = None
+        self.multi_threaded = False
+        self.background_task = self.tasks_manager.add_task("AR", None, self.update_arduino_status, None)
         self.arduino = Arduino(port=arduino_port, mockup_commands=mockup_commands)
 
     def update_config(self):
         super().update_config_from_file(self.tag, self.config_filename, self.last_modified_time)
 
+    def init(self):
+        if not self.multi_threaded:
+            if self.background_task.is_running():
+                print(f"Stopping {self.background_task.name} background task")
+                self.background_task.stop()
+        else:
+            if not self.background_task.is_running():
+                print(f"Starting {self.background_task.name} background task")
+                self.background_task.start()
+
     def update_config_data(self, data, last_modified_time):
         self.config_data = data
         self.arduino.update_config(self.config_data)
         self.last_modified_time = last_modified_time
-        if self.background_task is None:
-            self.background_task = self.tasks_manager.add_task("AR", None, self.update_arduino_status, None)
-            print(f"Starting AR background task")
-            self.background_task.start()
 
     def update_arduino_status(self, task_manager=None):
         self.arduino.update_status()
@@ -30,8 +37,6 @@ class ArduinoManager(SwarmComponentMeta):
         return True
 
     def update(self, debug=False):
-        if debug:
-            print(f"Arduino status updated!")
         self.arduino.update_status()
 
     def draw(self, start_pos, debug=False, surfaces=None):
