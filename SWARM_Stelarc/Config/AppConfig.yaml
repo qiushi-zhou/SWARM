@@ -3,4 +3,4 @@ mt_capture: true
 mt_processing: true
 mt_arduino: false
 websocket_enabled: true
-mt_networking: false
+mt_networking: true

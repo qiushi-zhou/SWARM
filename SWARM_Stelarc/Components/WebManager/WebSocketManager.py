@@ -48,7 +48,7 @@ class WebSocketManager(SwarmComponentMeta):
         self.multi_threaded = False
 
         self.target_framerate = 60
-        self.buffer_size = self.target_framerate
+        self.buffer_size = 2
         self.data_to_send = deque([])
         self.screen_updated = False
         self.send_frames = False
@@ -75,6 +75,7 @@ class WebSocketManager(SwarmComponentMeta):
         # self.surface = pygame.Surface((frame_w, frame_h))
         self.enqueue_task = None
         self.main_loop = asyncio.new_event_loop()
+        self.ws.set_async_loop(self.main_loop)
         self.send_task = self.tasks_manager.add_task("WS_S", None, self.send_loop, None, self.read_lock)
 
     def update_config(self):
@@ -82,7 +83,6 @@ class WebSocketManager(SwarmComponentMeta):
         clear_queue = self.ws.update_config(self.config_data)
         if clear_queue:
             self.data_to_send.clear()
-
 
     def init(self):
         if self.enabled:
@@ -108,16 +108,14 @@ class WebSocketManager(SwarmComponentMeta):
         self.max_frame_scaling = self.fixed_frame_scaling
         self.send_frames = data.get("send_frames", self.send_frames)
         self.target_framerate = data.get("target_framerate", 30)
-        self.buffer_size = self.target_framerate
         self.frame_skipping = data.get("frame_skip", False)
         self.last_modified_time = last_modified_time
-
 
     def send_frame(self, swarm_data):
         data_json = swarm_data.get_json()
         # self.ws.update_status()
         # self.ws.start_async_task(data_json['frame_data'])
-        self.main_loop.run_until_complete(self.ws.send_image_data(data_json['frame_data']))
+        self.main_loop.run_until_complete(self.ws.send_image_data(data_json))
         self.fps_counter.update(1)
         # self.ws.send_image_data(data_json['frame_data'])
 
@@ -126,7 +124,10 @@ class WebSocketManager(SwarmComponentMeta):
         # self.ws.update_status()
         if self.ws.is_ready():
             try:
-                await self.ws.send_image_data(data_json['frame_data'])
+                data_json["frame_time"] = self.fps_counter.time_since_last_frame()
+                data_json["time"] = f"{datetime.datetime.now()}"
+                data_json["fps"] = self.target_framerate
+                await self.ws.send_image_data(data_json)
                 self.fps_counter.update(1)
                 return True
             except Exception as e:
@@ -173,13 +174,16 @@ class WebSocketManager(SwarmComponentMeta):
         # with self.read_lock:
         # scaling_factor = 0.7
         # cv2_frame = cv2.resize(cv2_frame, (int(self.frame_w * scaling_factor), int(self.frame_h * scaling_factor)))
-        # self.loop.run_until_complete(self.send_data(SwarmData(cv2_frame, graph_data)))
+        # self.loop.run_until_complete(self.send_data(SwarmData(cv2_frame, graph_data)))            if self.ws.scaling_factor < 1:
+        if self.ws.scaling_factor < 1:
+            swarm_data = SwarmData(cv2.resize(cv2_frame, (int(self.frame_w * self.ws.scaling_factor), int(self.frame_h * self.ws.scaling_factor))), cameras_data)
+        else:
+            swarm_data = SwarmData(cv2_frame, cameras_data)
         if self.multi_threaded:
             if len(self.data_to_send) >= self.buffer_size:
                 return
-            self.data_to_send.append(SwarmData(cv2.resize(cv2_frame, (640, 480)), cameras_data))
+            self.data_to_send.append(swarm_data)
         else:
-            swarm_data = SwarmData(cv2.resize(cv2_frame, (640, 480)), cameras_data)
             self.send_frame(swarm_data)
 
         if draw:
@@ -217,6 +221,6 @@ class WebSocketManager(SwarmComponentMeta):
         else:
             status_dbg_str = self.ws.status.get_dbg_text(self.ws)
             mt_data = f" Buffer: {len(self.data_to_send)}"
-            dbg_str = f"WebSocket FPS: {int(self.fps_counter.fps)}, FS: {self.current_frame_scaling:0.2f},{mt_data} File Size: {self.last_file_size}"
+            dbg_str = f"WebSocket FPS: {int(self.fps_counter.fps)}, Scale: {self.ws.scaling_factor:0.2f},{mt_data} File Size: {self.last_file_size}"
             start_pos = self.logger.add_text_line(status_dbg_str, (255, 50, 0), start_pos, surfaces)
             start_pos = self.logger.add_text_line(dbg_str, (255, 50, 0), start_pos, surfaces)

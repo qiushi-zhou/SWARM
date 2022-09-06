@@ -8,6 +8,6 @@ fixed_frame_scaling: 1
 
 frame_skip: true
 
-target_framerate: 60
+target_framerate: 30
 url: "wss://anthropomorphicmachine.com:3005"
 namespace: "/visualization"

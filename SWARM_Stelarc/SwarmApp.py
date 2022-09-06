@@ -101,7 +101,8 @@ class SwarmAPP:
 
       self.scene_manager.update(processed_frame, debug=False)
 
-      self.websocket_manager.enqueue_frame(processed_frame, self.cameras_manager.get_cameras_data())
+      if frame is not None:
+        self.websocket_manager.enqueue_frame(processed_frame, self.cameras_manager.get_cameras_data())
 
       self.cameras_manager.update(debug=debug)
 
