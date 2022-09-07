@@ -10,7 +10,7 @@ from Components.VideoProcessor.VideoInputManager import VideoInputManager
 from Components.VideoProcessor.OpenposeManager import OpenposeManager
 from Components.Camera.CamerasManager import CamerasManager
 from Components.Arduino.ArduinoManager import ArduinoManager
-from Components.WebManager.WebSocketManager import WebSocketManager
+from Components.WebManager.WebSocketsManager import WebSocketsManager
 from Components.SwarmManager.SwarmManager import SwarmManager
 from Components.Utils.utils import Point
 from Components.Utils import utils
@@ -40,7 +40,7 @@ class SwarmAPP:
     self.arduino_manager = ArduinoManager(self.logger, self.tasks_manager, arduino_port, mockup_commands)
     self.components.append(self.arduino_manager)
 
-    self.websocket_manager = WebSocketManager(self.logger, self.tasks_manager, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)
+    self.websocket_manager = WebSocketsManager(self.logger, self.tasks_manager, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)
     self.components.append(self.websocket_manager)
 
     self.swarm_manager = SwarmManager(self.logger, self.tasks_manager, self.arduino_manager)
@@ -102,7 +102,7 @@ class SwarmAPP:
       self.scene_manager.update(processed_frame, debug=False)
 
       if frame is not None:
-        self.websocket_manager.enqueue_frame(processed_frame, self.cameras_manager.get_cameras_data())
+        self.websocket_manager.enqueue_frame("/visualization", processed_frame, self.cameras_manager.get_cameras_data())
 
       self.cameras_manager.update(debug=debug)
 

@@ -7,11 +7,12 @@ class FPSCounter():
     self.fps = 0
     self.frame_count = 0
     self.start_time = 0
-    self.last_frame_time = 0
+    self.last_frame_time = time.time()
 
   def reset(self):
     self.frame_count = 0
     self.start_time = time.time()
+    self.last_frame_time = time.time()
 
   def time_since_last_frame(self):
     return time.time() - self.last_frame_time

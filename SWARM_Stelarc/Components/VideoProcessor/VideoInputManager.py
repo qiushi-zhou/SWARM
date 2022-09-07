@@ -79,6 +79,7 @@ class VideoInputManager(SwarmComponentMeta):
                 self.cap = None
                 return False
 
+        self.cap.set(self.cv2.CAP_PROP_FPS, 60)
         self.cap.set(self.cv2.CAP_PROP_BUFFERSIZE, 3)
         self.cap.set(self.cv2.CAP_PROP_FRAME_WIDTH, self.screen_w)
         self.cap.set(self.cv2.CAP_PROP_FRAME_HEIGHT, self.screen_h)

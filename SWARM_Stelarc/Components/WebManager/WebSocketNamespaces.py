@@ -34,66 +34,58 @@ Statuses.WAITING = Status(3, "WAITING", "Socket.io connected")
 Statuses.DISCONNECTED = Status(4, "DISCONNECTED", "Socket.io lost connection")
 
 # sio = socketio.Client()
+class WebSocketOnlineInteraction(socketio.AsyncClientNamespace):
+    async def on_connect(self):
+        print(f"Connected Online Interaction")
+        ws.set_status(Statuses.CONNECTED, f"{ws.uri}")
+        print(f"Sending ping")
+        await ws.sio.emit(event="ping", data={}, namespace=self.namespace)
 
-# @sio.event(namespace='/visualization')
-async def connect():
-    global ws
-    print(f"Connected")
-    ws.set_status(Statuses.CONNECTED, f"{ws.uri}")
-    print(f"Sending ping")
-    await ws.sio.emit(event="ping", data={}, namespace="/visualization")
+    async def on_disconnect(self):
+        ws.set_status(Statuses.DISCONNECTED, f"{ws.uri}")
 
-# @sio.event(namespace='/visualization')
-async def connect_error(data):
-    global ws
-    print(f"CONNECTION ERROR!")
-    ws.set_status(Statuses.DISCONNECTED, f"{ws.uri} {data}")
-
-
-# @sio.event(namespace='/visualization')
-async def frame_received(*args):
-    global ws
-    print(f"elapsed: {(ws.last_emit - datetime.datetime.now()).microseconds / 1000}")
-    ws.set_status(Statuses.CONNECTED, f"Frame received", debug=False)
+    async def on_connect_error(self, data):
+        print(f"CONNECTION ERROR!")
+        ws.set_status(Statuses.DISCONNECTED, f"{ws.uri} {data}")
 
 
-async def scale_request_received(*args):
-    global ws
-    if len(args) > 0:
-        data = args[0]
-        ws.set_scaling(float(data.get('scaling_factor', 1.0)))
-    # print(f"elapsed: {(ws.last_emit - datetime.datetime.now()).microseconds / 1000}")
-    # ws.set_status(Statuses.CONNECTED, f"Frame received", debug=False)
+class WebSocketVisualization(socketio.AsyncClientNamespace):
+    def __init__(self, sio=None, url=None, uri=None):
+        super(WebSocketVisualization, self).__init__()
+        self.sio = sio
+        self.url = url
+        self.uri = uri
 
+    async def on_connect(self):
+        print(f"Connected to {self.uri}")
+        ws.set_status(Statuses.CONNECTED, f"{ws.uri}")
+        print(f"Sending ping")
+        await ws.sio.emit(event="ping", data={}, namespace=self.namespace)
 
-# @sio.event(namespace='/visualization')
-async def op_frame_new(*args):
-    global ws
-    if len(args) > 0:
-        data = args[0]
-        # print(f"Received op_frame_new from {data}")
-    ws.set_status(Statuses.CONNECTED, f"{ws.uri} {data}", debug=False)
+    async def on_disconnect(self):
+        ws.set_status(Statuses.DISCONNECTED, f"{ws.uri}")
 
+    async def on_connect_error(self, data):
+        print(f"CONNECTION ERROR!")
+        ws.set_status(Statuses.DISCONNECTED, f"{ws.uri} {data}")
 
-# @sio.event(namespace='/visualization')
-async def disconnect():
-    global ws
-    ws.set_status(Statuses.DISCONNECTED, f"{ws.uri}")
+    async def frame_received(self, *args):
+        print(f"elapsed: {(ws.last_emit - datetime.datetime.now()).microseconds / 1000}")
+        ws.set_status(Statuses.CONNECTED, f"Frame received", debug=False)
 
+    async def scale_request_received(self, *args):
+        if len(args) > 0:
+            data = args[0]
+            ws.set_scaling(float(data.get('scaling_factor', 1.0)))
+        # print(f"elapsed: {(ws.last_emit - datetime.datetime.now()).microseconds / 1000}")
+        # ws.set_status(Statuses.CONNECTED, f"Frame received", debug=False)
 
-# @sio.event(namespace='/visualization')
-async def hey(*args):
-    global ws
-    if len(args) > 0:
-        data = args[0]
-        print(f"Received msg from {data}")
-    ws.set_status(Statuses.CONNECTED, f"{ws.uri} {data}")
-
+    def set_scaling(self, scaling_factor):
+        self.scaling_factor = scaling_factor
 
 class WebSocket:
+
     def __init__(self, async_loop=None):
-        sio = socketio.AsyncClient(logger=False, engineio_logger=False)
-        self.sio = sio
         self.loop = async_loop
         if self.loop is None:
             self.loop = asyncio.get_event_loop()
@@ -113,21 +105,18 @@ class WebSocket:
 
     def init(self):
         self.set_status(Statuses.DISCONNECTED, {self.uri})
-        self.attach_callbacks()
+        # self.attach_callbacks()
         self.update_status()
         self.send_msg()
 
-    def attach_callbacks(self):
-        self.sio.on('connect', handler=connect, namespace=self.namespace)
-        self.sio.on('connect_error', handler=connect_error, namespace=self.namespace)
-        self.sio.on('hey', handler=hey, namespace=self.namespace)
-        self.sio.on('frame_received', handler=frame_received, namespace=self.namespace)
-        self.sio.on('scale_request', handler=scale_request_received, namespace=self.namespace)
-        self.sio.on('op_frame_new', handler=op_frame_new, namespace=self.namespace)
-        self.sio.on('disconnect', handler=disconnect, namespace=self.namespace)
-
-    def set_scaling(self, scaling_factor):
-        self.scaling_factor = scaling_factor
+    # def attach_callbacks(self):
+    #     self.sio.on('connect', handler=connect, namespace=self.namespace)
+    #     self.sio.on('connect_error', handler=connect_error, namespace=self.namespace)
+    #     self.sio.on('hey', handler=hey, namespace=self.namespace)
+    #     self.sio.on('frame_received', handler=frame_received, namespace=self.namespace)
+    #     self.sio.on('scale_request', handler=scale_request_received, namespace=self.namespace)
+    #     self.sio.on('op_frame_new', handler=op_frame_new, namespace=self.namespace)
+    #     self.sio.on('disconnect', handler=disconnect, namespace=self.namespace)
 
     def set_status(self, new_status, extra, debug=True):
         if debug:
@@ -135,11 +124,11 @@ class WebSocket:
         self.status = new_status
         self.status.extra = extra
 
-    def update_config(self, data):
-        self.sync_with_server = data.get("sync_with_server", False)
-        url = data.get("url", self.url)
+    def update_config(self, sync_with_server=None, url=None, namespace=None):
+        self.sync_with_server = self.sync_with_server if sync_with_server is None else sync_with_server
+        url = self.url if url is None else url
         recreate = url != self.url
-        namespace = data.get("namespace", self.namespace)
+        namespace = self.namespace if namespace is None else namespace
         recreate = recreate or namespace != self.namespace
         if recreate:
             print(f"WebSocket URI changed from {self.url}{self.namespace} to {url}{namespace}, reconnecting")
@@ -221,4 +210,4 @@ class WebSocket:
             self.set_status(Statuses.DISCONNECTED, f"{e}")
         return True
 
-ws = WebSocket()
+# ws = WebSocket()
