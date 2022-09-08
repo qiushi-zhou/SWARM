@@ -49,6 +49,7 @@ class SwarmAPP:
   def update_data(self, data, last_modified_time):
     self.processing_type = data.get("processing", False)
     self.video_manager.multi_threaded = data.get("mt_capture", False)
+    self.openpose_manager.processing_type = data.get("processing", 'simple')
     self.openpose_manager.multi_threaded = data.get("mt_processing", False)
     self.arduino_manager.multi_threaded = data.get("mt_arduino", False)
     self.websocket_manager.multi_threaded = data.get("mt_networking", False)
@@ -65,6 +66,7 @@ class SwarmAPP:
     self.arduino_manager.update_config()
     self.websocket_manager.update_config()
     utils.update_config_from_file("SwarmApp", r"./Config/AppConfig.yaml", self.last_modified_time, self.update_data)
+    self.openpose_manager.update_config()
 
   def start_managers(self):
     self.update_config()
@@ -115,11 +117,11 @@ class SwarmAPP:
 
       left_text_pos.y += self.logger.line_height
 
-      # self.arduino_manager.update(debug=debug)
+      self.arduino_manager.update(debug=debug)
       self.swarm_manager.update(self.cameras_manager.cameras, left_text_pos, right_text_pos, debug=False, surfaces=[self.scene_manager.tag])
 
-      # self.arduino_manager.draw(left_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
-      left_text_pos.y += self.logger.line_height
+      self.arduino_manager.draw(right_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
+      right_text_pos.y += self.logger.line_height
 
       self.scene_manager.draw(debug=debug, surfaces=[self.scene_manager.tag])
 
