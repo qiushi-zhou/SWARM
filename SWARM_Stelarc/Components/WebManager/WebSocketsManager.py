@@ -25,7 +25,7 @@ class WebSocketsManager(SwarmComponentMeta):
             # print(f"Namespace {namespace}")
             if namespace is not None and namespace not in self.sockets:
                 url = s_config.get("url", "")
-                if "vis" in namespace:
+                if "gallery" in namespace:
                     self.sockets[namespace] = WebSocketVideoStream(self.tasks_manager, url, namespace, self.frame_w, self.frame_h)
                 elif "inter" in namespace:
                     self.sockets[namespace] = WebSocketInteraction(self.tasks_manager, url, namespace, self.frame_w, self.frame_h)

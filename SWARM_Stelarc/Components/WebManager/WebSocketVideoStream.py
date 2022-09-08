@@ -26,18 +26,21 @@ class WebSocketVideoStream(WebSocketMeta):
     def loop(self, tasks_manager=None, async_loop=None):
         if self.status.id != Statuses.CONNECTED.id:
             self.update_status(self.main_loop)
-            time.sleep(2)
+            time.sleep(1)
             self.fps_counter.reset()
             return True
         if self.frame_skipping:
             if self.fps_counter.fps > self.target_framerate:
                 self.fps_counter.update()
+                time.sleep(0.1)
                 return True
         try:
             if len(self.data_to_send) > 0:
                 swarm_data = self.data_to_send.popleft()
                 if swarm_data is not None:
                     self.main_loop.run_until_complete(self.send_frame_async(swarm_data))
+            else:
+                time.sleep(0.001)
         except Exception as e:
             print(f"Error running send loop {self.namespace} : {e}")
         return True
@@ -77,9 +80,9 @@ class WebSocketVideoStream(WebSocketMeta):
                 self.last_emit = datetime.datetime.now()
                 await self.sio.emit(event='gallery_stream', data=dict_data, namespace=self.namespace, callback=frame_received)
             else:
-                # print(f"Emitting 'gallery_stream' on {self.namespace} from Thread ws: {threading.current_thread().getName() }")
+                print(f"Emitting 'gallery_stream_in' on {self.namespace} from Thread ws: {threading.current_thread().getName() }")
                 # print(dict_data)
-                await self.sio.emit(event='gallery_stream', data=dict_data, namespace=self.namespace)
+                await self.sio.emit(event='gallery_stream_in', data=dict_data, namespace=self.namespace)
         except Exception as e:
             print(f"Error Sending frame data to WebSocket {self.namespace}  {e}")
             self.set_status(Statuses.DISCONNECTED, f"{e}")
