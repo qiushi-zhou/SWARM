@@ -39,7 +39,7 @@ behaviors:
         timeout: 600 # run every 10 minutes
       people:
         enabled: true
-        min: 1 # Absolute value vs relative to the avg number of people in the last minute or so
+        min: 2 # Absolute value vs relative to the avg number of people in the last minute or so
         max: 10
       groups:
         enabled: false
@@ -68,7 +68,7 @@ behaviors:
       people:
         enabled: true
         min: 1 # Absolute value vs relative to the avg number of people in the last minute or so
-        max: 20
+        max: 5
       groups:
         enabled: false
         min: 0
@@ -86,7 +86,7 @@ behaviors:
         min: 0
         max: 310
   - name: undulate
-    enabled: true # Change this to false to disable this behavior
+    enabled: false # Change this to false to disable this behavior
     type: lite
     arduino_command: undulate
     parameters:
@@ -95,8 +95,8 @@ behaviors:
         timeout: 600 # run every 10 minutes
       people:
         enabled: true
-        min: 1 # Absolute value vs relative to the avg number of people in the last minute or so
-        max: 100
+        min: 10 # Absolute value vs relative to the avg number of people in the last minute or so
+        max: 25
       groups:
         enabled: false
         min: 0
@@ -123,7 +123,7 @@ behaviors:
         timeout: 600 # run every 10 minutes
       people:
         enabled: true
-        min: 1 # Absolute value vs relative to the avg number of people in the last minute or so
+        min: 10 # Absolute value vs relative to the avg number of people in the last minute or so
         max: 50
       groups:
         enabled: false
