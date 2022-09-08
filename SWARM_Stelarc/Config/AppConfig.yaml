@@ -1,4 +1,6 @@
-use_processing: false
-use_openpose: true
-multithreaded_processing: true
-use_websocket: false
+processing: "simple" # "op" or "simple" or "none"
+mt_capture: true
+mt_processing: true
+mt_arduino: false
+websocket_enabled: true
+mt_networking: true
