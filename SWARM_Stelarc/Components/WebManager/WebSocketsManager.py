@@ -1,5 +1,6 @@
 from .WebSocketVideoStream import WebSocketVideoStream
 from .WebSocketInteraction import WebSocketInteraction
+from .WebSocketMeta import WebSocketMeta
 from ..SwarmComponentMeta import SwarmComponentMeta
 import pygame
 import socketio
