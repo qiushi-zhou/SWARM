@@ -156,4 +156,4 @@ class OpenposeManager(SwarmComponentMeta):
 
     def draw(self, text_pos, debug=False, surfaces=None):
         text_pos = self.logger.add_text_line(f"OP - FPS: {self.fps_counter.fps}, Frames to process: {len(self.frames_to_process)}, Processed: {len(self.frames_processed)}", (255, 255, 0), text_pos, surfaces)
-        pass
+        text_pos.y -= self.logger.line_height

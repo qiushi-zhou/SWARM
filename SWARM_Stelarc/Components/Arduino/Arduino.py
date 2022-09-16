@@ -167,7 +167,10 @@ class Arduino():
 
     def init(self):
         if self.port is None:
-            self.port = self.find_port()
+            if self.mockup_commands:
+                self.port = None
+            else:
+                self.port = self.find_port()
             if self.port is None:
                 print("Arduino disconnected (debug mode)")
                 self.status = self.statuses["debug_mode"]

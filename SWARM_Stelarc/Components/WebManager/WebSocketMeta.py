@@ -10,6 +10,7 @@ import datetime
 import base64
 import cv2
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 
 class SwarmData:
@@ -46,8 +47,8 @@ class Status:
         self.extra = ''
 
     def get_dbg_text(self, ws):
-        synced = "(SYNCD)" if ws.sync_with_server else ""
-        return f"{synced} {self.name}: {self.description}"
+        synced = "(SYNCD) " if ws.sync_with_server else ""
+        return f"{synced}{self.name}: {self.description}"
 
 
 class Statuses:
@@ -59,31 +60,10 @@ class Statuses:
     DISCONNECTED = Status(4, "DISCONNECTED", "Socket.io lost connection")
 
 
-class WebSocketMeta(socketio.AsyncClientNamespace):
-    async def on_connect(self):
-        print(f"{self.namespace} Connected, Thread ws: {threading.current_thread().getName() }")
-        self.set_status(Statuses.CONNECTED, f"{self.uri}")
-        await self.sio.emit(event="test_msg", namespace=self.namespace)
-        await self.sio.emit(event="ping", data={}, namespace=self.namespace)
-
-    async def on_disconnect(self):
-        print(f"{self.namespace} Disconnected, Thread ws: {threading.current_thread().getName() }")
-        self.set_status(Statuses.DISCONNECTED, f"{self.uri}")
-
-    async def on_connect_error(self, data):
-        print(f"{self.namespace} CONNECTION ERROR, Thread ws: {threading.current_thread().getName() }")
-
-    async def on_hey(self, *args):
-        data = ""
-        if len(args) > 0:
-            data = args[0]
-            print(f"Received msg from {data}, Thread ws: {threading.current_thread().getName() }")
-        self.set_status(Statuses.CONNECTED, f"{self.uri} {data}")
-
-    def __init__(self, tasks_manager, url, namespace, frame_w, frame_h, async_loop=None):
-        socketio.AsyncClientNamespace.__init__(self, namespace)
+class WebSocketMeta:
+    def __init__(self, tasks_manager, url, namespace, frame_w, frame_h):
         self.sio = socketio.AsyncClient(logger=False, engineio_logger=False)
-        self.sio.register_namespace(self)
+        self.enabled = True
         self.sync_with_server = False
         self.max_wait_timeout = 10
         self.wait_time = 0
@@ -94,49 +74,67 @@ class WebSocketMeta(socketio.AsyncClientNamespace):
         self.uri = self.url + self.namespace
         self.tag = "WS_" + self.namespace[1:min(4, len(self.namespace))] # First 3 characters of the namespace, excluding the "/"
 
-        self.last_emit = datetime.datetime.now()
-        self.frame_w = frame_w
-        self.frame_h = frame_h
-        self.buffer_size = 2
-        self.data_to_send = deque([])
-        self.enabled = True
+        self.multi_threaded = True
+        self.tasks_manager = tasks_manager
+        self.task_running = False
+        self.async_loop = asyncio.new_event_loop()
+        self.executor = ThreadPoolExecutor(2)   #Create a ProcessPool with 2 processes
 
         self.fps_counter = FPSCounter()
-        self.read_lock = threading.Lock()
-        self.main_loop = asyncio.new_event_loop()
+        self.out_buffer_size = 2
+        self.out_buffer = deque([])
+        self.out_fps_counter = FPSCounter()
 
-        self.tasks_manager = tasks_manager
-        # self.connect_task = self.tasks_manager.add_task(self.tag+"Conn", None, self.connection_loop, None, self.read_lock)
-        self.send_task = self.tasks_manager.add_task(self.tag, None, self.loop, None, self.read_lock)
-        self.multi_threaded = True
+        self.in_buffer_size = 60
+        self.in_buffer = deque([])
+        self.in_fps_counter = FPSCounter()
 
-    def set_async_loop(self, loop):
-        self.main_loop = loop
-    #
-    # def connection_loop(self, tasks_manager=None, async_loop=None):
-    #     if self.status.id != Statuses.CONNECTED.id:
-    #         self.update_status(self.main_loop)
-    #     time.sleep(3)
-    #     return True
+        self.last_emit = datetime.datetime.now()
 
-    def loop(self, tasks_manager=None, async_loop=None):
-        print(f"WebSocket loop not implemented!")
+    def attach_callbacks(self):
+        print(f"Attach callbacks not implemented!")
         return False
+
+    def main_loop_starter(self):
+        self.async_loop.run_until_complete(self.main_loop())
+
+    async def main_loop(self):
+        print(f"{self.namespace} Task started!")
+        try:
+            while self.task_running:
+                if not self.sio.connected:
+                    await self.attempt_connect()
+                    await asyncio.sleep(3)
+                else:
+                    await self.background_task()
+                    await asyncio.sleep(0)
+        except Exception as e:
+            print(f"Exception in {self.namespace} loop: {e}")
+
+    async def background_task(self):
+        print(f"WebSocket loop not implemented!")
+
+    def start_async_task(self):
+        self.task_running = True
+        self.async_loop.run_in_executor(self.executor, self.main_loop_starter)
+        # print(f"{self.namespace} Task completed")
+
+    def stop_async_task(self):
+        self.task_running = False
 
     def init(self):
         if self.enabled:
             if not self.multi_threaded:
-                if self.send_task.is_running():
-                    print(f"Stopping {self.send_task.name} background task")
-                    self.send_task.stop()
+                print(f"Stopping {self.namespace} background task")
+                self.stop_async_task()
             else:
-                if not self.send_task.is_running():
-                    print(f"Starting {self.send_task.name} background task")
-                    self.send_task.start()
+                if not self.task_running:
+                    print(f"Starting {self.namespace} background task")
+                    self.start_async_task()
         else:
-            if self.send_task.is_running():
-                print(f"Stopping {self.send_task.name} background task")
-                self.send_task.stop()
+            if self.task_running:
+                print(f"Stopping {self.namespace} background task")
+                self.stop_async_task()
 
     def update_config(self, data):
         self.sync_with_server = data.get("sync_with_server", False)

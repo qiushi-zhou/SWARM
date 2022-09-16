@@ -27,20 +27,25 @@ class WebSocketsManager(SwarmComponentMeta):
             if namespace is not None and namespace not in self.sockets:
                 url = s_config.get("url", "")
                 if "gallery" in namespace:
-                    self.sockets[namespace] = WebSocketVideoStream(self.tasks_manager, url, namespace, self.frame_w, self.frame_h)
+                    self.sockets[namespace] = WebSocketVideoStream.create_ws(self.tasks_manager, url, namespace, self.frame_w, self.frame_h)
                 elif "inter" in namespace:
-                    self.sockets[namespace] = WebSocketInteraction(self.tasks_manager, url, namespace, self.frame_w, self.frame_h)
+                    self.sockets[namespace] = WebSocketInteraction.create_ws(self.tasks_manager, url, namespace, self.frame_w, self.frame_h)
                 self.sockets[namespace].update_config(s_config)
 
     def enqueue_frame(self, namespace, cv2_frame, cameras_data, draw=False):
         if cv2_frame is None:
             return
-        if namespace in self.sockets:
-            socket = self.sockets[namespace]
-            socket.enqueue_frame(cv2_frame, cameras_data)
+        if "gallery" in namespace and namespace in self.sockets:
+            self.sockets[namespace].enqueue_frame(cv2_frame, cameras_data)
 
         if draw:
             self.logger.draw_frame((0, 0, 0), cv2_frame, self.tag)
+
+    def get_stream_frame(self, namespace):
+        if "inter" in namespace and namespace in self.sockets:
+            return self.sockets[namespace].get_latest_frame()
+        return None
+
 
     def update_config_data(self, data, last_modified_time):
         self.config_data = data
@@ -71,8 +76,12 @@ class WebSocketsManager(SwarmComponentMeta):
         else:
             for key in self.sockets:
                 s = self.sockets[key]
-                status_dbg_str = s.status.get_dbg_text(s)
-                mt_data = f" Buffer: {len(s.data_to_send)}"
-                dbg_str = f"WebSocket FPS: {int(s.fps_counter.fps)}, Scale: {s.scaling_factor:0.2f},{mt_data} File Size: {s.last_file_size}"
+                status_dbg_str = f"{s.tag} {s.status.get_dbg_text(s)}"
+                data_str = f"OUT FPS: {int(s.in_fps_counter.fps)}, Buff Out: {len(s.out_buffer)}/{s.out_buffer_size}          "
+                data_str += f"IN FPS: {int(s.out_fps_counter.fps)}, Buff In: {len(s.in_buffer)}/{s.in_buffer_size}"
+                # dbg_str = f"{s.tag} FPS: {int(s.fps_counter.fps)}, Scale: {s.scaling_factor:0.2f},{mt_data} Size: {s.last_file_size}"
                 start_pos = self.logger.add_text_line(status_dbg_str, (255, 50, 0), start_pos, surfaces)
-                start_pos = self.logger.add_text_line(dbg_str, (255, 50, 0), start_pos, surfaces)
+                start_pos.y -= self.logger.line_height
+                start_pos = self.logger.add_text_line(data_str, (255, 50, 0), start_pos, surfaces)
+                # start_pos.y -= self.logger.line_height
+                # start_pos = self.logger.add_text_line(in_data, (255, 50, 0), start_pos, surfaces)

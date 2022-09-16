@@ -32,7 +32,7 @@ nn_budget = None
 nms_max_overlap = 1.0
 max_age = 100
 n_init = 20
-font_size = int(17*scaling)
+font_size = int(16*scaling)
 
 
 inner_radius = 50

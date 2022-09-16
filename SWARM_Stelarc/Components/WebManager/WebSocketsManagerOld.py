@@ -1,7 +1,7 @@
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
-from .WebSocket import ws, WebSocket, Statuses
+from .WebSocketOld import ws, WebSocket, Statuses
 from ..SwarmComponentMeta import SwarmComponentMeta
 from ..Utils.FPSCounter import FPSCounter
 import io
@@ -41,9 +41,9 @@ class SwarmData:
     return data
 
 
-class WebSocketManager(SwarmComponentMeta):
+class WebSocketsManager(SwarmComponentMeta):
   def __init__(self, logger, tasks_manager, frame_w, frame_h):
-    super(WebSocketManager, self).__init__(logger, tasks_manager, "WebSocketManager", r'./Config/WebSocketConfig.yaml', self.update_config_data)
+    super(WebSocketsManager, self).__init__(logger, tasks_manager, "WebSocketManager", r'./Config/WebSocketConfig.yaml', self.update_config_data)
     self.ws = ws
     self.tasks_manager = tasks_manager
     self.multi_threaded = False

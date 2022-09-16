@@ -95,8 +95,7 @@ class SwarmAPP:
       right_text_pos = Point(Constants.SCREEN_WIDTH + offset.x, 0 + offset.y)
 
       self.update_config()
-
-
+      self.video_manager.add_stream_frame(self.websocket_manager.get_stream_frame("/online_interaction"))
       frame = self.video_manager.get_frame()
       processed_frame = self.openpose_manager.get_processed_frame(frame)
       self.openpose_manager.update(debug=debug, surfaces=[self.scene_manager.tag])
@@ -114,8 +113,6 @@ class SwarmAPP:
       self.tasks_manager.draw(left_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
       self.cameras_manager.draw(draw_graph_data=False, debug=debug, surfaces=[self.scene_manager.tag])
       self.websocket_manager.draw(left_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
-
-      left_text_pos.y += self.logger.line_height
 
       self.arduino_manager.update(debug=debug)
       self.swarm_manager.update(self.cameras_manager.cameras, left_text_pos, right_text_pos, debug=False, surfaces=[self.scene_manager.tag])

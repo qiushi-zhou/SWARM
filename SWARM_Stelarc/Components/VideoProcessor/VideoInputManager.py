@@ -4,6 +4,10 @@ from sys import platform
 import time
 from collections import deque
 import threading
+import numpy as np
+import io
+import base64
+from PIL import Image
 
 class VideoInputManager(SwarmComponentMeta):
     def __init__(self, logger, tasks_manager, screen_w=500, screen_h=500):
@@ -25,6 +29,8 @@ class VideoInputManager(SwarmComponentMeta):
         self.background_task = self.tasks_manager.add_task("VI", None, self.capture_loop, None)
         self.buffer_lock = self.background_task.read_lock
 
+        self.stream_input = True
+
     def init(self, capture_index):
         self.capture_index = capture_index
         print(f"VI mt {self.multi_threaded}, running {self.background_task.is_running()}")
@@ -38,12 +44,16 @@ class VideoInputManager(SwarmComponentMeta):
                 self.background_task.start()
 
     def capture_loop(self, tasks_manager=None, async_loop=None):
+        if self.stream_input:
+            time.sleep(0.1)
+            return True
         if len(self.frame_buffer) >= self.buffer_size:
             return True
         frame = self.capture_frame()
         if frame is not None:
             with self.buffer_lock:
                 self.frame_buffer.append(frame)
+        time.sleep(0)
         return True
 
     def capture_frame(self):
@@ -99,10 +109,28 @@ class VideoInputManager(SwarmComponentMeta):
             with self.buffer_lock:
                 self.latest_frame = self.frame_buffer.popleft()
         else:
-            frame = self.capture_frame()
-            if frame is not None:
-                self.latest_frame = frame
+            if not self.stream_input:
+                frame = self.capture_frame()
+                if frame is not None:
+                    self.latest_frame = frame
         return self.latest_frame
+
+    def base64_to_cv2(self, image_data):
+        # print(f"Decoding {base64_string}")
+        base64_string = image_data.split(',')[1]
+        imgdata = base64.b64decode(base64_string)
+        img = Image.open(io.BytesIO(imgdata))
+        return self.cv2.cvtColor(np.asarray(img), self.cv2.COLOR_BGR2RGB)
+
+    def add_stream_frame(self, frame_data):
+        if frame_data is not None:
+            self.stream_input = True
+            if len(self.frame_buffer) >= self.buffer_size:
+                return True
+
+            frame = self.base64_to_cv2(frame_data['image_data'])
+            with self.buffer_lock:
+                self.frame_buffer.append(frame)
     
     def update(self, debug=False):
         if debug:
@@ -112,3 +140,4 @@ class VideoInputManager(SwarmComponentMeta):
         if debug:
             print(f"Drawing VideoInput Manager")
         left_text_pos = self.logger.add_text_line(f"VI - FPS: {self.fps_counter.fps }, Frame Buffer: {len(self.frame_buffer)}, Size: {self.frame_shape}", (255, 255, 0), left_text_pos, surfaces)
+        left_text_pos.y -= self.logger.line_height

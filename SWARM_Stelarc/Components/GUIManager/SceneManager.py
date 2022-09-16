@@ -26,6 +26,7 @@ class SceneManager(SwarmComponentMeta):
             self.logger.set_drawer(self.pygame)
             self.logger.add_surface(self.screen, self.tag)
             self.logger.set_font(self.font, font_size)
+            # self.logger.set_font(self.font, font_size, line_height=font_size*0.7)
             # log.add_widget(PyGameLogWidget(pygame=pygame, font=self.font, font_size=Constants.font_size, canvas=self.scene.screen))
         elif self.drawer_type == SceneDrawerType.OPENCV:
             import cv2
