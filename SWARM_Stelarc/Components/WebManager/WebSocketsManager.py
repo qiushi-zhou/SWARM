@@ -46,7 +46,6 @@ class WebSocketsManager(SwarmComponentMeta):
             return self.sockets[namespace].get_latest_frame()
         return None
 
-
     def update_config_data(self, data, last_modified_time):
         self.config_data = data
         # self.frame_scaling = data.get("frame_scaling", False)

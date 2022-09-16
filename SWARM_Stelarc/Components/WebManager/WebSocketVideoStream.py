@@ -49,6 +49,12 @@ class WebSocketVideoStream(WebSocketMeta):
         print(f"elapsed: {(ws_vs.last_emit - datetime.datetime.now()).microseconds / 1000}")
         ws_vs.set_status(Statuses.CONNECTED, f"Frame received", debug=False)
 
+
+    async def on_frame_received_ACK(*args):
+        global ws_vs
+        print(f"elapsed: {(ws_vs.last_emit - datetime.datetime.now()).microseconds / 1000}")
+        ws_vs.set_status(Statuses.CONNECTED, f"Frame received", debug=False)
+
     async def on_scale_request(*args):
         global ws_vs
         if len(args) > 0:
@@ -114,9 +120,10 @@ class WebSocketVideoStream(WebSocketMeta):
         global ws_vs
         try:
             if ws_vs.sync_with_server:
+                print(f"Send image data async")
                 ws_vs.set_status(Statuses.WAITING, "Send_data", debug=False)
                 ws_vs.last_emit = datetime.datetime.now()
-                await ws_vs.sio.emit(event='gallery_stream', data=dict_data, namespace=ws_vs.namespace, callback=frame_received)
+                await ws_vs.sio.emit(event='gallery_stream_in', data=dict_data, namespace=ws_vs.namespace, callback=WebSocketVideoStream.on_frame_received_ACK)
             else:
                 print(f"Emitting 'gallery_stream_in' on {ws_vs.namespace} from Thread ws: {threading.current_thread().getName() }")
                 # print(dict_data)
@@ -150,7 +157,7 @@ class WebSocketVideoStream(WebSocketMeta):
         self.frame_h = frame_h
 
         self.fps_counter = FPSCounter()
-        self.target_framerate = 60
+        self.target_framerate = 30
         self.scaling_factor = 1.0
         self.frame_skipping = False
         self.last_file_size = 1
