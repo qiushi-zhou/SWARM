@@ -14,7 +14,7 @@ class FPSCounter():
     self.start_time = time.time()
     self.last_frame_time = time.time()
 
-  def time_since_last_frame(self):
+  def time_since_last_update(self):
     return time.time() - self.last_frame_time
 
   def update(self, new_frames=0):

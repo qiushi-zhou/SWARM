@@ -29,7 +29,7 @@ class VideoInputManager(SwarmComponentMeta):
         self.background_task = self.tasks_manager.add_task("VI", None, self.capture_loop, None)
         self.buffer_lock = self.background_task.read_lock
 
-        self.stream_input = True
+        self.stream_input = False
 
     def init(self, capture_index):
         self.capture_index = capture_index
@@ -114,13 +114,6 @@ class VideoInputManager(SwarmComponentMeta):
                 if frame is not None:
                     self.latest_frame = frame
         return self.latest_frame
-
-    def base64_to_cv2(self, image_data):
-        # print(f"Decoding {base64_string}")
-        base64_string = image_data.split(',')[1]
-        imgdata = base64.b64decode(base64_string)
-        img = Image.open(io.BytesIO(imgdata))
-        return self.cv2.cvtColor(np.asarray(img), self.cv2.COLOR_BGR2RGB)
 
     def add_stream_frame(self, frame_data):
         if frame_data is not None:

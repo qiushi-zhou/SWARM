@@ -8,6 +8,7 @@ import os
 import sys
 import getopt
 import Constants
+import asyncio
 
 
 if __name__ == "__main__":
@@ -37,4 +38,4 @@ if __name__ == "__main__":
                              "RBigToe.x", "RBigToe.y", "RSmallToe.x", "RSmallToe.y", "RHeel.x", "RHeel.y"])
         # swarm = SwarmAPP(arduino_port="COM4", mockup_commands=False)
         swarm = SwarmAPP(arduino_port="COM3", mockup_commands=True)
-        swarm.run(debug=False)
+        asyncio.run(swarm.run(debug=False))

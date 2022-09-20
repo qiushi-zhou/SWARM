@@ -33,17 +33,13 @@ class WebSocketsManager(SwarmComponentMeta):
                 self.sockets[namespace].update_config(s_config)
 
     def enqueue_frame(self, namespace, cv2_frame, cameras_data, draw=False):
-        if cv2_frame is None:
-            return
-        if "gallery" in namespace and namespace in self.sockets:
-            self.sockets[namespace].enqueue_frame(cv2_frame, cameras_data)
-
+        self.sockets[namespace].enqueue_frame(cv2_frame, cameras_data)
         if draw:
             self.logger.draw_frame((0, 0, 0), cv2_frame, self.tag)
 
     def get_stream_frame(self, namespace):
         if "inter" in namespace and namespace in self.sockets:
-            return self.sockets[namespace].get_latest_frame()
+            return self.sockets[namespace].get_latest_received_frame()
         return None
 
     def update_config_data(self, data, last_modified_time):
@@ -75,9 +71,9 @@ class WebSocketsManager(SwarmComponentMeta):
         else:
             for key in self.sockets:
                 s = self.sockets[key]
-                status_dbg_str = f"{s.tag} {s.status.get_dbg_text(s)}"
-                data_str = f"OUT FPS: {int(s.in_fps_counter.fps)}, Buff Out: {len(s.out_buffer)}/{s.out_buffer_size}          "
-                data_str += f"IN FPS: {int(s.out_fps_counter.fps)}, Buff In: {len(s.in_buffer)}/{s.in_buffer_size}"
+                status_dbg_str = f"{s.tag} {s.status_manager.get_status_info()}"
+                data_str = f"OUT FPS: {int(s.out_buffer.fps())}, Buff Out: {s.out_buffer.count()}/{s.out_buffer.size()}          "
+                data_str += f"IN FPS: {int(s.in_buffer.fps())}, Buff In: {s.in_buffer.count()}/{s.in_buffer.size()}"
                 # dbg_str = f"{s.tag} FPS: {int(s.fps_counter.fps)}, Scale: {s.scaling_factor:0.2f},{mt_data} Size: {s.last_file_size}"
                 start_pos = self.logger.add_text_line(status_dbg_str, (255, 50, 0), start_pos, surfaces)
                 start_pos.y -= self.logger.line_height

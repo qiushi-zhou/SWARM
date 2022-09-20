@@ -10,6 +10,7 @@ sockets:
     fixed_frame_scaling: 1
     frame_skip: true
     target_framerate: 30
+    emit_event: 'gallery_stream_in'
 
   - namespace: "/online_interaction"
     url: "wss://anthropomorphicmachine.com:3006"
@@ -21,3 +22,4 @@ sockets:
     fixed_frame_scaling: 1
     frame_skip: true
     target_framerate: 30
+    emit_event: 'processed_webcam_data_in'

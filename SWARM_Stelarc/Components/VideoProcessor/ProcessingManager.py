@@ -14,21 +14,22 @@ class FrameData:
         self.frame = None if frame is None else frame
         self.processed = False
 
-class OpenposeManager(SwarmComponentMeta):
-    def __init__(self, logger, tasks_manager, camera_manager):
+class ProcessingManager(SwarmComponentMeta):
+    def __init__(self, tag, logger, tasks_manager, camera_manager=None, cont_color=(0, 255, 0)):
         self.processing_type = "simple"
         self.input = None
-        super(OpenposeManager, self).__init__(logger, tasks_manager, "OpenposeManager")
-        self.camera_manager = camera_manager
+        super(ProcessingManager, self).__init__(logger, tasks_manager, "ProcessingManager")
+        self.cameras = camera_manager.cameras if camera_manager is not None else []
         self.processed_frame_data = None
+        self.multi_threaded = False
+        self.background_task = self.tasks_manager.add_task(f"OP_{tag}", None, self.processing_loop, None)
+        self.processing_lock = threading.Lock()
+        self.processed_lock = threading.Lock()
         self.buffer_size = 3
         self.frames_to_process = deque([])
         self.frames_processed = deque([])
-        self.multi_threaded = False
-        self.background_task = self.tasks_manager.add_task("OP", None, self.processing_loop, None)
-        self.processing_lock = threading.Lock()
-        self.processed_lock = threading.Lock()
         self.fps_counter = FPSCounter()
+        self.cont_color = cont_color
 
     def init(self):
         if not self.multi_threaded:
@@ -88,13 +89,13 @@ class OpenposeManager(SwarmComponentMeta):
         return to_process
 
     def simple_processing(self, frame):
+        if frame is None:
+            return None, None, None
         imgray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         ret, thresh = cv2.threshold(imgray, 127, 255, 0)
         contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         frame = cv2.blur(frame, (51,51), borderType=cv2.BORDER_DEFAULT)
-        frame = cv2.drawContours(frame, contours, -1, (0, 255, 0), 1)
-        # edges = cv2.Canny(image=img_blur, threshold1=100, threshold2=200)
-        # frame = cv2.resize(edges, (self.camera_manager.screen_w, self.camera_manager.screen_h))
+        frame = cv2.drawContours(frame, contours, -1, self.cont_color, 1)
         return None, None, frame
 
     def get_processed_frame(self, camera_frame):
@@ -111,12 +112,13 @@ class OpenposeManager(SwarmComponentMeta):
                 return self.processed_frame_data.frame
         return None if self.processed_frame_data is None else self.processed_frame_data.frame
 
+
     def update(self, debug=False, surfaces=None):
         if debug:
             print(f"Updating Openpose Manager")
         # Reset graphs to get new points
 
-        for camera in self.camera_manager.cameras:
+        for camera in self.cameras:
             camera.p_graph.init_graph()
 
         if self.processed_frame_data is None or self.processed_frame_data.tracks is None:
@@ -148,7 +150,8 @@ class OpenposeManager(SwarmComponentMeta):
                         p2 = Point(kp2[0], kp2[1])
                         if p1.x > 1 and p1.y > 1 and p2.x > 1 and p2.y > 1:
                             self.logger.draw_line(p1, p2, color, thickness, surfaces)
-            for camera in self.camera_manager.cameras:
+
+            for camera in self.cameras:
                 # camera.check_track([p1,p2], center_p)
                 camera.check_track([center_p], center_p)
             if debug:
