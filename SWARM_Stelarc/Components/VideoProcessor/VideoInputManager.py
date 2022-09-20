@@ -19,7 +19,7 @@ class VideoInputManager(SwarmComponentMeta):
         self.cap = None
         self.capture_index = 0
         self.max_capture_index = 10
-        self.buffer_size = 3
+        self.buffer_size = 2
         self.latest_frame = None
         self.frame_buffer = deque([])
         self.frame_shape = None
@@ -45,7 +45,7 @@ class VideoInputManager(SwarmComponentMeta):
 
     def capture_loop(self, tasks_manager=None, async_loop=None):
         if self.stream_input:
-            time.sleep(0.1)
+            time.sleep(0.01)
             return True
         if len(self.frame_buffer) >= self.buffer_size:
             return True

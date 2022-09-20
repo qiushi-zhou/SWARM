@@ -25,11 +25,14 @@ class ProcessingManager(SwarmComponentMeta):
         self.background_task = self.tasks_manager.add_task(f"OP_{tag}", None, self.processing_loop, None)
         self.processing_lock = threading.Lock()
         self.processed_lock = threading.Lock()
-        self.buffer_size = 3
+        self.buffer_size = 2
         self.frames_to_process = deque([])
         self.frames_processed = deque([])
         self.fps_counter = FPSCounter()
         self.cont_color = cont_color
+        self.avg_processing_time = 0
+        self.total_processing_time = 0
+        self.proc_time_count = 0
 
     def init(self):
         if not self.multi_threaded:
@@ -52,16 +55,23 @@ class ProcessingManager(SwarmComponentMeta):
 
     def processing_loop(self, task_manager=None, async_loop=None):
         if len(self.frames_to_process) <= 0:
-            time.sleep(0.1)
+            time.sleep(0.001)
             return True
         with self.processing_lock:
             to_process = self.frames_to_process.popleft()
         processed = to_process
         try:
+            start = time.time()
             processed = self.process_frame(to_process)
+            self.total_processing_time += time.time() - start
+            self.proc_time_count += 1
         except Exception as e:
             pass
         with self.processed_lock:
+            self.avg_processing_time = self.total_processing_time / self.proc_time_count
+            if self.proc_time_count > 10:
+                self.proc_time_count = 0
+                self.total_processing_time = 0
             self.frames_processed.append(processed)
         return True
 
@@ -98,7 +108,7 @@ class ProcessingManager(SwarmComponentMeta):
         frame = cv2.drawContours(frame, contours, -1, self.cont_color, 1)
         return None, None, frame
 
-    def get_processed_frame(self, camera_frame):
+    def get_processed_frame(self, camera_frame, return_last=True):
         if camera_frame is not None:
             # camera_frame = camera_frame.copy()
             if self.multi_threaded:
@@ -110,7 +120,9 @@ class ProcessingManager(SwarmComponentMeta):
             else:
                 self.processed_frame_data = self.process_frame(FrameData(frame=camera_frame))
                 return self.processed_frame_data.frame
-        return None if self.processed_frame_data is None else self.processed_frame_data.frame
+        if return_last:
+            return None if self.processed_frame_data is None else self.processed_frame_data.frame
+        return None
 
 
     def update(self, debug=False, surfaces=None):
@@ -158,5 +170,5 @@ class ProcessingManager(SwarmComponentMeta):
                 print(f"Center: ({center_x:.2f}, {center_y:.2f})")
 
     def draw(self, text_pos, debug=False, surfaces=None):
-        text_pos = self.logger.add_text_line(f"OP - FPS: {self.fps_counter.fps}, Frames to process: {len(self.frames_to_process)}, Processed: {len(self.frames_processed)}", (255, 255, 0), text_pos, surfaces)
+        text_pos = self.logger.add_text_line(f"{self.tag} - Time: {self.avg_processing_time:.3f} FPS: {self.fps_counter.fps}, To process: {len(self.frames_to_process)}, Processed: {len(self.frames_processed)}", (255, 255, 0), text_pos, surfaces)
         text_pos.y -= self.logger.line_height

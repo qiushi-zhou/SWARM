@@ -2,24 +2,26 @@ url: "wss://anthropomorphicmachine.com:3006"
 sockets:
   - namespace: "/gallery_stream"
     url: "wss://anthropomorphicmachine.com:3006"
+    enabled: true
     sync_with_server: false
     send_frames: true
     frame_scaling: true
     frame_adaptive: false
     min_frame_scaling: 0.5 # adaptive fame scaling
-    fixed_frame_scaling: 1
+    fixed_frame_scaling: 0.5
     frame_skip: true
-    target_framerate: 30
+    target_framerate: 25
     emit_event: 'gallery_stream_in'
 
   - namespace: "/online_interaction"
     url: "wss://anthropomorphicmachine.com:3006"
+    enabled: true
     sync_with_server: false
     send_frames: true
     frame_scaling: true
     frame_adaptive: false
     min_frame_scaling: 0.5 # adaptive fame scaling
-    fixed_frame_scaling: 1
+    fixed_frame_scaling: 0.5
     frame_skip: true
-    target_framerate: 30
+    target_framerate: 25
     emit_event: 'processed_webcam_data_in'

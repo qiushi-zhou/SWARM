@@ -90,11 +90,11 @@ class SwarmAPP:
       self.update_config()
       # self.video_manager.add_stream_frame(self.websocket_manager.get_stream_frame("/online_interaction"))
       local_frame = self.video_manager.get_frame()
-      processed_local_frame = self.local_processing_manager.get_processed_frame(local_frame)
+      processed_local_frame = self.local_processing_manager.get_processed_frame(local_frame, return_last=True)
       self.local_processing_manager.update(debug=debug, surfaces=[self.scene_manager.tag])
 
       stream_frame = self.websocket_manager.get_stream_frame("/online_interaction")
-      processed_stream_frame = self.stream_processing_manager.get_processed_frame(stream_frame)
+      processed_stream_frame = self.stream_processing_manager.get_processed_frame(stream_frame, return_last=False)
       self.stream_processing_manager.update(debug=debug, surfaces=[self.scene_manager.tag])
 
       self.scene_manager.update(processed_local_frame, debug=False)

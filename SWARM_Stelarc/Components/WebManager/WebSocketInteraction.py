@@ -52,8 +52,8 @@ class WebSocketInteraction(WebSocketMeta):
     def get_latest_received_frame(self):
         return self.in_buffer.pop_data()
 
-    def __init__(self, tasks_manager, url, namespace, frame_w, frame_h):
-        WebSocketMeta.__init__(self, tasks_manager, url, namespace, frame_w, frame_h)
+    def __init__(self, tasks_manager, url, namespace, frame_w, frame_h, executor=None):
+        WebSocketMeta.__init__(self, tasks_manager, url, namespace, frame_w, frame_h, executor)
         print(f"Creating websocket interaction")
         self.frame_w = frame_w
         self.frame_h = frame_h
@@ -63,9 +63,9 @@ class WebSocketInteraction(WebSocketMeta):
         self.frame_skipping = False
         self.last_file_size = 1
 
-    def create_ws(tasks_manager, url, namespace, frame_w, frame_h, async_loop=None):
+    def create_ws(tasks_manager, url, namespace, frame_w, frame_h, executor=None):
         global ws_inter
-        ws_inter = WebSocketInteraction(tasks_manager, url, namespace, frame_w, frame_h)
+        ws_inter = WebSocketInteraction(tasks_manager, url, namespace, frame_w, frame_h, executor)
         ws_inter.attach_callbacks()
         return ws_inter
 

@@ -20,6 +20,9 @@ class DataQueue:
         return
       self.buffer.append(data)
 
+    def clear(self):
+      self.buffer.clear()
+
     def discard_next(self):
       self.fps_counter.update()
       if self.is_empty():

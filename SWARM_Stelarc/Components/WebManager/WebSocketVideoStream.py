@@ -41,12 +41,12 @@ class WebSocketVideoStream(WebSocketMeta):
         global ws_vs
         await WebSocketHandlers.on_scale_request(ws_vs, *args)
 
-    def __init__(self, tasks_manager, url, namespace, frame_w, frame_h):
-        WebSocketMeta.__init__(self, tasks_manager, url, namespace, frame_w, frame_h)
+    def __init__(self, tasks_manager, url, namespace, frame_w, frame_h, executor=None):
+        WebSocketMeta.__init__(self, tasks_manager, url, namespace, frame_w, frame_h, executor)
 
-    def create_ws(tasks_manager, url, namespace, frame_w, frame_h):
+    def create_ws(tasks_manager, url, namespace, frame_w, frame_h, executor=None):
         global ws_vs
-        ws_vs = WebSocketVideoStream(tasks_manager, url, namespace, frame_w, frame_h)
+        ws_vs = WebSocketVideoStream(tasks_manager, url, namespace, frame_w, frame_h, executor)
         ws_vs.attach_callbacks()
         return ws_vs
 

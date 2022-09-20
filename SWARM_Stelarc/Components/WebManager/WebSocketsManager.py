@@ -1,6 +1,7 @@
 from .WebSocketVideoStream import WebSocketVideoStream
 from .WebSocketInteraction import WebSocketInteraction
 from .WebSocketMeta import WebSocketMeta
+from concurrent.futures import ThreadPoolExecutor
 from ..SwarmComponentMeta import SwarmComponentMeta
 import pygame
 import socketio
@@ -11,6 +12,7 @@ class WebSocketsManager(SwarmComponentMeta):
         super(WebSocketsManager, self).__init__(logger, tasks_manager, "WebSocketManager", r'./Config/WebSocketConfig.yaml', self.update_config_data)
         self.tasks_manager = tasks_manager
         self.multi_threaded = True
+        self.executor = ThreadPoolExecutor(3)  #Create a ProcessPool with 2 processes
         self.sockets = {}
 
         self.frame_w = frame_w
@@ -27,13 +29,15 @@ class WebSocketsManager(SwarmComponentMeta):
             if namespace is not None and namespace not in self.sockets:
                 url = s_config.get("url", "")
                 if "gallery" in namespace:
-                    self.sockets[namespace] = WebSocketVideoStream.create_ws(self.tasks_manager, url, namespace, self.frame_w, self.frame_h)
+                    self.sockets[namespace] = WebSocketVideoStream.create_ws(self.tasks_manager, url, namespace, self.frame_w, self.frame_h, self.executor)
                 elif "inter" in namespace:
-                    self.sockets[namespace] = WebSocketInteraction.create_ws(self.tasks_manager, url, namespace, self.frame_w, self.frame_h)
+                    self.sockets[namespace] = WebSocketInteraction.create_ws(self.tasks_manager, url, namespace, self.frame_w, self.frame_h, self.executor)
+            if namespace in self.sockets:
                 self.sockets[namespace].update_config(s_config)
 
     def enqueue_frame(self, namespace, cv2_frame, cameras_data, draw=False):
-        self.sockets[namespace].enqueue_frame(cv2_frame, cameras_data)
+        if namespace in self.sockets:
+            self.sockets[namespace].enqueue_frame(cv2_frame, cameras_data)
         if draw:
             self.logger.draw_frame((0, 0, 0), cv2_frame, self.tag)
 
@@ -44,22 +48,7 @@ class WebSocketsManager(SwarmComponentMeta):
 
     def update_config_data(self, data, last_modified_time):
         self.config_data = data
-        # self.frame_scaling = data.get("frame_scaling", False)
-        # self.adaptive_scaling = data.get("frame_adaptive", False)
-        # self.min_frame_scaling = data.get("min_frame_scaling", 1)
-        # self.fixed_frame_scaling = data.get("fixed_frame_scaling", 1)
-        # self.max_frame_scaling = self.fixed_frame_scaling
-        # self.send_frames = data.get("send_frames", self.send_frames)
-        # self.target_framerate = data.get("target_framerate", 30)
-        # self.frame_skipping = data.get("frame_skip", False)
         self.last_modified_time = last_modified_time
-    #
-    # def get_frame(self, surface):
-    #     scaling_factor = self.update_scaling()
-    #     image_bytes = io.BytesIO()
-    #     subsurface = pygame.transform.scale(surface, (self.frame_w * scaling_factor, self.frame_h * scaling_factor))
-    #     pygame.image.save(subsurface, image_bytes, "JPEG")
-    #     return image_bytes
 
     def draw(self, start_pos, debug=False, surfaces=None):
         if debug:

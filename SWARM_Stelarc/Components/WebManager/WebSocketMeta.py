@@ -3,7 +3,6 @@ import threading
 import datetime
 import cv2
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
 from .WebSocketHandlers import WebSocketHandlers
 from ..Utils.DataQueue import DataQueue
 from .SwarmData import SwarmData
@@ -12,7 +11,7 @@ import time
 
 
 class WebSocketMeta:
-    def __init__(self, tasks_manager, url, namespace, frame_w, frame_h):
+    def __init__(self, tasks_manager, url, namespace, frame_w, frame_h, threadpool_executor=None):
         self.sio = socketio.AsyncClient(logger=False, engineio_logger=False)
         self.enabled = True
         self.sync_with_server = False
@@ -30,13 +29,15 @@ class WebSocketMeta:
         self.tasks_manager = tasks_manager
         self.task_running = False
         self.async_loop = asyncio.new_event_loop()
-        self.executor = ThreadPoolExecutor(2)   #Create a ProcessPool with 2 processes
+        self.executor = threadpool_executor
+        # if self.executor is None:
+        #     self.executor = ThreadPoolExecutor(3)  #Create a ProcessPool with 2 processes
 
         self.frame_w = frame_w
         self.frame_h = frame_h
 
         self.target_framerate = 30
-        self.scaling_factor = 1.0
+        self.scaling_factor = 0.6
         self.last_file_size = 1
 
         self.out_buffer = DataQueue(2, self.target_framerate)
@@ -73,10 +74,13 @@ class WebSocketMeta:
             await self.send_data()
         except Exception as e:
             print(f"Error running send loop {self.namespace} : {e}")
+        await asyncio.sleep(0.00001)
         # print(f"WebSocket loop not implemented!")
 
     def start_async_task(self):
         if not self.task_running:
+            self.in_buffer.clear()
+            self.out_buffer.clear()
             print(f"Starting {self.namespace} background task")
             self.task_running = True
             self.async_loop.run_in_executor(self.executor, self.main_loop_starter)
@@ -86,7 +90,7 @@ class WebSocketMeta:
             print(f"Stopping {self.namespace} background task")
             self.task_running = False
 
-    def init(self):
+    def check_enable(self):
         if self.enabled:
             if self.multi_threaded:
                 self.start_async_task()
@@ -97,6 +101,15 @@ class WebSocketMeta:
 
     def update_config(self, data):
         self.sync_with_server = data.get("sync_with_server", False)
+        self.target_framerate = data.get("target_framerate", 30)
+        self.enabled = data.get("enabled", self.enabled)
+        # self.frame_scaling = data.get("frame_scaling", False)
+        # self.adaptive_scaling = data.get("frame_adaptive", False)
+        # self.min_frame_scaling = data.get("min_frame_scaling", 1)
+        self.scaling_factor = data.get("fixed_frame_scaling", self.scaling_factor)
+        # self.max_frame_scaling = self.fixed_frame_scaling
+        # self.send_frames = data.get("send_frames", self.send_frames)
+        # self.frame_skipping = data.get("frame_skip", False)
         url = data.get("url", self.url)
         namespace = data.get("namespace", self.namespace)
         self.emit_event = data.get('emit_event', self.emit_event)
@@ -105,7 +118,7 @@ class WebSocketMeta:
             self.url = url
             self.namespace = namespace
             self.uri = f"{url}{namespace}"
-            self.init()
+        self.check_enable()
             # if not self.connect_task.is_running():
             #     self.connect_task.start()
 
@@ -130,7 +143,6 @@ class WebSocketMeta:
     def enqueue_frame(self, frame, cameras_data):
         if frame is None:
             return
-
         if self.scaling_factor < 0.99:
             frame = cv2.resize(frame, (int(self.frame_w * self.scaling_factor), int(self.frame_h * self.scaling_factor)))
         swarm_data = SwarmData(frame, cameras_data)
@@ -143,7 +155,6 @@ class WebSocketMeta:
             time_since_last_pop = self.out_buffer.time_since_last_pop()
             swarm_data = self.out_buffer.pop_data()
             if swarm_data is None:
-                time.sleep(0.001)
                 return
             data_json = swarm_data.get_json()
             data_json["frame_time"] = time_since_last_pop
