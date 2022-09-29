@@ -130,6 +130,7 @@ class OpenCVCamerasManager:
             from pygrabber.dshow_graph import FilterGraph
             graph = FilterGraph()
             devices = graph.get_input_devices()
+            self.print_delay = 1
         max_idx = self.max_idx if len(devices) <= 0 else len(devices)
         for idx in range(0, max_idx):
             cam_name = f'Camera {idx}'
@@ -147,7 +148,7 @@ class OpenCVCamerasManager:
         for i in range(0, len(self.cameras)):
             cam = self.cameras[i]
             if cam.thread.is_alive():
-                alive_threads.append(f"{cam.cam_id} {cam.thread.name} {cam.total_frames}")
+                alive_threads.append(f"{cam.cam_name} {cam.thread.name} {cam.total_frames}")
             if cam.ready:
                 frame = cam.get_frame()
                 if frame is not None:
