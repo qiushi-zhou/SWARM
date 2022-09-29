@@ -2,14 +2,43 @@ import cv2
 import threading
 import time
 import datetime
-from SWARM_Stelarc.Components.Utils.FPSCounter import FPSCounter
 import numpy as np
 from sys import platform
 
+class FPSCounter():
+  def __init__(self, reset_time=10):
+    self.reset_time = reset_time
+    self.fps = 0
+    self.frame_count = 0
+    self.start_time = 0
+    self.last_frame_time = time.time()
+
+  def reset(self):
+    self.frame_count = 0
+    self.start_time = time.time()
+    self.last_frame_time = time.time()
+
+  def time_since_last_update(self):
+    return time.time() - self.last_frame_time
+
+  def update(self, new_frames=0):
+    if new_frames > 0:
+      self.frame_count += new_frames
+      self.last_frame_time = time.time()
+    elapsed = time.time() - self.start_time
+    if elapsed > 0:
+      self.fps = int(self.frame_count / (elapsed))
+      if elapsed >= self.reset_time:
+        self.reset()
+
+
 class OpenCVCamera:
-    def __init__(self, cam_id, size):
+    def __init__(self, cam_id, size, cam_name=None):
         self.size = size
         self.cam_id = cam_id
+        self.cam_name = cam_name
+        if self.cam_name is None:
+            self.cam_name = f'Camera {cam_id}'
         self.cam = None
         self.last_frame = None
         self.cam = None
@@ -21,9 +50,11 @@ class OpenCVCamera:
         self.initialized = False
         self.total_frames = 0
         self.last_thread_name = "None"
+        self.frame_shape = [-1, -1]
         self.ready = False
 
     def capture_loop(self):
+        res_str = f"Cap {self.cam_id}\t{self.cam_name}\t{self.thread.name}"
         try:
             if platform == "win32":
                 self.cam = cv2.VideoCapture(self.cam_id, cv2.CAP_DSHOW)
@@ -36,12 +67,12 @@ class OpenCVCamera:
             pass
         self.initialized = True
         if self.cam is None or not self.cam.isOpened():
-            print(f"Capture {self.cam_id} on Thread {self.thread.name} FAILED")
+            print(res_str +" FAILED")
             self.thread_started = False
             self._stop.set()
             return
         self.ready = True
-        print(f"Capture {self.cam_id} on Thread {self.thread.name} OPENED")
+        print(res_str +" OPENED")
         while self.thread_started:
             self.last_thread_name = threading.current_thread().name
             if self._stop.isSet():
@@ -49,6 +80,7 @@ class OpenCVCamera:
             if self.cam is not None and self.cam.isOpened():
                 rval, frame = self.cam.read()
                 if frame is not None:
+                    self.frame_shape = frame.shape
                     self.last_frame = self.process_frame(frame)
                     self.fps_counter.update(1)
                     self.total_frames = self.total_frames + 1 if self.total_frames < 100 else 0
@@ -68,9 +100,9 @@ class OpenCVCamera:
         if self.last_frame is not None:
             frame = self.last_frame.copy()
             if dbg_info:
-                lines = [f"Capture {self.cam_id}",
+                lines = [f"Cap {self.cam_id} {self.cam_name}: {self.frame_shape[1]} x {self.frame_shape[0]}",
                          f"Frames: {self.total_frames}",
-                         f"FPS: {int(self.fps_counter.fps)} / {self.cam.get(cv2.CAP_PROP_FPS)}",
+                         f"FPS: {self.fps_counter.fps:.2f} / {self.cam.get(cv2.CAP_PROP_FPS):.2f}",
                          f"{self.last_thread_name} / {threading.activeCount()}"
                          ]
                 y_offset = 40
@@ -88,12 +120,24 @@ class OpenCVCamerasManager:
         self.size = {'width': int(1280 * self.hd_scaling), 'height': int(720 * self.hd_scaling)}
         self.cameras = []
         self.max_idx = max_idx
+        self.print_delay = 5
+        self.last_print_time = time.time() - ((self.print_delay-1))
         cv2.namedWindow(self.title)
 
     def init_cameras(self):
-        for idx in range(0, self.max_idx):
-            cam = OpenCVCamera(idx, self.size)
+        devices = []
+        if platform == 'win32':
+            from pygrabber.dshow_graph import FilterGraph
+            graph = FilterGraph()
+            devices = graph.get_input_devices()
+        max_idx = self.max_idx if len(devices) <= 0 else len(devices)
+        for idx in range(0, max_idx):
+            cam_name = f'Camera {idx}'
+            if idx < len(devices):
+                cam_name = devices[idx]
+            cam = OpenCVCamera(idx, self.size, cam_name)
             self.cameras.append(cam)
+
     def get_collage(self):
         total_frames = 0
         vstacks = []
@@ -120,7 +164,9 @@ class OpenCVCamerasManager:
         if len(inactive_cams_idx) > 0:
             for cam_idx in inactive_cams_idx:
                 del self.cameras[cam_idx]
-        print(f"{datetime.datetime.now()}\tGrid {total_frames} : {len(hstacks)} x {len(vstacks)} \t{len(alive_threads)} / {len(self.cameras)} Alive Threads\t{alive_threads}", end='\n', flush=True)
+        if time.time() - self.last_print_time >= self.print_delay:
+            self.last_print_time = time.time()
+            print(f"{datetime.datetime.now()}\tGrid {total_frames} : {len(hstacks)} x {len(vstacks)} \t{len(alive_threads)} / {len(self.cameras)} Alive Threads\t{alive_threads}", end='\n', flush=True)
         try:
             vstacks.append(np.hstack(hstacks))
             return np.vstack(vstacks)
