@@ -4,6 +4,7 @@ import time
 import datetime
 from SWARM_Stelarc.Components.Utils.FPSCounter import FPSCounter
 import numpy as np
+from sys import platform
 
 class OpenCVCamera:
     def __init__(self, cam_id, size):
@@ -19,21 +20,30 @@ class OpenCVCamera:
         self.thread.start()
         self.initialized = False
         self.total_frames = 0
+        self.last_thread_name = "None"
+        self.ready = False
 
     def capture_loop(self):
         try:
-            self.cam = cv2.VideoCapture(self.cam_id)
+            if platform == "win32":
+                self.cam = cv2.VideoCapture(self.cam_id, cv2.CAP_DSHOW)
+            else:
+                # On MacOS, make sure to install opencv with "brew install opencv" and then link it with "brew link --overwrite opencv"
+                # Also remove CAP_DSHOW for MacOS
+                self.cam = cv2.VideoCapture(self.cam_id, cv2.CAP_AVFOUNDATION)
         except Exception as e:
+            print(f"Error opening VideoCapture {self.cam_id}")
             pass
+        self.initialized = True
         if self.cam is None or not self.cam.isOpened():
-            self.initialized = False
             print(f"Capture {self.cam_id} on Thread {self.thread.name} FAILED")
             self.thread_started = False
             self._stop.set()
             return
-        self.initialized = True
+        self.ready = True
         print(f"Capture {self.cam_id} on Thread {self.thread.name} OPENED")
         while self.thread_started:
+            self.last_thread_name = threading.current_thread().name
             if self._stop.isSet():
                 break
             if self.cam is not None and self.cam.isOpened():
@@ -41,8 +51,9 @@ class OpenCVCamera:
                 if frame is not None:
                     self.last_frame = self.process_frame(frame)
                     self.fps_counter.update(1)
-                    self.total_frames += 1
-                time.sleep(0.01)
+                    self.total_frames = self.total_frames + 1 if self.total_frames < 100 else 0
+
+                time.sleep(0.001)
         self.cam.release()
 
     def process_frame(self, frame, dbg_info=True):
@@ -57,15 +68,15 @@ class OpenCVCamera:
         if self.last_frame is not None:
             frame = self.last_frame.copy()
             if dbg_info:
+                lines = [f"Capture {self.cam_id}",
+                         f"Frames: {self.total_frames}",
+                         f"FPS: {int(self.fps_counter.fps)} / {self.cam.get(cv2.CAP_PROP_FPS)}",
+                         f"{self.last_thread_name} / {threading.activeCount()}"
+                         ]
                 y_offset = 40
                 font_scaling = 0.35
-                dbg_string = f"Capture {self.cam_id}"
-                frame = cv2.putText(frame, dbg_string, (10, int(y_offset * font_scaling)),  cv2.FONT_HERSHEY_SIMPLEX, font_scaling, (0,255,0), 1, cv2.LINE_AA)
-                dbg_string = f"Frames: {self.total_frames} FPS: {self.fps_counter.fps: .2f}"
-                frame = cv2.putText(frame, dbg_string, (10, int(y_offset * 2 * font_scaling)),  cv2.FONT_HERSHEY_SIMPLEX, font_scaling, (0,255,0), 1, cv2.LINE_AA)
-                dbg_string = f"{threading.current_thread().name} / {threading.activeCount()}"
-                frame = cv2.putText(frame, dbg_string, (10, int(y_offset * 3 * font_scaling)),  cv2.FONT_HERSHEY_SIMPLEX, font_scaling, (0,255,0), 1, cv2.LINE_AA)
-
+                for idx in range(0, len(lines)):
+                    frame = cv2.putText(frame, lines[idx], (10, int(y_offset * (idx+1) * font_scaling)), cv2.FONT_HERSHEY_SIMPLEX, font_scaling, (0, 255, 0), 1, cv2.LINE_AA)
 
         return frame
 
@@ -88,10 +99,12 @@ class OpenCVCamerasManager:
         vstacks = []
         hstacks = []
         alive_threads = []
-        for cam in self.cameras:
+        inactive_cams_idx = []
+        for i in range(0, len(self.cameras)):
+            cam = self.cameras[i]
             if cam.thread.is_alive():
                 alive_threads.append(f"{cam.cam_id} {cam.thread.name} {cam.total_frames}")
-            if cam.initialized:
+            if cam.ready:
                 frame = cam.get_frame()
                 if frame is not None:
                     hstacks.append(frame)
@@ -101,6 +114,12 @@ class OpenCVCamerasManager:
                         vstacks.append(np.hstack(hstacks))
                     except Exception as e:
                         print(f"Exception stacking horizontally: {e}")
+            else:
+                if cam.initialized:
+                    inactive_cams_idx.append(i)
+        if len(inactive_cams_idx) > 0:
+            for cam_idx in inactive_cams_idx:
+                del self.cameras[cam_idx]
         print(f"{datetime.datetime.now()}\tGrid {total_frames} : {len(hstacks)} x {len(vstacks)} \t{len(alive_threads)} / {len(self.cameras)} Alive Threads\t{alive_threads}", end='\n', flush=True)
         try:
             vstacks.append(np.hstack(hstacks))
@@ -118,7 +137,7 @@ class OpenCVCamerasManager:
             except Exception as e:
                 # print(f"Exception getting collage: {e}")
                 pass
-            time.sleep(0.01)
+            time.sleep(0.001)
             key = cv2.waitKey(1)
             if key == 27:  # exit on ESC
                 return
