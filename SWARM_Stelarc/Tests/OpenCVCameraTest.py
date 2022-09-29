@@ -18,6 +18,7 @@ class OpenCVCamera:
         self._stop = threading.Event()
         self.thread.start()
         self.initialized = False
+        self.total_frames = 0
 
     def capture_loop(self):
         try:
@@ -40,6 +41,7 @@ class OpenCVCamera:
                 if frame is not None:
                     self.last_frame = self.process_frame(frame)
                     self.fps_counter.update(1)
+                    self.total_frames += 1
                 time.sleep(0.01)
         self.cam.release()
 
@@ -55,8 +57,16 @@ class OpenCVCamera:
         if self.last_frame is not None:
             frame = self.last_frame.copy()
             if dbg_info:
-                dbg_string = f"Capture {self.cam_id}. FPS: {self.fps_counter.fps:.2f}. {threading.current_thread().name} / {threading.activeCount()}"
-                frame = cv2.putText(frame, dbg_string, (10,20),  cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0,255,0), 1, cv2.LINE_AA)
+                y_offset = 40
+                font_scaling = 0.35
+                dbg_string = f"Capture {self.cam_id}"
+                frame = cv2.putText(frame, dbg_string, (10, int(y_offset * font_scaling)),  cv2.FONT_HERSHEY_SIMPLEX, font_scaling, (0,255,0), 1, cv2.LINE_AA)
+                dbg_string = f"Frames: {self.total_frames} FPS: {self.fps_counter.fps: .2f}"
+                frame = cv2.putText(frame, dbg_string, (10, int(y_offset * 2 * font_scaling)),  cv2.FONT_HERSHEY_SIMPLEX, font_scaling, (0,255,0), 1, cv2.LINE_AA)
+                dbg_string = f"{threading.current_thread().name} / {threading.activeCount()}"
+                frame = cv2.putText(frame, dbg_string, (10, int(y_offset * 3 * font_scaling)),  cv2.FONT_HERSHEY_SIMPLEX, font_scaling, (0,255,0), 1, cv2.LINE_AA)
+
+
         return frame
 
 class OpenCVCamerasManager:
@@ -80,7 +90,7 @@ class OpenCVCamerasManager:
         alive_threads = []
         for cam in self.cameras:
             if cam.thread.is_alive():
-                alive_threads.append(f"{cam.cam_id} {cam.thread.name}")
+                alive_threads.append(f"{cam.cam_id} {cam.thread.name} {cam.total_frames}")
             if cam.initialized:
                 frame = cam.get_frame()
                 if frame is not None:
