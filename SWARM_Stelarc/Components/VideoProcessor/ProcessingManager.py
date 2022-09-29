@@ -85,6 +85,9 @@ class ProcessingManager(SwarmComponentMeta):
             elif self.processing_type == "simple":
                 tracks, keypoints, updated_frame = self.simple_processing(to_process.frame)
                 to_process.processed = True
+            elif self.processing_type == "dancing":
+                tracks, keypoints, updated_frame = self.input.dancing_processing(to_process.frame)
+                to_process.processed = True
             else:
                 tracks, keypoints, updated_frame = (None, None, to_process.frame)
                 to_process.processed = False

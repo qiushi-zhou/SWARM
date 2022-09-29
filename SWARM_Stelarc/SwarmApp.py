@@ -64,7 +64,7 @@ class SwarmAPP:
     self.update_config()
     self.tasks_manager.init()
     self.scene_manager.init()
-    self.video_manager.init(1)
+    self.video_manager.init(Constants.start_capture_index)
     self.local_processing_manager.init()
     self.stream_processing_manager.init()
     self.swarm_manager.init()

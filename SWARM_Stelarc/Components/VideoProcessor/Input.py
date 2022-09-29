@@ -105,6 +105,9 @@ class Input:
     #             s += (',' + str(j))
     #     csv_writer.writerow([s])
 
+    def dancing_processing(self, frame):
+        res, trackers = self.update_trackers(frame)
+
     def update_trackers(self, frame):
         datum = op.Datum()
         datum.cvInputData = frame
