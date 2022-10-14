@@ -28,7 +28,7 @@ class SwarmManager(SwarmComponentMeta):
         debug = True
         text_debug = False
         right_text_pos_orig = Point(right_text_pos.x, right_text_pos.y)
-        right_text_pos.y += self.logger.line_height*1.5
+        right_text_pos.y += self.logger.line_height*2.4
         self.frame_buffer.add_frame_data(cameras)
         action_updated = False
         # if self.frame_buffer.empty_frames > 0:

@@ -42,7 +42,12 @@ class SceneManager(SwarmComponentMeta):
             
     def update_config_data(self, data, last_modified_time):
         pass
-    
+
+    def draw_rect_alpha(self, color, rect):
+        shape_surf = self.pygame.Surface(self.pygame.Rect(rect).size, self.pygame.SRCALPHA)
+        self.pygame.draw.rect(shape_surf, color, shape_surf.get_rect())
+        self.screen.blit(shape_surf, rect)
+
     def update(self, frame, debug=False, surfaces=None):
         if debug:
             print(f"Updating Scene Manager!")
@@ -51,6 +56,8 @@ class SceneManager(SwarmComponentMeta):
         if self.drawer_type == SceneDrawerType.PYGAME:
             self.screen_delay = self.sceneClock.tick()
             self.logger.draw_frame(self.backgroundColor, frame, self.tag)
+            rect = (self.screen_w/2, self.screen_h/2, self.screen_w/2, self.screen_h/2)
+            self.draw_rect_alpha((0,0,0,220), rect)
     
     def draw(self, debug=True, surfaces=None):
         if debug:
