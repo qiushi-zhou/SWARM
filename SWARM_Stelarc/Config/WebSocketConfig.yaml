@@ -1,7 +1,7 @@
 url: "wss://anthropomorphicmachine.com:3006"
 sockets:
   - namespace: "/gallery_stream"
-    url: "wss://anthropomorphicmachine.com:3006"
+    url: "wss://anthropomorphicmachine.com:3005"
     enabled: true
     sync_with_server: false
     send_frames: true
@@ -14,8 +14,8 @@ sockets:
     emit_event: 'gallery_stream_in'
 
   - namespace: "/online_interaction"
-    url: "wss://anthropomorphicmachine.com:3006"
-    enabled: true
+    url: "wss://anthropomorphicmachine.com:3005"
+    enabled: false
     sync_with_server: false
     send_frames: true
     frame_scaling: true
