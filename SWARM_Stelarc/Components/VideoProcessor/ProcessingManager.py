@@ -33,6 +33,7 @@ class ProcessingManager(SwarmComponentMeta):
         self.avg_processing_time = 0
         self.total_processing_time = 0
         self.proc_time_count = 0
+        self.op_lock = threading.Lock()
 
     def init(self):
         if not self.multi_threaded:
@@ -80,14 +81,17 @@ class ProcessingManager(SwarmComponentMeta):
             return FrameData()
         try:
             if self.processing_type == "op":
-                tracks, keypoints, updated_frame = self.input.update_trackers(to_process.frame)
-                to_process.processed = True
+                with self.op_lock:
+                    tracks, keypoints, updated_frame = self.input.update_trackers(to_process.frame)
+                    to_process.processed = True
             elif self.processing_type == "simple":
-                tracks, keypoints, updated_frame = self.simple_processing(to_process.frame)
-                to_process.processed = True
+                with self.op_lock:
+                    tracks, keypoints, updated_frame = self.simple_processing(to_process.frame)
+                    to_process.processed = True
             elif self.processing_type == "dancing":
-                tracks, keypoints, updated_frame = self.input.dancing_processing(to_process.frame)
-                to_process.processed = True
+                with self.op_lock:
+                    tracks, keypoints, updated_frame = self.input.dancing_processing(to_process.frame)
+                    to_process.processed = True
             else:
                 tracks, keypoints, updated_frame = (None, None, to_process.frame)
                 to_process.processed = False
