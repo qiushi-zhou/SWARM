@@ -88,7 +88,15 @@ class SwarmManager(SwarmComponentMeta):
         data = {}
         data['current_behavior'] = self.current_behavior
         data['behavior_mode'] = self.machine_mode
-        data['behaviors_data'] = json.dumps(self.behaviors)
+        behaviors_data = []
+        for behavior in self.behaviors:
+            copy = behavior.copy()
+            try:
+                copy['last_executed_time'] = copy.get('last_executed_time', None).strftime('%Y-%m-%d %H:%M:%S')
+            except Exception as e:
+              copy['last_executed_time'] = ""
+            behaviors_data.append(copy)
+        data['behaviors_data'] = json.dumps(behaviors_data)
         return self.frame_buffer.get_json()
     def draw(self, left_text_pos, right_text_pos, debug=False, surfaces=None):
         for i in range(0, len(self.debug_lines)):
@@ -144,7 +152,11 @@ class SwarmManager(SwarmComponentMeta):
                 return False
         # right_text_pos.y += self.ui_drawer.line_height
         if debug:
-            self.debug_lines.insert(len(self.debug_lines)-len(parameters)-1, {'text': f"{prefix} {name.upper()} {postfix} {criteria_met}/{total_enabled_criteria}", 'color': color, 'side': 'right', 'spaces_before': 1})
+            try:
+                last_executed_string = behavior.get('last_executed_time', None).strftime('%Y-%m-%d %H:%M:%S')
+            except Exception as e:
+                last_executed_string = "Never"
+            self.debug_lines.insert(len(self.debug_lines)-len(parameters)-1, {'text': f"{prefix} {name.upper()} {postfix} {criteria_met}/{total_enabled_criteria} ({last_executed_string})", 'color': color, 'side': 'right', 'spaces_before': 1})
             # self.debug_lines[len(self.debug_lines)-1]['space_after'] = 1
             # self.debug_lines += param_debug_lines
             # self.ui_drawer.add_text_line(f"{prefix} {name.upper()} {postfix} {criteria_met}/{total_enabled_criteria}", color, right_text_pos_orig, s_names=surfaces)
