@@ -169,7 +169,7 @@ class SwarmManager(SwarmComponentMeta):
                 last_executed_string = behavior.get('last_executed_time', None).strftime('%Y-%m-%d %H:%M:%S')
             except Exception as e:
                 last_executed_string = "Never"
-            self.debug_lines.insert(len(self.debug_lines)-len(parameters)-1, {'text': f"{prefix} {name.upper()} {postfix} {criteria_met}/{total_enabled_criteria} ({last_executed_string})", 'color': color, 'side': 'right', 'spaces_before': 1})
+            self.debug_lines.insert(len(self.debug_lines)-total_enabled_criteria, {'text': f"{prefix} {name.upper()} {postfix} {criteria_met}/{total_enabled_criteria} ({last_executed_string})", 'color': color, 'side': 'right', 'spaces_before': 1})
             # self.debug_lines[len(self.debug_lines)-1]['space_after'] = 1
             # self.debug_lines += param_debug_lines
             # self.ui_drawer.add_text_line(f"{prefix} {name.upper()} {postfix} {criteria_met}/{total_enabled_criteria}", color, right_text_pos_orig, s_names=surfaces)
@@ -187,11 +187,13 @@ class SwarmManager(SwarmComponentMeta):
             return False, enabled
         value = -1
         if param_name == "time":
+            timeout = param.get("timeout", 300)
             last_time = behavior.get("last_executed_time", None)
             if last_time is None:
-                return True, enabled
-            timeout = param.get("timeout", 300)
-            elapsed = (datetime.datetime.now() - last_time).seconds
+                elapsed = 0
+            else:
+                elapsed = (datetime.datetime.now() - last_time).seconds
+
             if debug:
                 color = active_color if is_running else inactive_color
                 # text_pos = self.ui_drawer.add_text_line(f"{param_name}: {elapsed}/{timeout}", color, text_pos, surfaces)

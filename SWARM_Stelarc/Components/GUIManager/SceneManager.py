@@ -59,6 +59,8 @@ class SceneManager(SwarmComponentMeta):
             self.ui_drawer.draw_frame(self.backgroundColor, frame, self.tag)
             rect = (self.screen_w/2, self.screen_h/2, self.screen_w/2, self.screen_h/2)
             self.draw_rect_alpha((0,0,0,220), rect)
+            rect = (self.screen_w, 0, self.screen_w/2, self.screen_h)
+            self.draw_rect_alpha((0,0,0,220), rect)
     
     def draw(self, debug=True, surfaces=None):
         if debug:
