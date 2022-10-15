@@ -2,6 +2,7 @@ from ..SwarmComponentMeta import SwarmComponentMeta
 from .FrameBufferData import FrameBuffer
 from ..Utils.utils import Point
 import datetime
+import json
 
 MAX_HISTORY_SIZE = 10000
 
@@ -84,6 +85,10 @@ class SwarmManager(SwarmComponentMeta):
                                  'color': color, 'side': 'left'})
 
     def get_swarm_data(self):
+        data = {}
+        data['current_behavior'] = self.current_behavior
+        data['behavior_mode'] = self.machine_mode
+        data['behaviors_data'] = json.dumps(self.behaviors)
         return self.frame_buffer.get_json()
     def draw(self, left_text_pos, right_text_pos, debug=False, surfaces=None):
         for i in range(0, len(self.debug_lines)):
