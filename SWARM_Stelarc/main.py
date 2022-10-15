@@ -36,6 +36,6 @@ if __name__ == "__main__":
                              "REye.x", "REye.y", "LEye.x", "LEye.y", "REar.x", "REar.y", "LEar.x", "LEar.y",
                              "LBigToe.x", "LBigToe.y", "LSmallToe.x", "LSmallToe.y", "LHeel.x", "LHeel.y",
                              "RBigToe.x", "RBigToe.y", "RSmallToe.x", "RSmallToe.y", "RHeel.x", "RHeel.y"])
-        # swarm = SwarmAPP(arduino_port="COM4", mockup_commands=False)
-        swarm = SwarmAPP(arduino_port="COM3", mockup_commands=True)
+        swarm = SwarmAPP(arduino_port="COM4", mockup_commands=False)
+        # swarm = SwarmAPP(arduino_port="COM3", mockup_commands=True)
         asyncio.run(swarm.run(debug=False))

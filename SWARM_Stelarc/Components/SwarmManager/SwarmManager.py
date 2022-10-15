@@ -191,6 +191,7 @@ class SwarmManager(SwarmComponentMeta):
             last_time = behavior.get("last_executed_time", None)
             if last_time is None:
                 elapsed = 0
+                behavior["last_executed_time"] = datetime.datetime.now()
             else:
                 elapsed = (datetime.datetime.now() - last_time).seconds
 
