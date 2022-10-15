@@ -88,6 +88,7 @@ class SwarmManager(SwarmComponentMeta):
         data = {}
         data['current_behavior'] = self.current_behavior
         data['behavior_mode'] = self.machine_mode
+        data['frames_stats'] = self.frame_buffer.get_json()
         behaviors_data = []
         for behavior in self.behaviors:
             copy = behavior.copy()
