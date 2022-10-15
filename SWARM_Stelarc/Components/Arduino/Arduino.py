@@ -245,10 +245,11 @@ class Arduino():
             self.status.started_time = datetime.datetime.now()
             if debug:
                 print(f"{e.strftime('%Y-%m-%d %H:%M:%S')} {prefix} Command '{self.last_command}' sent! Status updated: {prev_status.title} -> {self.status.title}!")
+            return True
         else:
             if debug:
                 print(f"Arduino not ready to receive command {command}, status {self.status.title}: {self.status.description}!")
-        return self.status
+        return False
 
     def send(self, string):
         self.ser.write((string+"\n").encode())

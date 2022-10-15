@@ -47,16 +47,18 @@ class SwarmManager(SwarmComponentMeta):
             if not action_updated:
                 if all_criteria_met:
                     action_updated = True
-                    self.current_behavior = behavior
-                    name = self.current_behavior.get("name", "unknown")
-                    command = self.current_behavior.get("arduino_command", "")
+                    name = behavior.get("name", "unknown")
+                    command = behavior.get("arduino_command", "")
                     if text_debug:
                         print(f"Action updated: {name} ({command})")
                         print(f"\r\nNew ACTION: Running command {command} from behavior {name}\n\r")
                     # Debugging lines
                     dbg_vals = f"p: {self.frame_buffer.people_data.avg:.2f}, g: {self.frame_buffer.groups_data.avg:.2f}, p_d: {self.frame_buffer.distance_data.avg:.2f}, p_dm: {self.frame_buffer.machine_distance_data.avg:.2f}"
-                    self.arduino.send_command(command, debug=text_debug, dbg_vals=dbg_vals)
-                    behavior["last_executed_time"] = datetime.datetime.now()
+                    cmd_sent = self.arduino.send_command(command, debug=text_debug, dbg_vals=dbg_vals)
+                    if cmd_sent:
+                        behavior["last_executed_time"] = datetime.datetime.now()
+                        self.current_behavior = behavior
+
                     # We found the command to execute so we can stop here
                     if not debug:
                         return

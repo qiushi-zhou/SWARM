@@ -1,6 +1,6 @@
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
-scaling = 1
+scaling = 0.9
 SCREEN_WIDTH = int(SCREEN_WIDTH*scaling)
 SCREEN_HEIGHT = int(SCREEN_HEIGHT*scaling)
 # SCREEN_WIDTH = 850
