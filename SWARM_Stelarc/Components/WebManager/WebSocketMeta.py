@@ -140,13 +140,13 @@ class WebSocketMeta:
     def set_scaling(self, scaling_factor):
         self.scaling_factor = scaling_factor
 
-    def enqueue_frame(self, frame, cameras_data):
+    def enqueue_frame(self, frame, cameras_data, swarm_data):
         if frame is None:
             return
         if self.scaling_factor < 0.99:
             frame = cv2.resize(frame, (int(self.frame_w * self.scaling_factor), int(self.frame_h * self.scaling_factor)))
-        swarm_data = SwarmData(frame, cameras_data)
-        self.out_buffer.insert_data(swarm_data)
+        data = SwarmData(frame, cameras_data, swarm_data)
+        self.out_buffer.insert_data(data)
         if not self.multi_threaded:
             self.send_data()
 

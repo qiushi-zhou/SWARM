@@ -15,10 +15,11 @@ class FrameData:
         self.processed = False
 
 class ProcessingManager(SwarmComponentMeta):
-    def __init__(self, tag, logger, tasks_manager, camera_manager=None, cont_color=(0, 255, 0)):
+    def __init__(self, tag, logging, ui_drawer, tasks_manager, camera_manager=None, cont_color=(0, 255, 0)):
+        self.logging = logging
         self.processing_type = "simple"
         self.input = None
-        super(ProcessingManager, self).__init__(logger, tasks_manager, "ProcessingManager")
+        super(ProcessingManager, self).__init__(ui_drawer, tasks_manager, "ProcessingManager")
         self.cameras = camera_manager.cameras if camera_manager is not None else []
         self.processed_frame_data = None
         self.multi_threaded = False
@@ -168,7 +169,7 @@ class ProcessingManager(SwarmComponentMeta):
                         p1 = Point(kp1[0], kp1[1])
                         p2 = Point(kp2[0], kp2[1])
                         if p1.x > 1 and p1.y > 1 and p2.x > 1 and p2.y > 1:
-                            self.logger.draw_line(p1, p2, color, thickness, surfaces)
+                            self.ui_drawer.draw_line(p1, p2, color, thickness, surfaces)
 
             for camera in self.cameras:
                 # camera.check_track([p1,p2], center_p)
@@ -177,5 +178,5 @@ class ProcessingManager(SwarmComponentMeta):
                 print(f"Center: ({center_x:.2f}, {center_y:.2f})")
 
     def draw(self, text_pos, debug=False, surfaces=None):
-        text_pos = self.logger.add_text_line(f"{self.tag} - Time: {self.avg_processing_time:.3f} FPS: {self.fps_counter.fps}, To process: {len(self.frames_to_process)}, Processed: {len(self.frames_processed)}", (255, 255, 0), text_pos, surfaces)
-        text_pos.y -= self.logger.line_height
+        text_pos = self.ui_drawer.add_text_line(f"{self.tag} - Time: {self.avg_processing_time:.3f} FPS: {self.fps_counter.fps}, To process: {len(self.frames_to_process)}, Processed: {len(self.frames_processed)}", (255, 255, 0), text_pos, surfaces)
+        text_pos.y -= self.ui_drawer.line_height

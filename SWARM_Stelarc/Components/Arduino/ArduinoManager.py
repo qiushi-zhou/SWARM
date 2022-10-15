@@ -5,9 +5,10 @@ import time
 
 
 class ArduinoManager(SwarmComponentMeta):
-    def __init__(self, logger, tasks_manager, arduino_port="COM4", mockup_commands=True):
-        super(ArduinoManager, self).__init__(logger, tasks_manager, "ArduinoManager", r'./Config/ArduinoConfig.yaml',
+    def __init__(self, logging, ui_drawer, tasks_manager, arduino_port="COM4", mockup_commands=True):
+        super(ArduinoManager, self).__init__(ui_drawer, tasks_manager, "ArduinoManager", r'./Config/ArduinoConfig.yaml',
                                              self.update_config_data)
+        self.logging = logging
         self.multi_threaded = False
         self.background_task = self.tasks_manager.add_task("AR", None, self.update_arduino_status, None)
         self.arduino = Arduino(port=arduino_port, mockup_commands=mockup_commands)
@@ -48,7 +49,7 @@ class ArduinoManager(SwarmComponentMeta):
         color = (0, 255, 0)
         if arduino.mockup_commands:
             prefix = "(Mockup Commands)"
-            color = (0, 0, 255)
+            color = (100, 100, 255)
         if arduino.not_operational:
             prefix = "(Not Operational )"
             color = (255, 0, 0)
@@ -58,15 +59,24 @@ class ArduinoManager(SwarmComponentMeta):
 
         now = datetime.datetime.now()
 
+        start_pos.y += self.ui_drawer.line_height
         time_str = f"Time of the day: {now.hour:>02d}:{now.minute:>02d}"
-        time_str += f" - Working Hours {arduino.working_hours[0].tm_hour:>02d}:{arduino.working_hours[0].tm_min:>02d} - {arduino.working_hours[1].tm_hour:>02d}:{arduino.working_hours[1].tm_min:>02d}"
-        date_str = f"Day of the week: {now.strftime('%A')} - Working Days: {arduino.working_days}"
-        start_pos = self.logger.add_text_line(time_str, color, start_pos, surfaces)
-        start_pos.y -= self.logger.line_height
-        start_pos = self.logger.add_text_line(date_str, color, start_pos, surfaces)
-        start_pos.y -= self.logger.line_height
-        start_pos = self.logger.add_text_line(arduino_cmd_dbg, color, start_pos, surfaces)
-        start_pos.y += self.logger.line_height
+        start_pos = self.ui_drawer.add_text_line(time_str, color, start_pos, surfaces)
+        start_pos.y -= self.ui_drawer.line_height
+
+        time_str = f"Working Hours {arduino.working_hours[0].tm_hour:>02d}:{arduino.working_hours[0].tm_min:>02d} - {arduino.working_hours[1].tm_hour:>02d}:{arduino.working_hours[1].tm_min:>02d}"
+        start_pos = self.ui_drawer.add_text_line(time_str, color, start_pos, surfaces)
+        start_pos.y -= self.ui_drawer.line_height
+
+        date_str = f"Day of the week: {now.strftime('%A')}"
+        start_pos = self.ui_drawer.add_text_line(date_str, color, start_pos, surfaces)
+        start_pos.y -= self.ui_drawer.line_height
+
+        date_str = f"Working Days: {arduino.working_days}"
+        start_pos = self.ui_drawer.add_text_line(date_str, color, start_pos, surfaces)
+        start_pos.y -= self.ui_drawer.line_height
+
+        start_pos = self.ui_drawer.add_text_line(arduino_cmd_dbg, color, start_pos, surfaces)
 
         for s_idx in arduino.statuses:
             s = arduino.statuses[s_idx]
@@ -86,6 +96,6 @@ class ArduinoManager(SwarmComponentMeta):
             else:
                 arduino_status_dbg += f" Waiting: {remaining} s {s.extra}"
 
-            start_pos = self.logger.add_text_line(arduino_status_dbg, color, start_pos, surfaces)
-            start_pos.y -= self.logger.line_height
+            start_pos = self.ui_drawer.add_text_line(arduino_status_dbg, color, start_pos, surfaces)
+            start_pos.y -= self.ui_drawer.line_height
         return

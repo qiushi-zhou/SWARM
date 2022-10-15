@@ -2,10 +2,11 @@ from .Camera import Camera
 from ..SwarmComponentMeta import SwarmComponentMeta
 
 class CamerasManager(SwarmComponentMeta):
-    def __init__(self, logger, tasks_manager, screen_w=500, screen_h=500):
+    def __init__(self, logging, ui_drawer, tasks_manager, screen_w=500, screen_h=500):
+        self.logging = logging
         self.screen_w = screen_w
         self.screen_h = screen_h
-        super(CamerasManager, self).__init__(logger, tasks_manager, "CamerasManager", r'./Config/CamerasConfig.yaml', self.update_config_data)
+        super(CamerasManager, self).__init__(ui_drawer, tasks_manager, "CamerasManager", r'./Config/CamerasConfig.yaml', self.update_config_data)
         self.cameras = []
     
     def update_config(self):
@@ -42,4 +43,4 @@ class CamerasManager(SwarmComponentMeta):
             print(f"Draw Cameras Manager")
         for i in range(0, len(self.cameras)):
             camera = self.cameras[i]
-            camera.draw_debug(self.logger, draw_graph_data=draw_graph_data, surfaces=surfaces)
+            camera.draw_debug(self.ui_drawer, draw_graph_data=draw_graph_data, surfaces=surfaces)

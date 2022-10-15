@@ -63,7 +63,7 @@ build_script:
     -DDOWNLOAD_CATCH=ON
     -DCMAKE_SUPPRESS_REGENERATION=1
 - set MSBuildLogger="C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
-- cmake --build . --config %CONFIG% --target pytest -- /m /v:m /logger:%MSBuildLogger%
-- cmake --build . --config %CONFIG% --target cpptest -- /m /v:m /logger:%MSBuildLogger%
-- if "%CPP%"=="latest" (cmake --build . --config %CONFIG% --target test_cmake_build -- /m /v:m /logger:%MSBuildLogger%)
+- cmake --build . --config %CONFIG% --target pytest -- /m /v:m /ui_drawer:%MSBuildLogger%
+- cmake --build . --config %CONFIG% --target cpptest -- /m /v:m /ui_drawer:%MSBuildLogger%
+- if "%CPP%"=="latest" (cmake --build . --config %CONFIG% --target test_cmake_build -- /m /v:m /ui_drawer:%MSBuildLogger%)
 on_failure: if exist "tests\test_cmake_build" type tests\test_cmake_build\*.log*

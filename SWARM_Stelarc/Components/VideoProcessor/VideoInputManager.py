@@ -10,10 +10,11 @@ import base64
 from PIL import Image
 
 class VideoInputManager(SwarmComponentMeta):
-    def __init__(self, logger, tasks_manager, screen_w=500, screen_h=500):
+    def __init__(self, logging, ui_drawer, tasks_manager, screen_w=500, screen_h=500):
+        self.logging = logging
         self.screen_w = screen_w
         self.screen_h = screen_h
-        super(VideoInputManager, self).__init__(logger, tasks_manager, "VideoInputManager")
+        super(VideoInputManager, self).__init__(ui_drawer, tasks_manager, "VideoInputManager")
         import cv2
         self.cv2 = cv2
         self.cap = None
@@ -132,5 +133,5 @@ class VideoInputManager(SwarmComponentMeta):
     def draw(self, left_text_pos, debug=False, surfaces=None):
         if debug:
             print(f"Drawing VideoInput Manager")
-        left_text_pos = self.logger.add_text_line(f"VI - FPS: {self.fps_counter.fps }, Frame Buffer: {len(self.frame_buffer)}, Size: {self.frame_shape}", (255, 255, 0), left_text_pos, surfaces)
-        left_text_pos.y -= self.logger.line_height
+        left_text_pos = self.ui_drawer.add_text_line(f"VI - FPS: {self.fps_counter.fps }, Frame Buffer: {len(self.frame_buffer)}, Size: {self.frame_shape}", (255, 255, 0), left_text_pos, surfaces)
+        left_text_pos.y -= self.ui_drawer.line_height

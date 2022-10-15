@@ -1,7 +1,7 @@
 from .Utils.utils import Point
 from .GUIManager.SceneManager import SceneManager, SceneDrawerType
 
-class SwarmLogger:
+class UIDrawer:
     class DebugLine:
         def __init__(self, text, color, pos, font=None, font_size=0.4, line_height=-1):
             self.text = text
@@ -42,7 +42,7 @@ class SwarmLogger:
             self.line_height = self.font_size*0.8
 
     def add_surface(self, surface, name):
-        self.surfaces[name] = SwarmLogger.SurfaceLogger(name, surface)
+        self.surfaces[name] = UIDrawer.SurfaceLogger(name, surface)
 
     def loop_surfaces(self, fun, s_names, *args, **kwargs):
         ret = None

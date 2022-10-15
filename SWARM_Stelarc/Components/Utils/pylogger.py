@@ -114,14 +114,14 @@ class ConsoleLogWidget(LogWidgetMeta):
         return None
 
 # class QtLogWidget(LogWidgetMeta, QWidget):
-#     def __init__(self, logger):
+#     def __init__(self, ui_drawer):
 #         import PySide2.QtWidgets as pyQtWidgets
 #         import PySide2.QtGui as pyQtGui
 #         super(LogWidget, self).__init__()
 #         self.tag = "QtLogWidget"
 #         self.main_layout = pyQtWidgets.QVBoxLayout()
 #         self.extra_layout = pyQtWidgets.QHBoxLayout()
-#         self.logger = logger
+#         self.ui_drawer = ui_drawer
 #         self.text_area = pyQtWidgets.QTextEdit()
 #         self.text_area.setReadOnly(True)
 #         self.text_area.setFont(QFont("Courier New", 9))
@@ -129,8 +129,8 @@ class ConsoleLogWidget(LogWidgetMeta):
 #         self.title = pyQtWidgets.QLabel("LOG")
 #         self.filter_label = pyQtWidgets.QLabel("Filter level:")
 #         self.filter_combobox = pyQtWidgets.QComboBox()
-#         for key in self.logger.log_levels.keys():
-#             self.filter_combobox.addItem(str(self.logger.log_levels[key]) + " - " + key, key)
+#         for key in self.ui_drawer.log_levels.keys():
+#             self.filter_combobox.addItem(str(self.ui_drawer.log_levels[key]) + " - " + key, key)
 #         self.filter_combobox.currentIndexChanged.connect(self.on_logging_level_changed)
 #         self.enable_checkbox = pyQtWidgets.QCheckBox("Enable")
 #         self.enable_checkbox.stateChanged.connect(self.enable_checkbox_changed)
@@ -166,35 +166,35 @@ class ConsoleLogWidget(LogWidgetMeta):
 #         self.text_area.verticalScrollBar().setValue(self.text_area.verticalScrollBar().maximum())
         
 #     def on_logging_level_changed(self, new_logging_level):
-#         self.logger.set_min_log_level(self.filter_combobox.itemData(new_logging_level))        
+#         self.ui_drawer.set_min_log_level(self.filter_combobox.itemData(new_logging_level))
 
 #     def enable_checkbox_changed(self, value):
-#         self.logger.setEnabled(value)
+#         self.ui_drawer.setEnabled(value)
 #         self.check_log_status()
 
 #     def console_checkbox_changed(self, value):
-#         self.logger.setConsoleEnabled(value)
+#         self.ui_drawer.setConsoleEnabled(value)
 #         self.check_log_status()
 
 #     def widget_checkbox_changed(self, value):
-#         self.logger.setWidgetEnabled(value)
+#         self.ui_drawer.setWidgetEnabled(value)
 #         self.check_log_status()
 
 #     def file_checkbox_changed(self, value):
-#         self.logger.setFileEnabled(value)
+#         self.ui_drawer.setFileEnabled(value)
 #         self.check_log_status()
 
 #     def check_log_status(self):
-#         self.filter_combobox.setCurrentIndex(self.logger.get_min_log_level_index())
+#         self.filter_combobox.setCurrentIndex(self.ui_drawer.get_min_log_level_index())
 
-#         self.enable_checkbox.setChecked(self.logger.enabled)
-#         self.console_checkbox.setChecked(self.logger.enable_console)
-#         self.widget_checkbox.setChecked(self.logger.enable_widget)
-#         self.file_checkbox.setChecked(self.logger.save_to_file)
+#         self.enable_checkbox.setChecked(self.ui_drawer.enabled)
+#         self.console_checkbox.setChecked(self.ui_drawer.enable_console)
+#         self.widget_checkbox.setChecked(self.ui_drawer.enable_widget)
+#         self.file_checkbox.setChecked(self.ui_drawer.save_to_file)
 
-#         self.console_checkbox.setEnabled(self.logger.enabled)
-#         self.widget_checkbox.setEnabled(self.logger.enabled)
-#         self.file_checkbox.setEnabled(self.logger.enabled)
+#         self.console_checkbox.setEnabled(self.ui_drawer.enabled)
+#         self.widget_checkbox.setEnabled(self.ui_drawer.enabled)
+#         self.file_checkbox.setEnabled(self.ui_drawer.enabled)
 
 class VisualLogWidget(LogWidgetMeta):
     class Type:

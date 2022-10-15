@@ -2,9 +2,9 @@ from .Utils import utils
 
 
 class SwarmComponentMeta:
-   def __init__(self, logger=None, tasks_manager=None, tag="SwarmComponent", config_filename=None,
+   def __init__(self, ui_drawer=None, tasks_manager=None, tag="SwarmComponent", config_filename=None,
                 update_config_data_callback=None):
-      self.logger = logger
+      self.ui_drawer = ui_drawer
       self.tasks_manager = tasks_manager
       self.tag = tag
       self.enabled = True

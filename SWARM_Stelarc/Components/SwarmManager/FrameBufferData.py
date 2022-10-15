@@ -44,6 +44,13 @@ class FramesData():
       self.avg = self.sum
       if self.non_zeroes > 0:
         self.avg = self.sum / self.non_zeroes
+
+    def get_json(self):
+      return {
+        'sum': self.sum,
+        'min': self.min,
+        'max': self.max,
+        'non_zeroes': self.non_zeroes}
       
   
 class FrameBuffer():           
@@ -80,6 +87,15 @@ class FrameBuffer():
           self.group_ratio = self.groups_data.avg / self.people_data.avg if self.people_data.avg else 0
           self.distance_data.update(f.avg_people_distance)
           self.machine_distance_data.update(f.avg_machine_distance)
+
+    def get_json(self):
+      data = {}
+      data['people'] = self.people_data.get_json()
+      data['groups_data'] = self.groups_data.get_json()
+      data['group_ratio'] = self.group_ratio
+      data['distance_data'] = self.distance_data.get_json()
+      data['machine_distance_data'] = self.machine_distance_data.get_json()
+      return data
 
     def size(self):
         return len(self.frames)

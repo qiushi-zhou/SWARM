@@ -3,7 +3,7 @@
 import time
 import datetime
 import Constants
-from Components.SwarmLogger import SwarmLogger
+from Components.UIDrawer import UIDrawer
 from Components.GUIManager.SceneManager import SceneManager, SceneDrawerType
 from Components.BackgroundTasksManager import BackgroundTasksManager
 from Components.VideoProcessor.VideoInputManager import VideoInputManager
@@ -14,25 +14,35 @@ from Components.WebManager.WebSocketsManager import WebSocketsManager
 from Components.SwarmManager.SwarmManager import SwarmManager
 from Components.Utils.utils import Point
 from Components.Utils import utils
-import asyncio
+import logging
+from logging import FileHandler
+import os
 
+
+class TimestampedFileHandler(FileHandler):
+  def __init__(self, filename, mode='a', encoding=None, delay=False):
+    filename, extension = os.path.splitext(filename)
+    filename = f"{filename}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}{extension}"
+    FileHandler.__init__(self, filename, mode, encoding, delay)
+
+logging.basicConfig(level=logging.DEBUG)
 
 class SwarmAPP:
   def __init__(self, arduino_port="COM4", mockup_commands=True):
     self.tag = "SwarmApp"
-    self.logger = SwarmLogger()
+    self.ui_drawer = UIDrawer()
     self.last_modified_time = -1
     self.processing_type = False
 
-    self.tasks_manager = BackgroundTasksManager(self.logger)
-    self.scene_manager = SceneManager(self.logger, self.tasks_manager, SceneDrawerType.PYGAME, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, Constants.font_size)
-    self.video_manager = VideoInputManager(self.logger, self.tasks_manager, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)
-    self.cameras_manager = CamerasManager(self.logger, self.tasks_manager, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)
-    self.local_processing_manager = ProcessingManager("LC", self.logger, self.tasks_manager, self.cameras_manager)
-    # self.stream_processing_manager = ProcessingManager("ST", self.logger, self.tasks_manager, self.cameras_manager, cont_color=(255,0,0))
-    self.arduino_manager = ArduinoManager(self.logger, self.tasks_manager, arduino_port, mockup_commands)
-    self.websocket_manager = WebSocketsManager(self.logger, self.tasks_manager, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)
-    self.swarm_manager = SwarmManager(self.logger, self.tasks_manager, self.arduino_manager)
+    self.tasks_manager = BackgroundTasksManager(logging, self.ui_drawer)
+    self.scene_manager = SceneManager(logging, self.ui_drawer, self.tasks_manager, SceneDrawerType.PYGAME, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, Constants.font_size)
+    self.video_manager = VideoInputManager(logging, self.ui_drawer, self.tasks_manager, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)
+    self.cameras_manager = CamerasManager(logging, self.ui_drawer, self.tasks_manager, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)
+    self.local_processing_manager = ProcessingManager("LC", logging, self.ui_drawer, self.tasks_manager, self.cameras_manager)
+    # self.stream_processing_manager = ProcessingManager("ST", self.ui_drawer, self.tasks_manager, self.cameras_manager, cont_color=(255,0,0))
+    self.arduino_manager = ArduinoManager(logging, self.ui_drawer, self.tasks_manager, arduino_port, mockup_commands)
+    self.websocket_manager = WebSocketsManager(logging, self.ui_drawer, self.tasks_manager, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT)
+    self.swarm_manager = SwarmManager(logging, self.ui_drawer, self.tasks_manager, self.arduino_manager)
 
   def update_data(self, data, last_modified_time):
     self.processing_type = data.get("processing", False)
@@ -72,6 +82,40 @@ class SwarmAPP:
     self.arduino_manager.init()
     self.websocket_manager.init()
 
+  def update_components(self, debug=False):
+      self.update_config()
+      # self.video_manager.add_stream_frame(self.websocket_manager.get_stream_frame("/online_interaction"))
+      local_frame = self.video_manager.get_frame()
+      processed_local_frame = self.local_processing_manager.get_processed_frame(local_frame, return_last=True)
+      self.local_processing_manager.update(debug=debug, surfaces=[self.scene_manager.tag])
+
+      # stream_frame = self.websocket_manager.get_stream_frame("/online_interaction")
+      # processed_stream_frame = self.stream_processing_manager.get_processed_frame(stream_frame, return_last=False)
+      # self.stream_processing_manager.update(debug=debug, surfaces=[self.scene_manager.tag])
+
+      self.scene_manager.update(processed_local_frame, debug=False)
+
+      # self.websocket_manager.enqueue_frame("/online_interaction", processed_stream_frame, self.cameras_manager.get_cameras_data())
+      self.websocket_manager.enqueue_frame("/gallery_stream", processed_local_frame, self.cameras_manager.get_cameras_data(), self.swarm_manager.get_swarm_data())
+
+      self.cameras_manager.update(debug=debug)
+      self.arduino_manager.update(debug=debug)
+      self.swarm_manager.update(self.cameras_manager.cameras, debug=False, surfaces=[self.scene_manager.tag])
+
+  def draw_components(self, debug, left_text_pos, right_text_pos):
+      self.video_manager.draw(left_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
+      self.local_processing_manager.draw(left_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
+      # self.stream_processing_manager.draw(left_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
+      self.tasks_manager.draw(left_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
+      self.cameras_manager.draw(draw_graph_data=False, debug=debug, surfaces=[self.scene_manager.tag])
+      self.websocket_manager.draw(left_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
+
+      self.swarm_manager.draw(left_text_pos, right_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
+      self.arduino_manager.draw(right_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
+      right_text_pos.y += self.ui_drawer.line_height
+
+      self.scene_manager.draw(debug=debug, surfaces=[self.scene_manager.tag])
+
   async def run(self, debug=False):
     debug = False
     offset = Point(10, 10)
@@ -87,37 +131,9 @@ class SwarmAPP:
       left_text_pos = Point(Constants.SCREEN_WIDTH * 0.5 + offset.x, Constants.SCREEN_HEIGHT * 0.5 + offset.y)
       right_text_pos = Point(Constants.SCREEN_WIDTH + offset.x, 0 + offset.y)
 
-      self.update_config()
-      # self.video_manager.add_stream_frame(self.websocket_manager.get_stream_frame("/online_interaction"))
-      local_frame = self.video_manager.get_frame()
-      processed_local_frame = self.local_processing_manager.get_processed_frame(local_frame, return_last=True)
-      self.local_processing_manager.update(debug=debug, surfaces=[self.scene_manager.tag])
+      self.update_components(debug)
+      self.draw_components(debug, left_text_pos, right_text_pos)
 
-      # stream_frame = self.websocket_manager.get_stream_frame("/online_interaction")
-      # processed_stream_frame = self.stream_processing_manager.get_processed_frame(stream_frame, return_last=False)
-      # self.stream_processing_manager.update(debug=debug, surfaces=[self.scene_manager.tag])
-
-      self.scene_manager.update(processed_local_frame, debug=False)
-
-      # self.websocket_manager.enqueue_frame("/online_interaction", processed_stream_frame, self.cameras_manager.get_cameras_data())
-      self.websocket_manager.enqueue_frame("/gallery_stream", processed_local_frame, self.cameras_manager.get_cameras_data())
-
-      self.cameras_manager.update(debug=debug)
-
-      self.video_manager.draw(left_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
-      self.local_processing_manager.draw(left_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
-      # self.stream_processing_manager.draw(left_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
-      self.tasks_manager.draw(left_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
-      self.cameras_manager.draw(draw_graph_data=False, debug=debug, surfaces=[self.scene_manager.tag])
-      self.websocket_manager.draw(left_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
-
-      self.arduino_manager.update(debug=debug)
-      self.swarm_manager.update(self.cameras_manager.cameras, left_text_pos, right_text_pos, debug=False, surfaces=[self.scene_manager.tag])
-
-      self.arduino_manager.draw(right_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
-      right_text_pos.y += self.logger.line_height
-
-      self.scene_manager.draw(debug=debug, surfaces=[self.scene_manager.tag])
 
       if debug:
         print(f"--- End loop ---\n")

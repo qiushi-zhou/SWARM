@@ -2,7 +2,6 @@
 import asyncio
 
 from .SwarmComponentMeta import SwarmComponentMeta
-from .SwarmLogger import SwarmLogger
 import threading
 
 
@@ -54,8 +53,8 @@ class BackgroundTask:
         return self.name
 
 class BackgroundTasksManager(SwarmComponentMeta):
-    def __init__(self, logger):
-        super(BackgroundTasksManager, self).__init__(logger, self, "BackgroundTasksManager")
+    def __init__(self, logging, ui_drawer):
+        super(BackgroundTasksManager, self).__init__(ui_drawer, self, "BackgroundTasksManager")
         self.tasks = []
 
     def add_task(self, name, init_fun, loop_fun, cleanup_fun, read_lock=None):
@@ -124,5 +123,5 @@ class BackgroundTasksManager(SwarmComponentMeta):
         if debug:
             print(f"Drawing BackgroundTasks Manager!")
         running_tasks = self.get_running_tasks()
-        start_pos = self.logger.add_text_line(f"Tasks: {running_tasks}", (255,0,0), start_pos, surfaces)
+        start_pos = self.ui_drawer.add_text_line(f"Tasks: {running_tasks}", (255,0,0), start_pos, surfaces)
         pass
