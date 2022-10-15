@@ -48,6 +48,7 @@ class FramesData():
     def get_json(self):
       return {
         'sum': self.sum,
+        'avg': self.avg,
         'min': self.min,
         'max': self.max,
         'non_zeroes': self.non_zeroes}
