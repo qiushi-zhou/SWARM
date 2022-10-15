@@ -91,13 +91,16 @@ class SwarmManager(SwarmComponentMeta):
         behaviors_data = []
         for behavior in self.behaviors:
             copy = behavior.copy()
-            try:
-                copy['last_executed_time'] = copy.get('last_executed_time', None).strftime('%Y-%m-%d %H:%M:%S')
-            except Exception as e:
-              copy['last_executed_time'] = ""
+            for k, v in copy.items():
+                if 'datetime' in copy[k].__class__.__name__:
+                    try:
+                        copy[k] = copy.get(k, None).strftime('%Y-%m-%d %H:%M:%S')
+                    except Exception as e:
+                        copy[k] = ""
             behaviors_data.append(copy)
         data['behaviors_data'] = json.dumps(behaviors_data)
-        return self.frame_buffer.get_json()
+        return behaviors_data
+
     def draw(self, left_text_pos, right_text_pos, debug=False, surfaces=None):
         for i in range(0, len(self.debug_lines)):
             line = self.debug_lines[i]
