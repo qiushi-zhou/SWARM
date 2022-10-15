@@ -84,23 +84,30 @@ class SwarmManager(SwarmComponentMeta):
         self.debug_lines.append({'text': f"{name} - avg: {data.avg:.2f}, minmax: [{data.min:.2f}, {data.max:.2f}], n: {data.non_zeroes}/{self.frame_buffer.size()}",
                                  'color': color, 'side': 'left'})
 
+    def seralize_datetime(self, dict_obj):
+        try:
+            dict_obj = dict_obj.copy()
+            for k, v in dict_obj.items():
+                if 'datetime' in dict_obj[k].__class__.__name__:
+                    try:
+                        dict_obj[k] = dict_obj.get(k, None).strftime('%Y-%m-%d %H:%M:%S')
+                    except Exception as e:
+                        dict_obj[k] = ""
+        except Exception as e:
+            pass
+        return dict_obj
+
     def get_swarm_data(self):
         data = {}
-        data['current_behavior'] = self.current_behavior
-        data['behavior_mode'] = self.machine_mode
         data['frames_stats'] = self.frame_buffer.get_json()
+        data['current_behavior'] = self.seralize_datetime(self.current_behavior)
+        data['behavior_mode'] = self.machine_mode
         behaviors_data = []
         for behavior in self.behaviors:
-            copy = behavior.copy()
-            for k, v in copy.items():
-                if 'datetime' in copy[k].__class__.__name__:
-                    try:
-                        copy[k] = copy.get(k, None).strftime('%Y-%m-%d %H:%M:%S')
-                    except Exception as e:
-                        copy[k] = ""
+            copy = self.seralize_datetime(behavior)
             behaviors_data.append(copy)
-        data['behaviors_data'] = json.dumps(behaviors_data)
-        return behaviors_data
+        data['behaviors_data'] = behaviors_data
+        return data
 
     def draw(self, left_text_pos, right_text_pos, debug=False, surfaces=None):
         for i in range(0, len(self.debug_lines)):
