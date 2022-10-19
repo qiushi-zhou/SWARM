@@ -15,6 +15,7 @@ class SwarmManager(SwarmComponentMeta):
         self.frame_buffer = FrameBuffer(buffer_size=60)
         self.machine_mode = 'normal'
         self.current_behavior = None
+        self.curr_behavior_name = "NONE"
         self.debug_lines = []
     
     def update_config(self):
@@ -27,7 +28,7 @@ class SwarmManager(SwarmComponentMeta):
         self.machine_mode = self.config_data.get("machine_mode", 'normal')
         self.last_modified_time = last_modified_time      
     
-    def update(self, cameras, debug=False, surfaces=None):
+    def update(self, remote_command, cameras, debug=False, surfaces=None):
         # if debug:
         #     print(f"Updating Swarm Manager")
         debug = True
@@ -38,40 +39,50 @@ class SwarmManager(SwarmComponentMeta):
         action_updated = False
         # if self.frame_buffer.empty_frames > 0:
         #     return left_text_pos, right_text_pos
-        for behavior in self.behaviors:
-            try:
-                all_criteria_met = self.check_behavior(behavior, {}, debug=True, surfaces=surfaces)
-            except Exception as e:
-                print(f"Error checking behavior {behavior.get('name', 'NONE')}: {e}")
-                all_criteria_met = False
-            if not action_updated:
-                if all_criteria_met:
-                    action_updated = True
-                    name = behavior.get("name", "unknown")
-                    command = behavior.get("arduino_command", "")
-                    if text_debug:
-                        print(f"Action updated: {name} ({command})")
-                        print(f"\r\nNew ACTION: Running command {command} from behavior {name}\n\r")
-                    # Debugging lines
-                    dbg_vals = f"p: {self.frame_buffer.people_data.avg:.2f}, g: {self.frame_buffer.groups_data.avg:.2f}, p_d: {self.frame_buffer.distance_data.avg:.2f}, p_dm: {self.frame_buffer.machine_distance_data.avg:.2f}"
-                    cmd_sent = self.arduino.send_command(command, debug=text_debug, dbg_vals=dbg_vals)
-                    if cmd_sent:
-                        behavior["last_executed_time"] = datetime.datetime.now()
-                        self.current_behavior = behavior
+        if remote_command is None:
+            for behavior in self.behaviors:
+                try:
+                    all_criteria_met = self.check_behavior(behavior, {}, debug=True, surfaces=surfaces)
+                except Exception as e:
+                    print(f"Error checking behavior {behavior.get('name', 'NONE')}: {e}")
+                    all_criteria_met = False
+                if not action_updated:
+                    if all_criteria_met:
+                        action_updated = True
+                        name = behavior.get("name", "unknown")
+                        command = behavior.get("arduino_command", "")
+                        if text_debug:
+                            print(f"Action updated: {name} ({command})")
+                            print(f"\r\nNew ACTION: Running command {command} from behavior {name}\n\r")
+                        # Debugging lines
+                        dbg_vals = f"p: {self.frame_buffer.people_data.avg:.2f}, g: {self.frame_buffer.groups_data.avg:.2f}, p_d: {self.frame_buffer.distance_data.avg:.2f}, p_dm: {self.frame_buffer.machine_distance_data.avg:.2f}"
+                        cmd_sent = self.arduino.send_command(command, debug=text_debug, dbg_vals=dbg_vals)
+                        if cmd_sent:
+                            behavior["last_executed_time"] = datetime.datetime.now()
+                            self.current_behavior = behavior
 
-                    # We found the command to execute so we can stop here
-                    if not debug:
-                        return
-        curr_behavior_name = self.current_behavior.get('name', 'NONE').upper() if self.current_behavior is not None else '-'
-        b_color = (150, 150, 150) if curr_behavior_name == "None" else (255, 255, 0)
-        self.debug_lines.insert(0, {'text': f"Current Behaviour: {curr_behavior_name}", 'color': (255,0,0), 'side': 'right', 'spaces_after': 1})
-        # right_text_pos_orig = self.ui_drawer.add_text_line(f"Current Behaviour: {curr_behavior_name}", (255, 0, 0), right_text_pos_orig, s_names=surfaces)
+                        # We found the command to execute so we can stop here
+                        if not debug:
+                            return
+        else:
+            for behavior in self.behaviors:
+                name = behavior.get("name", "unknown")
+                command = behavior.get("arduino_command", "")
+                if name == remote_command:
+                    self.current_behavior = behavior
+                    break
+
+        self.curr_behavior_name = self.current_behavior.get('name', 'NONE').upper() if self.current_behavior is not None else '-'
+        self.curr_behavior_name = self.curr_behavior_name if remote_command is None else f"${self.curr_behavior_name} (REMOTE)"
+        b_color = (150, 150, 150) if self.curr_behavior_name == "None" else (255, 255, 0)
+        self.debug_lines.insert(0, {'text': f"Current Behaviour: {self.curr_behavior_name}", 'color': (255,0,0), 'side': 'right', 'spaces_after': 1})
+        # right_text_pos_orig = self.ui_drawer.add_text_line(f"Current Behaviour: {self.curr_behavior_name}", (255, 0, 0), right_text_pos_orig, s_names=surfaces)
         self.debug_lines.insert(0, {'text': f"Behaviour Type: {self.machine_mode}", 'color': (255,0,0), 'side': 'right'})
         # right_text_pos_orig = self.ui_drawer.add_text_line(f"Behaviour Type: {self.machine_mode}", (255, 0, 0), right_text_pos_orig, s_names=surfaces)
 
-        # left_text_pos = self.ui_drawer.add_text_line(f"Running Action {curr_behavior_name}", b_color, left_text_pos, s_names=surfaces)
+        # left_text_pos = self.ui_drawer.add_text_line(f"Running Action {self.curr_behavior_name}", b_color, left_text_pos, s_names=surfaces)
 
-        self.debug_lines.append({'text': f"Running Action {curr_behavior_name}", 'color': (255,100,100), 'side': 'left', 'spaces_after': 0})
+        self.debug_lines.append({'text': f"Running Action {self.curr_behavior_name}", 'color': (255,100,100), 'side': 'left', 'spaces_after': 0})
         self.add_param_debug_line('People', self.frame_buffer.people_data, b_color)
         self.add_param_debug_line('Groups', self.frame_buffer.groups_data, b_color)
         self.add_param_debug_line('Groups Ratio', self.frame_buffer.groups_data, b_color)
@@ -103,6 +114,7 @@ class SwarmManager(SwarmComponentMeta):
         data = {}
         data['frames_stats'] = self.frame_buffer.get_json()
         data['current_behavior'] = self.seralize_datetime(self.current_behavior)
+        data['current_behavior']['name'] = self.curr_behavior_name
         data['behavior_mode'] = self.machine_mode
         behaviors_data = []
         for behavior in self.behaviors:

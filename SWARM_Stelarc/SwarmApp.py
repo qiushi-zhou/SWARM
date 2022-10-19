@@ -89,6 +89,8 @@ class SwarmAPP:
       processed_local_frame = self.local_processing_manager.get_processed_frame(local_frame, return_last=True)
       self.local_processing_manager.update(debug=debug, surfaces=[self.scene_manager.tag])
 
+      stream_frame = self.websocket_manager.get_stream_frame("/online_interaction")
+      remote_command = self.websocket_manager.get_last_remote_command("/online_interaction")
       # stream_frame = self.websocket_manager.get_stream_frame("/online_interaction")
       # processed_stream_frame = self.stream_processing_manager.get_processed_frame(stream_frame, return_last=False)
       # self.stream_processing_manager.update(debug=debug, surfaces=[self.scene_manager.tag])
@@ -100,7 +102,7 @@ class SwarmAPP:
 
       self.cameras_manager.update(debug=debug)
       self.arduino_manager.update(debug=debug)
-      self.swarm_manager.update(self.cameras_manager.cameras, debug=False, surfaces=[self.scene_manager.tag])
+      self.swarm_manager.update(remote_command, self.cameras_manager.cameras, debug=False, surfaces=[self.scene_manager.tag])
 
   def draw_components(self, debug, left_text_pos, right_text_pos):
       self.video_manager.draw(left_text_pos, debug=debug, surfaces=[self.scene_manager.tag])
