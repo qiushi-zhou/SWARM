@@ -5,16 +5,16 @@ import time
 
 
 class ArduinoManager(SwarmComponentMeta):
-    def __init__(self, logging, ui_drawer, tasks_manager, arduino_port="COM4", mockup_commands=True):
+    def __init__(self, app_logger, ui_drawer, tasks_manager, arduino_port="COM4", mockup_commands=True):
         super(ArduinoManager, self).__init__(ui_drawer, tasks_manager, "ArduinoManager", r'./Config/ArduinoConfig.yaml',
                                              self.update_config_data)
-        self.logging = logging
+        self.app_logger = app_logger
         self.multi_threaded = False
         self.background_task = self.tasks_manager.add_task("AR", None, self.update_arduino_status, None)
-        self.arduino = Arduino(port=arduino_port, mockup_commands=mockup_commands)
+        self.arduino = Arduino(self.app_logger, port=arduino_port, mockup_commands=mockup_commands)
 
     def update_config(self):
-        super().update_config_from_file(self.tag, self.config_filename, self.last_modified_time)
+        super().update_config_from_file(self.app_logger, self.tag, self.config_filename, self.last_modified_time)
 
     def init(self):
         if not self.multi_threaded:

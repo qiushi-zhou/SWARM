@@ -11,7 +11,7 @@ from PIL import Image
 
 class VideoInputManager(SwarmComponentMeta):
     def __init__(self, logging, ui_drawer, tasks_manager, screen_w=500, screen_h=500):
-        self.logging = logging
+        self.app_logger= logging
         self.screen_w = screen_w
         self.screen_h = screen_h
         super(VideoInputManager, self).__init__(ui_drawer, tasks_manager, "VideoInputManager")

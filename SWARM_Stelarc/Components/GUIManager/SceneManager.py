@@ -8,9 +8,9 @@ class SceneDrawerType:
     NONE = 'None'
     
 class SceneManager(SwarmComponentMeta):
-    def __init__(self, logging, ui_drawer, tasks_manager, drawer_type, screen_w=500, screen_h=500, font_size=16):
+    def __init__(self, app_logger, ui_drawer, tasks_manager, drawer_type, screen_w=500, screen_h=500, font_size=16):
         super(SceneManager, self).__init__(ui_drawer, tasks_manager, "SceneManager")
-        self.logging = logging
+        self.app_logger = app_logger
         self.screen_w = screen_w
         self.screen_h = screen_h
         self.drawer_type = drawer_type

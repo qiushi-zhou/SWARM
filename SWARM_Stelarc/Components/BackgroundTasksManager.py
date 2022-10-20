@@ -53,9 +53,10 @@ class BackgroundTask:
         return self.name
 
 class BackgroundTasksManager(SwarmComponentMeta):
-    def __init__(self, logging, ui_drawer):
+    def __init__(self, app_logger, ui_drawer):
         super(BackgroundTasksManager, self).__init__(ui_drawer, self, "BackgroundTasksManager")
         self.tasks = []
+        self.app_logger = app_logger
 
     def add_task(self, name, init_fun, loop_fun, cleanup_fun, read_lock=None):
         task, index = self.get_task(name)
@@ -63,7 +64,7 @@ class BackgroundTasksManager(SwarmComponentMeta):
             print(f"Task {name} already added!")
             return task
         task = BackgroundTask(name, init_fun, loop_fun, cleanup_fun, read_lock)
-        print(f"Adding task {name}")
+        self.app_logger.debug(f"Adding task {name}")
         self.tasks.append(task)
         return task
 

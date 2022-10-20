@@ -3,7 +3,8 @@ from ..Utils.utils import Point
 from .people_graph import PeopleGraph
 
 class Camera:
-    def __init__(self, id, screen_w, screen_h, config_data, init_graph=True):
+    def __init__(self, app_logger, id, screen_w, screen_h, config_data, init_graph=True):
+        self.app_logger = app_logger;
         if init_graph:
             self.p_graph = PeopleGraph()
         self.id = id
@@ -30,7 +31,7 @@ class Camera:
             x,y = self.parse_point(self.path_points[len(self.path_points)-1])
             self.path_vertices.append(Point(x+self.origin.x, y+self.origin.y))
 
-            print(f"{debug_str} ]")
+            self.app_logger.debug(f"{debug_str} ]")
             self.build_path()
         text_position = config_data.get("text_position", origin_data)
         tx, ty = self.parse_point(text_position)

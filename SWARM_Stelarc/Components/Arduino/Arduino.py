@@ -43,7 +43,8 @@ class Arduino():
         "done":     "runcomp"
     }
 
-    def __init__(self, port="COM4", bps=115200, p_1=8, p_2="N", p_3=1, config_data=None, mockup_commands=True):
+    def __init__(self, app_logger, port="COM4", bps=115200, p_1=8, p_2="N", p_3=1, config_data=None, mockup_commands=True):
+        self.app_logger = app_logger
         self.port = port
         self._observers = []
         self.bps = bps
@@ -172,14 +173,14 @@ class Arduino():
             else:
                 self.port = self.find_port()
             if self.port is None:
-                print("Arduino disconnected (debug mode)")
+                self.app_logger.arduino("Arduino disconnected (debug mode)")
                 self.status = self.statuses["debug_mode"]
                 return
         try:
             self.ser = serial.Serial()
             self.ser.baudrate = self.bps
             self.ser.port = self.port
-            print(f"Initializing Arduino on port {self.port}, baud rate: {self.bps}")
+            self.app_logger.arduino(f"Initializing Arduino on port {self.port}, baud rate: {self.bps}")
             self.ser.open()
             time.sleep(1)
             # Flushing initial setup
@@ -190,10 +191,10 @@ class Arduino():
                     break
                 initial_string += received.replace('\x00', '')
             if len(initial_string) > 1:
-                print(f"Flushed initial string: {initial_string}")
+                self.app_logger.arduino(f"Flushed initial string: {initial_string}")
             self.status = self.statuses['ready']
         except Exception as e:
-            print(f"Error opening port {self.port} for Arduino: {e}")
+            self.app_logger.error(f"Error opening port {self.port} for Arduino: {e}")
             self.status = self.statuses['not_initialized']
             self.port = None
 
@@ -228,10 +229,10 @@ class Arduino():
             prefix = '(Normal)'
             cmd_string = self.build_command_str(command, loop)
             if debug:
-                print(f"Sending command string: {cmd_string}")
+                self.app_logger.arduino(f"Sending command string: {cmd_string}")
             if not self.not_operational:
                 if not self.mockup_commands:
-                    print(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Command {command} - {dbg_vals}")
+                    self.app_logger.arduino(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Command {command} - {dbg_vals}")
                     self.send(cmd_string)
                 else:
                     prefix = '(Testing)'
@@ -244,11 +245,11 @@ class Arduino():
             self.status.extra = f"{command} sent..."
             self.status.started_time = datetime.datetime.now()
             if debug:
-                print(f"{e.strftime('%Y-%m-%d %H:%M:%S')} {prefix} Command '{self.last_command}' sent! Status updated: {prev_status.title} -> {self.status.title}!")
+                self.app_logger.arduino(f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {prefix} Command '{self.last_command}' sent! Status updated: {prev_status.title} -> {self.status.title}!")
             return True
         else:
             if debug:
-                print(f"Arduino not ready to receive command {command}, status {self.status.title}: {self.status.description}!")
+                self.app_logger.arduino(f"Arduino not ready to receive command {command}, status {self.status.title}: {self.status.description}!")
         return False
 
     def send(self, string):
@@ -288,7 +289,7 @@ class Arduino():
                     self.status.started_time = datetime.datetime.now()
             elif self.status.id == self.statuses['command_sent'].id:
                 if (datetime.datetime.now() - self.status.started_time).seconds >= self.status.get_timeout(self.mockup_commands, self.not_operational):
-                    print(f"Max wait time waiting for feedback reached...")
+                    self.app_logger.arduino(f"Max wait time waiting for feedback reached...")
                     self.status.extra = f"Arduino did not respond..."
                     self.status = self.statuses['command_received']
                     self.status.started_time = datetime.datetime.now()
@@ -300,13 +301,13 @@ class Arduino():
                     except serial.serialutil.SerialException:
                         received = ""
                     if "received" in received.lower():
-                        # print(f"Received feedback from Arduino!")
+                        # self.app_logger.arduino(f"Received feedback from Arduino!")
                         self.status = self.statuses['command_received']
                         self.status.extra = received.replace('\x00', '')
                         self.status.started_time = datetime.datetime.now()
             elif self.status.id == self.statuses['command_received'].id:
                 if (datetime.datetime.now() - self.status.started_time).seconds >= self.status.get_timeout(self.mockup_commands, self.not_operational):
-                    print(f"Max wait time between commands reached...")
+                    self.app_logger.arduino(f"Max wait time between commands reached...")
                     self.status = self.statuses['cooling_down']
                     self.status.started_time = datetime.datetime.now()
                 else:

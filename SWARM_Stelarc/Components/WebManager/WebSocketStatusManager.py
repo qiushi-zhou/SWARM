@@ -50,13 +50,13 @@ class WebSocketStatusManager:
       await self.ws.sio.connect(self.ws.url, namespaces=[self.ws.namespace], wait_timeout=self.wait_timeout)
       await asyncio.sleep(self.wait_timeout)
     except Exception as e:
-      print(f"Exception trying to connect to {self.ws.url}{self.ws.namespace}: {e}")
+      print(f"Exception trying to connect {self.ws.ws_id} to URL: {self.ws.url}, NS: {self.ws.namespace}: {e}")
       self.set_status(Statuses.DISCONNECTED)
       await asyncio.sleep(3)
 
   def set_status(self, new_status, extra="", debug=True):
     if debug:
-      print(f"{self.ws.tag} {self.status.name} -> {new_status.name}, {extra}")
+      print(f"{self.ws.ws_id} {self.status.name} -> {new_status.name}, {extra}")
     self.status = new_status
     self.status.extra = extra
 

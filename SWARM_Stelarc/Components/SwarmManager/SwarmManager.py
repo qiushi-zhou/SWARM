@@ -3,23 +3,24 @@ from .FrameBufferData import FrameBuffer
 from ..Utils.utils import Point
 import datetime
 import json
+from ..Utils.DataQueue import DataQueue
 
 MAX_HISTORY_SIZE = 10000
 
 class SwarmManager(SwarmComponentMeta):
-    def __init__(self, logging, ui_drawer, tasks_manager, arduino_manager=None):
+    def __init__(self, app_logger, ui_drawer, tasks_manager, arduino_manager=None, websocket_manager=None):
         super(SwarmManager, self).__init__(ui_drawer, tasks_manager, "SwarmManager", r'./Config/BehaviourConfig.yaml', self.update_config_data)
         self.arduino = arduino_manager.arduino
-        self.logging = logging
+        self.app_logger= app_logger
         self.behaviors = None
         self.frame_buffer = FrameBuffer(buffer_size=60)
         self.machine_mode = 'normal'
         self.current_behavior = None
         self.curr_behavior_name = "NONE"
         self.debug_lines = []
-    
+        self.websocket_manager = websocket_manager
     def update_config(self):
-      super().update_config_from_file(self.tag, self.config_filename, self.last_modified_time)
+      super().update_config_from_file(self.app_logger, self.tag, self.config_filename, self.last_modified_time)
         
     def update_config_data(self, data, last_modified_time):
         self.config_data = data
@@ -28,9 +29,8 @@ class SwarmManager(SwarmComponentMeta):
         self.machine_mode = self.config_data.get("machine_mode", 'normal')
         self.last_modified_time = last_modified_time      
     
-    def update(self, remote_command, cameras, debug=False, surfaces=None):
-        # if debug:
-        #     print(f"Updating Swarm Manager")
+    def update(self, cameras, debug=False, surfaces=None):
+        remote_command, ws_id = self.websocket_manager.get_last_remote_command()
         debug = True
         text_debug = False
         # right_text_pos_orig = Point(right_text_pos.x, right_text_pos.y)
@@ -65,11 +65,16 @@ class SwarmManager(SwarmComponentMeta):
                         if not debug:
                             return
         else:
+            print(f"Trying to send remote command: {remote_command}")
             for behavior in self.behaviors:
                 name = behavior.get("name", "unknown")
                 command = behavior.get("arduino_command", "")
                 if name == remote_command:
                     self.current_behavior = behavior
+                    cmd_sent = self.arduino.send_command(command, debug=text_debug)
+                    print(f"Remote command {remote_command} sent")
+                    if cmd_sent:
+                        self.websocket_manager.pop_last_remote_command(ws_id)
                     break
 
         self.curr_behavior_name = self.current_behavior.get('name', 'NONE').upper() if self.current_behavior is not None else '-'

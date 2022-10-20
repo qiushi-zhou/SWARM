@@ -19,8 +19,8 @@ class SwarmComponentMeta:
    def update_config(self):
       pass
 
-   def update_config_from_file(self, tag, file_path, last_modified_time):
-      utils.update_config_from_file(tag, file_path, last_modified_time, self.update_config_data_callback)
+   def update_config_from_file(self, app_logger, tag, file_path, last_modified_time):
+      utils.update_config_from_file(app_logger, tag, file_path, last_modified_time, self.update_config_data_callback)
 
    def update_config_data(self, config_data, last_modified_time):
       print(f"Warning! No update_config_data set for {self.tag}")

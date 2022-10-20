@@ -3,16 +3,18 @@ import threading
 import datetime
 import cv2
 import asyncio
-from .WebSocketHandlers import WebSocketHandlers
 from ..Utils.DataQueue import DataQueue
+from .WebSocketHandlers import WebSocketHandlers
 from .SwarmData import SwarmData
-from .WebSocketStatusManager import WebSocketStatusManager
 import time
+from .WebSocketStatusManager import WebSocketStatusManager
 
 
 class WebSocketMeta:
-    def __init__(self, tasks_manager, url, namespace, frame_w, frame_h, threadpool_executor=None):
+    def __init__(self, app_logger, ws_id, tasks_manager, url, namespace, frame_w, frame_h, threadpool_executor=None):
+        self.app_logger = app_logger
         self.sio = socketio.AsyncClient(logger=False, engineio_logger=False)
+        self.ws_id = ws_id
         self.enabled = True
         self.sync_with_server = False
 
@@ -36,12 +38,12 @@ class WebSocketMeta:
         self.frame_w = frame_w
         self.frame_h = frame_h
 
-        self.target_framerate = 30
-        self.scaling_factor = 0.6
+        self.target_framerate = -1
+        self.scaling_factor = 0.8
         self.last_file_size = 1
 
-        self.out_buffer = DataQueue(2, self.target_framerate)
-        self.in_buffer = DataQueue(60)
+        self.out_buffer = DataQueue(50)
+        self.in_buffer = DataQueue(50)
 
         self.last_emit = datetime.datetime.now()
 
@@ -67,9 +69,10 @@ class WebSocketMeta:
         # print(f"FPS: {self.out_buffer.fps()} > {self.target_framerate}")
         if not self.status_manager.is_ready():
             self.out_buffer.fps_counter.reset()
-        if self.out_buffer.fps() > self.target_framerate:
-            self.out_buffer.discard_next()
-            return
+        if self.target_framerate > 0:
+            if self.out_buffer.fps() > self.target_framerate:
+                self.out_buffer.discard_next()
+                return
         try:
             await self.send_data()
         except Exception as e:
@@ -90,7 +93,7 @@ class WebSocketMeta:
             print(f"Stopping {self.namespace} background task")
             self.task_running = False
 
-    def check_enable(self):
+    def update_status(self):
         if self.enabled:
             if self.multi_threaded:
                 self.start_async_task()
@@ -99,9 +102,13 @@ class WebSocketMeta:
         else:
             self.stop_async_task()
 
-    def update_config(self, data):
+    def update_config(self, data, url):
+        self.url = url
         self.sync_with_server = data.get("sync_with_server", False)
-        self.target_framerate = data.get("target_framerate", 30)
+        self.target_framerate = data.get("target_framerate", -1)
+        if self.target_framerate > 0:
+            self.out_buffer = DataQueue(self.target_framerate*2, self.target_framerate)
+            self.in_buffer = DataQueue(self.target_framerate*2)
         self.enabled = data.get("enabled", self.enabled)
         # self.frame_scaling = data.get("frame_scaling", False)
         # self.adaptive_scaling = data.get("frame_adaptive", False)
@@ -110,7 +117,6 @@ class WebSocketMeta:
         # self.max_frame_scaling = self.fixed_frame_scaling
         # self.send_frames = data.get("send_frames", self.send_frames)
         # self.frame_skipping = data.get("frame_skip", False)
-        url = data.get("url", self.url)
         namespace = data.get("namespace", self.namespace)
         self.emit_event = data.get('emit_event', self.emit_event)
         if url != self.url or namespace != self.namespace:
@@ -118,57 +124,11 @@ class WebSocketMeta:
             self.url = url
             self.namespace = namespace
             self.uri = f"{url}{namespace}"
-        self.check_enable()
-            # if not self.connect_task.is_running():
-            #     self.connect_task.start()
+        if self.enabled:
+            self.update_status()
 
     def set_status(self, new_status, extra="", debug=True):
         self.status_manager.set_status(new_status, extra)
 
     def is_ready(self):
         return self.status_manager.is_ready()
-
-    async def send_graph_data(self, swarm_data):
-        data_json = swarm_data.get_json()
-        try:
-            await self.sio.emit(event='graph_data', data=swarm_data, namespace=self.namespace)
-        except Exception as e:
-            print(f"Error Sending graph data to WebSocket {self.namespace}  {e}")
-            self.status_manager.set_disconnected(f"{e}")
-        return True
-
-    def set_scaling(self, scaling_factor):
-        self.scaling_factor = scaling_factor
-
-    def enqueue_frame(self, frame, cameras_data, swarm_data):
-        if frame is None:
-            return
-        if self.scaling_factor < 0.99:
-            frame = cv2.resize(frame, (int(self.frame_w * self.scaling_factor), int(self.frame_h * self.scaling_factor)))
-        data = SwarmData(frame, cameras_data, swarm_data)
-        self.out_buffer.insert_data(data)
-        if not self.multi_threaded:
-            self.send_data()
-
-    async def send_data(self):
-        try:
-            time_since_last_pop = self.out_buffer.time_since_last_pop()
-            swarm_data = self.out_buffer.pop_data()
-            if swarm_data is None:
-                return
-            data_json = swarm_data.get_json()
-            data_json["frame_time"] = time_since_last_pop
-            data_json["time"] = f"{datetime.datetime.now()}"
-            data_json["fps"] = self.out_buffer.fps()
-            data_json["target_fps"] = self.target_framerate
-            # print(f"Emitting {'SYNCD' if self.sync_with_server else ''} {self.emit_event} on {self.namespace} from Thread ws: {threading.current_thread().getName()}. \tFPS: {self.out_buffer.fps()}")
-            # print(data_json)
-            if self.sync_with_server:
-                self.status_manager.set_waiting("Sending data")
-                self.last_emit = datetime.datetime.now()
-                await self.sio.emit(event=self.emit_event, data=data_json, namespace=self.namespace, callback=WebSocketHandlers.on_frame_received_ACK)
-            else:
-                await self.sio.emit(event=self.emit_event, data=data_json, namespace=self.namespace)
-        except Exception as e:
-            print(f"Error Sending frame data to WebSocket {self.namespace}  {e}")
-            self.status_manager.set_disconnected(f"{e}")

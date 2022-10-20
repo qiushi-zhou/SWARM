@@ -10,6 +10,12 @@ class DataQueue:
         self.buffer = deque([])
         self.target_fps = target_fps
 
+    def peek(self):
+      if len(self.buffer) > 0:
+        return self.buffer[0]
+      return None
+
+
     def fps(self):
       return self.fps_counter.fps
 

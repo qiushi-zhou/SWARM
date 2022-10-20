@@ -15,8 +15,8 @@ class FrameData:
         self.processed = False
 
 class ProcessingManager(SwarmComponentMeta):
-    def __init__(self, tag, logging, ui_drawer, tasks_manager, camera_manager=None, cont_color=(0, 255, 0)):
-        self.logging = logging
+    def __init__(self, tag, app_logger, ui_drawer, tasks_manager, camera_manager=None, cont_color=(0, 255, 0)):
+        self.app_logger = app_logger
         self.processing_type = "simple"
         self.input = None
         super(ProcessingManager, self).__init__(ui_drawer, tasks_manager, "ProcessingManager")
