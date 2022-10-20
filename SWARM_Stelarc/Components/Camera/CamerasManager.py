@@ -6,7 +6,7 @@ class CamerasManager(SwarmComponentMeta):
         self.app_logger = app_logger
         self.screen_w = screen_w
         self.screen_h = screen_h
-        super(CamerasManager, self).__init__(ui_drawer, tasks_manager, "CamerasManager", r'./Config/CamerasConfig.yaml', self.update_config_data)
+        super(CamerasManager, self).__init__(ui_drawer, tasks_manager, "CamerasManager", r'CamerasConfig.yaml', self.update_config_data)
         self.cameras = []
     
     def update_config(self):

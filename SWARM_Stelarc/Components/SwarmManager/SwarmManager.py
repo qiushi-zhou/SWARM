@@ -7,14 +7,17 @@ MAX_HISTORY_SIZE = 10000
 
 class SwarmManager(SwarmComponentMeta):
     def __init__(self, app_logger, ui_drawer, tasks_manager, arduino_manager=None, websocket_manager=None):
-        super(SwarmManager, self).__init__(ui_drawer, tasks_manager, "SwarmManager", r'./Config/BehaviourConfig.yaml', self.update_config_data)
+        super(SwarmManager, self).__init__(ui_drawer, tasks_manager, "SwarmManager", r'BehaviourConfig.yaml', self.update_config_data)
         self.arduino = arduino_manager.arduino
-        self.app_logger= app_logger
+        self.app_logger = app_logger
         self.behaviors = None
         self.frame_buffer = FrameBuffer(buffer_size=60)
         self.machine_mode = 'normal'
         self.current_behavior = None
+        self.last_behavior = None
+        self.last_remote_command = None
         self.curr_behavior_name = "NONE"
+        self.last_behavior_name = "NONE"
         self.debug_lines = []
         self.websocket_manager = websocket_manager
     def update_config(self):
@@ -23,6 +26,7 @@ class SwarmManager(SwarmComponentMeta):
     def update_config_data(self, data, last_modified_time):
         self.config_data = data
         self.behaviors = self.config_data.get("behaviors", [])
+        for b in self.behaviors: b['remote'] = False
         self.frame_buffer.buffer_size = self.config_data.get('buffer_size', 60)            
         self.machine_mode = self.config_data.get("machine_mode", 'normal')
         self.last_modified_time = last_modified_time      
@@ -35,49 +39,63 @@ class SwarmManager(SwarmComponentMeta):
         # right_text_pos.y += self.ui_drawer.line_height*2.4
         self.frame_buffer.add_frame_data(cameras)
         action_updated = False
+        remote_action = False
         # if self.frame_buffer.empty_frames > 0:
         #     return left_text_pos, right_text_pos
-        if remote_command is None:
-            for behavior in self.behaviors:
-                try:
-                    all_criteria_met = self.check_behavior(behavior, {}, debug=True, surfaces=surfaces)
-                except Exception as e:
-                    print(f"Error checking behavior {behavior.get('name', 'NONE')}: {e}")
-                    all_criteria_met = False
-                if not action_updated:
-                    if all_criteria_met:
-                        action_updated = True
-                        name = behavior.get("name", "unknown")
-                        command = behavior.get("arduino_command", "")
-                        if text_debug:
-                            print(f"Action updated: {name} ({command})")
-                            print(f"\r\nNew ACTION: Running command {command} from behavior {name}\n\r")
-                        # Debugging lines
-                        dbg_vals = f"p: {self.frame_buffer.people_data.avg:.2f}, g: {self.frame_buffer.groups_data.avg:.2f}, p_d: {self.frame_buffer.distance_data.avg:.2f}, p_dm: {self.frame_buffer.machine_distance_data.avg:.2f}"
-                        cmd_sent = self.arduino.send_command(command, debug=text_debug, dbg_vals=dbg_vals)
-                        if cmd_sent:
-                            behavior["last_executed_time"] = datetime.datetime.now()
-                            self.current_behavior = behavior
-
-                        # We found the command to execute so we can stop here
-                        if not debug:
-                            return
-        else:
-            print(f"Trying to send remote command: {remote_command}")
-            for behavior in self.behaviors:
-                name = behavior.get("name", "unknown")
-                command = behavior.get("arduino_command", "")
+        for behavior in self.behaviors:
+            try:
+                all_criteria_met = self.check_behavior(behavior, {}, debug=True, surfaces=surfaces)
+            except Exception as e:
+                print(f"Error checking behavior {behavior.get('name', 'NONE')}: {e}")
+                all_criteria_met = False
+            # Let's just update the parameters without changing the behaviour
+            if action_updated:
+                continue
+            name = behavior.get("name", "unknown")
+            command = behavior.get("arduino_command", "")
+            if remote_command is not None:
                 if name == remote_command:
-                    self.current_behavior = behavior
-                    cmd_sent = self.arduino.send_command(command, debug=text_debug)
-                    print(f"Remote command {remote_command} sent")
-                    if cmd_sent:
-                        self.websocket_manager.pop_last_remote_command(ws_id)
-                    break
+                    action_updated = True
+                    remote_action = True
+            else:
+                if all_criteria_met:
+                    action_updated = True
+                    remote_action = False
 
-        self.curr_behavior_name = self.current_behavior.get('name', 'NONE').upper() if self.current_behavior is not None else '-'
-        self.curr_behavior_name = self.curr_behavior_name if remote_command is None else f"${self.curr_behavior_name} (REMOTE)"
+            if action_updated:
+                if text_debug:
+                    print(f"Action updated: {name} ({command}) [{'REMOTE' if remote_action else ''}]")
+                    print(f"\r\nNew ACTION: Running command {command} [{'REMOTE' if remote_action else ''}] from behavior {name}\n\r")
+                cmd_sent = False
+                if not remote_action:
+                    # Debugging lines
+                    dbg_vals = f"p: {self.frame_buffer.people_data.avg:.2f}, g: {self.frame_buffer.groups_data.avg:.2f}, p_d: {self.frame_buffer.distance_data.avg:.2f}, p_dm: {self.frame_buffer.machine_distance_data.avg:.2f}"
+                    cmd_sent = self.arduino.send_command(command, debug=text_debug, dbg_vals=dbg_vals)
+                else:
+                    cmd_sent = self.arduino.send_command(command, debug=text_debug)
+
+                if cmd_sent:
+                    self.app_logger.critical(f"Command {command} [{'REMOTE' if remote_action else ''}] SENT")
+                    behavior["last_executed_time"] = datetime.datetime.now()
+                    self.last_behavior = self.current_behavior
+                    self.current_behavior = behavior
+                    if remote_action and remote_command is not None:
+                        behavior['remote'] = remote_action
+                        self.last_remote_command = behavior
+                        self.websocket_manager.pop_last_remote_command(ws_id)
+
+        if self.current_behavior is None:
+            self.curr_behavior_name = "NONE"
+        else:
+            self.curr_behavior_name = self.current_behavior.get('name', 'NONE').upper()
+            self.curr_behavior_name = self.curr_behavior_name if not self.current_behavior.get('remote', False) else f"{self.curr_behavior_name} (REMOTE)"
+        if self.last_behavior is None:
+            self.last_behavior_name = "NONE"
+        else:
+            self.last_behavior_name = self.last_behavior.get('name', 'NONE').upper()
+            self.last_behavior_name = self.last_behavior_name if not self.last_behavior.get('remote', False) else f"{self.last_behavior_name} (REMOTE)"
         b_color = (150, 150, 150) if self.curr_behavior_name == "None" else (255, 255, 0)
+        self.debug_lines.insert(0, {'text': f"Last Behaviour: {self.last_behavior_name}", 'color': (255,0,0), 'side': 'right', 'spaces_after': 0})
         self.debug_lines.insert(0, {'text': f"Current Behaviour: {self.curr_behavior_name}", 'color': (255,0,0), 'side': 'right', 'spaces_after': 1})
         # right_text_pos_orig = self.ui_drawer.add_text_line(f"Current Behaviour: {self.curr_behavior_name}", (255, 0, 0), right_text_pos_orig, s_names=surfaces)
         self.debug_lines.insert(0, {'text': f"Behaviour Type: {self.machine_mode}", 'color': (255,0,0), 'side': 'right'})
@@ -115,10 +133,14 @@ class SwarmManager(SwarmComponentMeta):
 
     def get_swarm_data(self):
         data = {}
+        if self.current_behavior is None:
+            return data
         data['frames_stats'] = self.frame_buffer.get_json()
         data['current_behavior'] = serialize_datetime(self.current_behavior)
-        data['current_behavior']['name'] = self.curr_behavior_name
+        data['last_command'] = self.curr_behavior_name
         data['behavior_mode'] = self.machine_mode
+        if self.last_remote_command is not None:
+            data['last_remote_command'] = self.last_remote_command['name']
         behaviors_data = []
         for behavior in self.behaviors:
             copy = serialize_datetime(behavior)

@@ -1,5 +1,4 @@
-mock_commands: true
-processing: "simple" # "op" or "simple" or "none"
+processing: "op" # "op" or "simple" or "none"
 mt_capture: true
 mt_processing: true
 mt_arduino: false

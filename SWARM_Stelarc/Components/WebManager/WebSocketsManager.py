@@ -16,7 +16,7 @@ class WS_TYPES:
 class WebSocketsManager(SwarmComponentMeta):
 
     def __init__(self, app_logger, ui_drawer, tasks_manager, frame_w, frame_h):
-        super(WebSocketsManager, self).__init__(ui_drawer, tasks_manager, "WebSocketManager", r'./Config/WebSocketConfig.yaml', self.update_config_data)
+        super(WebSocketsManager, self).__init__(ui_drawer, tasks_manager, "WebSocketManager", r'WebSocketConfig.yaml', self.update_config_data)
         self.tasks_manager = tasks_manager
         self.app_logger = app_logger
         self.multi_threaded = True
@@ -75,8 +75,10 @@ class WebSocketsManager(SwarmComponentMeta):
                     socket.update_config(s_config, s_url)
 
     def enqueue_frame(self, namespace, cv2_frame, cameras_data, swarm_data, draw=False):
-        if namespace in self.sockets:
-            self.sockets[namespace].enqueue_frame(cv2_frame, cameras_data, swarm_data)
+        for ws_id in self.sockets[WS_TYPES.VIDEO_STREAM_OUT]:
+            socket = self.sockets[WS_TYPES.VIDEO_STREAM_OUT][ws_id]
+            if namespace in socket.namespace:
+                socket.enqueue_frame(cv2_frame, cameras_data, swarm_data)
         if draw:
             self.ui_drawer.draw_frame((0, 0, 0), cv2_frame, self.tag)
 
@@ -112,13 +114,4 @@ class WebSocketsManager(SwarmComponentMeta):
         else:
             for key in self.sockets:
                 for ws_id in self.sockets[key]:
-                    s = self.sockets[key][ws_id]
-                    status_dbg_str = f"{s.ws_id} {s.status_manager.get_status_info()}"
-                    data_str = f"OUT FPS: {int(s.out_buffer.fps())}, Buff Out: {s.out_buffer.count()}/{s.out_buffer.size()}          "
-                    data_str += f"IN FPS: {int(s.in_buffer.fps())}, Buff In: {s.in_buffer.count()}/{s.in_buffer.size()}"
-                    # dbg_str = f"{s.tag} FPS: {int(s.fps_counter.fps)}, Scale: {s.scaling_factor:0.2f},{mt_data} Size: {s.last_file_size}"
-                    start_pos = self.ui_drawer.add_text_line(status_dbg_str, (255, 50, 0), start_pos, surfaces)
-                    start_pos.y -= self.ui_drawer.line_height
-                    start_pos = self.ui_drawer.add_text_line(data_str, (255, 50, 0), start_pos, surfaces)
-                    # start_pos.y -= self.ui_drawer.line_height
-                    # start_pos = self.ui_drawer.add_text_line(in_data, (255, 50, 0), start_pos, surfaces)
+                    s = self.sockets[key][ws_id].draw_debug(self.ui_drawer, start_pos, surfaces)

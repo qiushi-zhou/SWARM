@@ -19,26 +19,26 @@ class WebSocketHandlers:
 
   async def on_connect(ws):
     try:
-      print(f"{ws.namespace} Connected, Thread ws: {threading.current_thread().getName()}")
+      ws.app_logger.online(f"{ws.namespace} Connected, Thread ws: {threading.current_thread().getName()}")
       ws.status_manager.set_connected()
       await ws.sio.emit(event="test_msg", namespace=ws.namespace)
       await ws.sio.emit(event="ping", data={}, namespace=ws.namespace)
     except Exception as e:
-      print(f"Exception handling on_connect on {ws.namespace}: {e}")
+      ws.app_logger.error(f"Exception handling on_connect on {ws.namespace}: {e}")
 
   async def on_msg(ws, *args):
     try:
       data = ""
       if len(args) > 0:
         data = args[0]
-        print(f"Received msg on {ws.namespace} from {data}, Thread ws: {threading.current_thread().getName()}")
+        ws.app_logger.online(f"Received msg on {ws.namespace} from {data}, Thread ws: {threading.current_thread().getName()}")
       ws.status_manager.set_connected(f"Msg received: {data}")
     except Exception as e:
-      print(f"Exception handling on_msg on {ws.namespace}: {e}")
+      ws.app_logger.error(f"Exception handling on_msg on {ws.namespace}: {e}")
 
   async def on_disconnect(ws):
     try:
-      print(f"{ws.namespace} Disconnected, Thread ws: {threading.current_thread().getName()}")
+      ws.app_logger.critical(f"{ws.namespace} Disconnected, Thread ws: {threading.current_thread().getName()}")
       ws.status_manager.set_disconnected()
     except Exception as e:
       print(f"Exception handling on_disconnect on {ws.namespace}: {e}")
@@ -46,7 +46,7 @@ class WebSocketHandlers:
 
   async def on_connect_error(ws, data):
     try:
-      print(f"Error connecting to {ws.namespace} socket")
+      ws.app_logger.critical(f"Error connecting to {ws.namespace} socket")
     except Exception as e:
       print(f"Exception handling on_connect_error on {ws.namespace}. Data {data}: {e}: {e}")
 

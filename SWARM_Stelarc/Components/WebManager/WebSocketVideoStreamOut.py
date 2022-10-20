@@ -26,10 +26,12 @@ class WebSocketVideoStreamOut(WebSocketMeta):
 
     async def on_disconnect():
         global ws_vs
+        ws_vs.config_update_sent = False
         await WebSocketHandlers.on_disconnect(ws_vs)
 
     async def on_connect_error(data):
         global ws_vs
+        ws_vs.config_update_sent = False
         await WebSocketHandlers.on_connect_error(ws_vs, data)
 
     async def on_frame_received(*args):
@@ -67,10 +69,13 @@ class WebSocketVideoStreamOut(WebSocketMeta):
             self.send_data()
 
     async def send_data(self):
-        if self.app_config_data is not None:
-            await self.sio.emit(event='app_config_update', data=self.app_config_data, namespace=self.namespace)
-            self.app_logger.critical(f"Sending app_config_data")
-            self.app_config_data = None
+        if self.app_config_data is not None and not self.config_update_sent:
+            try:
+                await self.sio.emit(event='app_config_update', data=self.app_config_data, namespace=self.namespace)
+                self.app_logger.critical(f"Sending app_config_data")
+                self.config_update_sent = True
+            except Exception as e:
+                self.app_logger.critical(f"Error sending app_config_data update {e}")
         try:
             time_since_last_pop = self.out_buffer.time_since_last_pop()
             swarm_data = self.out_buffer.pop_data()
@@ -91,13 +96,13 @@ class WebSocketVideoStreamOut(WebSocketMeta):
                 await self.sio.emit(event=self.emit_event, data=data_json, namespace=self.namespace)
         except Exception as e:
             print(f"Error Sending frame data to WebSocket {self.ws_id} {self.namespace}  {e}")
+            self.config_update_sent = False
             self.status_manager.set_disconnected(f"{e}")
         
     def send_config_update(self, data):
-        data = serialize_datetime(self.data)
+        self.config_update_sent = False
+        data = serialize_datetime(data)
         self.app_config_data = data
-        
-
 
     def __init__(self, app_logger, ws_id, tasks_manager, url, namespace, frame_w, frame_h, executor=None):
         WebSocketMeta.__init__(self, app_logger, ws_id, tasks_manager, url, namespace, frame_w, frame_h, executor)

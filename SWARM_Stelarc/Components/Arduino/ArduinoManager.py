@@ -6,7 +6,7 @@ import time
 
 class ArduinoManager(SwarmComponentMeta):
     def __init__(self, app_logger, ui_drawer, tasks_manager, arduino_port="COM4", mockup_commands=True):
-        super(ArduinoManager, self).__init__(ui_drawer, tasks_manager, "ArduinoManager", r'./Config/ArduinoConfig.yaml',
+        super(ArduinoManager, self).__init__(ui_drawer, tasks_manager, "ArduinoManager", r'ArduinoConfig.yaml',
                                              self.update_config_data)
         self.app_logger = app_logger
         self.multi_threaded = False

@@ -10,6 +10,7 @@ import Constants
 import serial
 from serial.tools import list_ports
 import collections
+from ..Utils.utils import *
 
 class ArduinoStatus():
 
@@ -58,9 +59,9 @@ class Arduino():
 
         self.default_statuses = {
             'not_initialized': ArduinoStatus(0, 'Not Initialized', 'Arduino not initialized', 0),
-            'command_sent': ArduinoStatus(1, 'Command Sent', 'Command SENT SUCCESSFULLY, waiting for feedback...', 10),
-            'command_received': ArduinoStatus(2, 'Executing Command', 'Command received by Arduino, waiting for completion...', 60),
-            'cooling_down': ArduinoStatus(3, 'Cooling Down', f'Arduino is cooling down between commands {5}', 5),
+            'command_sent': ArduinoStatus(1, 'Command Sent', 'Command SENT SUCCESSFULLY, waiting for feedback...', 10, testing_timeout=10),
+            'command_received': ArduinoStatus(2, 'Executing Command', 'Command received by Arduino, waiting for completion...', 60, testing_timeout=10),
+            'cooling_down': ArduinoStatus(3, 'Cooling Down', f'Arduino is cooling down between commands {5}', 5, testing_timeout=5),
             'already_sent': ArduinoStatus(4, 'Command already sent', 'Command ALREADY SENT', 0),
             'not_connected': ArduinoStatus(5, 'NOT CONNECTED', 'Arduino NOT CONNECTED', 0),
             'debug_mode': ArduinoStatus(6, 'DEBUG MODE', 'Arduino NOT CONNECTED (debug mode)', 0),
@@ -225,7 +226,7 @@ class Arduino():
             return f"Arduino NOT found on {self.port}: bps={self.bps}, {self.p_1}/{self.p_2}/{self.p_3}"
 
     def send_command(self, command, loop=False, debug=True, dbg_vals=''):
-        if self.status.id == self.statuses['ready'].id:
+        if self.status.id in [self.statuses['ready'].id, self.statuses['debug_mode'].id]:
             prefix = '(Normal)'
             cmd_string = self.build_command_str(command, loop)
             if debug:
@@ -261,75 +262,77 @@ class Arduino():
 
     def update_status(self, blocking_wait=False, debug=True):
         try:
-            now = datetime.datetime.now()
-            day = now.strftime('%A').lower()
-            
-            if any([True if x in day else False for x in self.working_days]):
-                start = now.replace(hour=self.working_hours[0].tm_hour, minute=self.working_hours[0].tm_min, second=0, microsecond=0)
-                end = now.replace(hour=self.working_hours[1].tm_hour, minute=self.working_hours[1].tm_min, second=0, microsecond=0)
-                self.not_operational = not (start <= now <= end)
-            else: self.not_operational = True
-            
+            self.not_operational = is_in_working_hours(self.working_days, self.working_hours)
+
             # if debug:
             #     if self.not_operational:
             #         print(f"MACHINE NOT OPERATIONAL")
+            status_timeout = self.status.get_timeout(self.mockup_commands, self.not_operational)
+            elapsed = (datetime.datetime.now() - self.status.started_time).seconds
 
             for s_idx in self.statuses:
                 s = self.statuses[s_idx]
                 s.not_operational = self.not_operational
+            # self.app_logger.arduino(f"Status: {self.status.title}, {elapsed} / {status_timeout}")
 
             while self.status.id == self.statuses['not_initialized'].id:
                 self.init()
             if self.status.id == self.statuses['not_connected'].id:
                 return self.status
             elif self.status.id == self.statuses['cooling_down'].id:
-                elapsed = (datetime.datetime.now() - self.status.started_time).seconds
-                if elapsed >= self.status.get_timeout(self.mockup_commands, self.not_operational):
-                    self.status = self.statuses['ready']
+                if elapsed >= status_timeout:
+                    if self.mockup_commands:
+                        self.status = self.statuses['debug_mode']
+                    else:
+                        self.status = self.statuses['ready']
                     self.status.started_time = datetime.datetime.now()
             elif self.status.id == self.statuses['command_sent'].id:
-                if (datetime.datetime.now() - self.status.started_time).seconds >= self.status.get_timeout(self.mockup_commands, self.not_operational):
+                if elapsed >= status_timeout:
                     self.app_logger.arduino(f"Max wait time waiting for feedback reached...")
                     self.status.extra = f"Arduino did not respond..."
                     self.status = self.statuses['command_received']
                     self.status.started_time = datetime.datetime.now()
                 else:
-                    try:
-                        received = self.receive(debug=debug, prefix="Waiting for received command msg")
-                        if received is None:
+                    if not self.mockup_commands:
+                        try:
+                            received = self.receive(debug=debug, prefix="Waiting for received command msg")
+                            if received is None:
+                                received = ""
+                        except serial.serialutil.SerialException:
                             received = ""
-                    except serial.serialutil.SerialException:
-                        received = ""
-                    if "received" in received.lower():
-                        # self.app_logger.arduino(f"Received feedback from Arduino!")
+                        if "received" in received.lower():
+                            self.app_logger.arduino(f"Received feedback from Arduino!")
+                            self.status = self.statuses['command_received']
+                            self.status.extra = received.replace('\x00', '')
+                            self.status.started_time = datetime.datetime.now()
+                    else:
                         self.status = self.statuses['command_received']
-                        self.status.extra = received.replace('\x00', '')
-                        self.status.started_time = datetime.datetime.now()
             elif self.status.id == self.statuses['command_received'].id:
-                if (datetime.datetime.now() - self.status.started_time).seconds >= self.status.get_timeout(self.mockup_commands, self.not_operational):
+                if elapsed >= status_timeout:
                     self.app_logger.arduino(f"Max wait time between commands reached...")
                     self.status = self.statuses['cooling_down']
                     self.status.started_time = datetime.datetime.now()
                 else:
-                    while True:
+                    while not self.mockup_commands:
                         try:
                             received = self.receive(debug=False, prefix="Waiting for completiong msg")
                             if received is None:
                                 received = ""
-                        except serial.serialutil.SerialException:
+                        except serial.serialutil.SerialException as e:
+                            self.app_logger.error(f"Error reading arduino's data: {e}")
                             received = ""
                         if "runcomp" in received:
                             print(f"Command Completed: {received} ")
                             self.status = self.statuses['cooling_down']
                             self.status.extra = received.replace('\x00', '')
-                            # print(f"Command Completed! Cooling down for {self.status.get_timeout(self.mockup_commands, self.not_operational)} seconds...")
+                            # print(f"Command Completed! Cooling down for {status_timeout} seconds...")
                             self.status.started_time = datetime.datetime.now()
                             self.last_command = None
                             break
                         if not blocking_wait:
                             break
         except Exception as e:
-            print(f"Error updating Arduino's status {e}")
+            self.app_logger.error(f"Error updating Arduino's status: {e}")
         return self.status
 
     def receive(self, prefix="Received from Arduino", debug=False):

@@ -127,6 +127,14 @@ class WebSocketMeta:
         if self.enabled:
             self.update_status()
 
+    def draw_debug(self, ui_drawer, text_pos, surfaces,):
+        status_dbg_str = f"{self.ws_id} {self.status_manager.get_status_info()}"
+        data_str = f"OUT FPS: {int(self.out_buffer.fps())}, Buff Out: {self.out_buffer.count()}/{self.out_buffer.size()}  -  "
+        data_str += f"IN FPS: {int(self.in_buffer.fps())}, Buff In: {self.in_buffer.count()}/{self.in_buffer.size()}"
+        text_pos = ui_drawer.add_text_line(status_dbg_str, (255, 50, 0), text_pos, surfaces)
+        text_pos.y -= ui_drawer.line_height
+        text_pos = ui_drawer.add_text_line(data_str, (255, 50, 0), text_pos, surfaces)
+
     def set_status(self, new_status, extra="", debug=True):
         self.status_manager.set_status(new_status, extra)
 

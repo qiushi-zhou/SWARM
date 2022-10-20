@@ -3,19 +3,38 @@ from numba import jit
 import itertools
 import oyaml as yaml
 import os
+import datetime
 
-def serialize_datetime(self, dict_obj):
-  try:
+def is_in_working_hours(working_days, working_hours):
+    now = datetime.datetime.now()
+    day = now.strftime('%A').lower()
+    if any([True if x in day else False for x in working_days]):
+        start = now.replace(hour=working_hours[0].tm_hour, minute=working_hours[0].tm_min, second=0, microsecond=0)
+        end = now.replace(hour=working_hours[1].tm_hour, minute=working_hours[1].tm_min, second=0, microsecond=0)
+        return not (start <= now <= end)
+    else:
+       return True
+
+def convert_data(obj, key="NONE"):
+    obj_type = obj.__class__.__name__
+    try:
+        if "list" in obj_type:
+            return [convert_data(el) for el in obj]
+        if 'dict' in obj_type:
+            res = {}
+            for k, v in obj.items():
+                res[k] = convert_data(obj[k], k)
+            return res
+        if 'datetime' in obj_type:
+            # print(f"Serializing obj {key} - {obj_type}")
+            return obj.strftime('%Y-%m-%d %H:%M:%S')
+    except Exception as e:
+        print(f"Error serializing obj {key} - {obj_type}: {e}")
+    return obj
+def serialize_datetime(dict_obj):
     dict_obj = dict_obj.copy()
-    for k, v in dict_obj.items():
-      if 'datetime' in dict_obj[k].__class__.__name__:
-        try:
-          dict_obj[k] = dict_obj.get(k, None).strftime('%Y-%m-%d %H:%M:%S')
-        except Exception as e:
-          dict_obj[k] = ""
-  except Exception as e:
-    pass
-  return dict_obj
+    dict_obj = convert_data(dict_obj)
+    return dict_obj
 
 def update_config_from_file(app_logger, tag, file_path, last_modified_time, callback):
     try:
@@ -36,16 +55,16 @@ class Point:
             self.pos = np.array([self.x, self.y])
         else:
             self.pos = np.array([self.x, self.y, self.z])
-        
+
     def is_2d(self):
         if self.z is None:
             return True
         return False
-    
+
     def distance_from(self, point):
         if point.is_2d() != self.is_2d():
             print(f"Cannot calculate distance between 2D and 3D points")
-        
+
         squared_dist = np.sum((self.pos-point.pos)**2, axis=0)
         return np.sqrt(squared_dist)
 

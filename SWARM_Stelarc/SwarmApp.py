@@ -77,7 +77,8 @@ class SwarmAPP:
 
     self.websocket_manager.send_config_update(
       {
-       "app": {"data" :self.config_data, "time" : self.last_modified_time},
+        "time": self.last_modified_time,
+        "app": {"data" :self.config_data},
         "cameras": {"data": self.cameras_manager.config_data, "time": self.cameras_manager.last_modified_time},
         "arduino": {"data": self.arduino_manager.config_data, "time": self.arduino_manager.last_modified_time},
         "swarm": {"data": self.swarm_manager.config_data, "time": self.swarm_manager.last_modified_time},
@@ -101,7 +102,7 @@ class SwarmAPP:
       self.scene_manager.update(processed_local_frame, debug=False)
 
       # self.websocket_manager.enqueue_frame("/online_interaction", processed_stream_frame, self.cameras_manager.get_cameras_data())
-      # self.websocket_manager.enqueue_frame("/gallery_stream", processed_local_frame, self.cameras_manager.get_cameras_data(), self.swarm_manager.get_swarm_data())
+      self.websocket_manager.enqueue_frame("/gallery_stream", processed_local_frame, self.cameras_manager.get_cameras_data(), self.swarm_manager.get_swarm_data())
 
       self.cameras_manager.update(debug=debug)
       self.arduino_manager.update(debug=debug)

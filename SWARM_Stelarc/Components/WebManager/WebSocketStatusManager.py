@@ -42,7 +42,8 @@ class WebSocketStatusManager:
 
   def get_status_info(self):
     synced = "(SYNCD) " if self.ws.sync_with_server else ""
-    return f"{synced}{self.status.name}: {self.status.description}"
+    return f"{synced}{self.status.name}"
+    # return f"{synced}{self.status.name}: {self.status.description}"
 
   async def attempt_connect(self):
     try:
