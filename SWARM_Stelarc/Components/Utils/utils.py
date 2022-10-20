@@ -4,6 +4,18 @@ import itertools
 import oyaml as yaml
 import os
 
+def serialize_datetime(self, dict_obj):
+  try:
+    dict_obj = dict_obj.copy()
+    for k, v in dict_obj.items():
+      if 'datetime' in dict_obj[k].__class__.__name__:
+        try:
+          dict_obj[k] = dict_obj.get(k, None).strftime('%Y-%m-%d %H:%M:%S')
+        except Exception as e:
+          dict_obj[k] = ""
+  except Exception as e:
+    pass
+  return dict_obj
 
 def update_config_from_file(app_logger, tag, file_path, last_modified_time, callback):
     try:

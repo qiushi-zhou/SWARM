@@ -45,14 +45,17 @@ class WebSocketsManager(SwarmComponentMeta):
             namespace = s_config.get("namespace", None)
             type = s_config.get("type", None)
             ws_id = s_config.get("id", None)
-            port = s_config.get("port", "")
+            port = str(s_config.get("port", ""))
             enabled = s_config.get("enabled", "WHAT")
-            self.app_logger.info(f"Reading config for {ws_id} {port} {namespace} {type} ({enabled})")
+            if not enabled:
+                continue
+            self.app_logger.info(f"Reading config for {ws_id} {self.url}:{port} {namespace} {type} ({enabled})")
             if namespace is not None and type is not None and ws_id is not None:
                 socket = None
+                s_url = f"{self.url}:{port}"
                 if type in WS_TYPES.VIDEO_STREAM_OUT:
                     if ws_id not in self.sockets[WS_TYPES.VIDEO_STREAM_OUT]:
-                        socket = WebSocketVideoStreamOut.create_ws(self.app_logger, ws_id, self.tasks_manager, f"{self.url}:{port}", namespace, self.frame_w, self.frame_h, self.executor)
+                        socket = WebSocketVideoStreamOut.create_ws(self.app_logger, ws_id, self.tasks_manager, s_url, namespace, self.frame_w, self.frame_h, self.executor)
                         self.sockets[WS_TYPES.VIDEO_STREAM_OUT][ws_id] = socket
                     else:
                         socket = self.sockets[WS_TYPES.VIDEO_STREAM_OUT][ws_id]
@@ -64,12 +67,12 @@ class WebSocketsManager(SwarmComponentMeta):
                 #         socket = self.sockets[WS_TYPES.VIDEO_STREAM_IN][ws_id]
                 elif type in WS_TYPES.INTERACTION:
                     if ws_id not in self.sockets[WS_TYPES.INTERACTION]:
-                        socket = WebSocketInteraction.create_ws(self.app_logger, ws_id, self.tasks_manager, f"{self.url}:{port}", namespace, self.frame_w, self.frame_h, self.executor)
+                        socket = WebSocketInteraction.create_ws(self.app_logger, ws_id, self.tasks_manager, s_url, namespace, self.frame_w, self.frame_h, self.executor)
                         self.sockets[WS_TYPES.INTERACTION][ws_id] = socket
                     else:
                         socket = self.sockets[WS_TYPES.INTERACTION][ws_id]
                 if socket is not None:
-                    socket.update_config(s_config, self.url)
+                    socket.update_config(s_config, s_url)
 
     def enqueue_frame(self, namespace, cv2_frame, cameras_data, swarm_data, draw=False):
         if namespace in self.sockets:
@@ -88,10 +91,15 @@ class WebSocketsManager(SwarmComponentMeta):
             self.sockets[WS_TYPES.INTERACTION][ws_id].pop_last_command()
 
     def get_last_stream_frame(self):
-        for socket in self.sockets[WS_TYPES.VIDEO_STREAM_IN]:
+        for ws_id in self.sockets[WS_TYPES.VIDEO_STREAM_IN]:
+            socket = self.sockets[WS_TYPES.VIDEO_STREAM_IN][ws_id]
             if not socket.in_buffer.is_empty():
                 return socket.in_buffer.peek()
         return None
+
+    def send_config_update(self, data):
+        for ws_id in self.sockets[WS_TYPES.VIDEO_STREAM_OUT]:
+            self.sockets[WS_TYPES.VIDEO_STREAM_OUT][ws_id].send_config_update(data)
 
 
     def draw(self, start_pos, debug=False, surfaces=None):

@@ -24,6 +24,7 @@ class SwarmAPP:
     self.ui_drawer = UIDrawer()
     self.last_modified_time = -1
     self.processing_type = False
+    self.config_data = None
 
     self.tasks_manager = BackgroundTasksManager(app_logger, self.ui_drawer)
     self.scene_manager = SceneManager(app_logger, self.ui_drawer, self.tasks_manager, SceneDrawerType.PYGAME, Constants.SCREEN_WIDTH, Constants.SCREEN_HEIGHT, Constants.font_size)
@@ -46,6 +47,7 @@ class SwarmAPP:
     self.websocket_manager.multi_threaded = data.get("mt_networking", False)
     self.websocket_manager.enabled = data.get("websocket_enabled", False)
     self.last_modified_time = last_modified_time
+    self.config_data = data
 
   def update_config(self):
     self.tasks_manager.update_config()
@@ -72,6 +74,16 @@ class SwarmAPP:
     self.cameras_manager.init()
     self.arduino_manager.init()
     self.websocket_manager.init()
+
+    self.websocket_manager.send_config_update(
+      {
+       "app": {"data" :self.config_data, "time" : self.last_modified_time},
+        "cameras": {"data": self.cameras_manager.config_data, "time": self.cameras_manager.last_modified_time},
+        "arduino": {"data": self.arduino_manager.config_data, "time": self.arduino_manager.last_modified_time},
+        "swarm": {"data": self.swarm_manager.config_data, "time": self.swarm_manager.last_modified_time},
+        "websockets": {"data": self.websocket_manager.config_data, "time": self.websocket_manager.last_modified_time}
+      }
+    )
 
   def update_components(self, debug=False):
       self.update_config()

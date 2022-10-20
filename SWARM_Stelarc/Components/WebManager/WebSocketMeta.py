@@ -20,7 +20,7 @@ class WebSocketMeta:
 
         self.status_manager = WebSocketStatusManager(self)
 
-        self.url = "url"
+        self.url = url
         self.namespace = namespace
         self.uri = self.url + self.namespace
         self.tag = "WS_" + self.namespace[1:min(4, len(self.namespace))] # First 3 characters of the namespace, excluding the "/"

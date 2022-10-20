@@ -3,6 +3,7 @@ from .WebSocketHandlers import WebSocketHandlers
 from .SwarmData import SwarmData
 import datetime
 import cv2
+from ..Utils.utils import *
 
 
 class WebSocketVideoStreamOut(WebSocketMeta):
@@ -66,6 +67,10 @@ class WebSocketVideoStreamOut(WebSocketMeta):
             self.send_data()
 
     async def send_data(self):
+        if self.app_config_data is not None:
+            await self.sio.emit(event='app_config_update', data=self.app_config_data, namespace=self.namespace)
+            self.app_logger.critical(f"Sending app_config_data")
+            self.app_config_data = None
         try:
             time_since_last_pop = self.out_buffer.time_since_last_pop()
             swarm_data = self.out_buffer.pop_data()
@@ -87,14 +92,20 @@ class WebSocketVideoStreamOut(WebSocketMeta):
         except Exception as e:
             print(f"Error Sending frame data to WebSocket {self.ws_id} {self.namespace}  {e}")
             self.status_manager.set_disconnected(f"{e}")
+        
+    def send_config_update(self, data):
+        data = serialize_datetime(self.data)
+        self.app_config_data = data
+        
 
 
     def __init__(self, app_logger, ws_id, tasks_manager, url, namespace, frame_w, frame_h, executor=None):
-        WebSocketMeta.__init__(self, ws_id, tasks_manager, url, namespace, frame_w, frame_h, executor)
+        WebSocketMeta.__init__(self, app_logger, ws_id, tasks_manager, url, namespace, frame_w, frame_h, executor)
+        self.app_config_data = None
 
-    def create_ws(ws_id, tasks_manager, url, namespace, frame_w, frame_h, executor=None):
+    def create_ws(app_logger, ws_id, tasks_manager, url, namespace, frame_w, frame_h, executor=None):
         global ws_vs
-        ws_vs = WebSocketVideoStreamOut(ws_id, tasks_manager, url, namespace, frame_w, frame_h, executor)
+        ws_vs = WebSocketVideoStreamOut(app_logger, ws_id, tasks_manager, url, namespace, frame_w, frame_h, executor)
         ws_vs.attach_callbacks()
         return ws_vs
 

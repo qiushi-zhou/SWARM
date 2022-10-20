@@ -52,7 +52,8 @@ class WebSocketInteraction(WebSocketMeta):
             remote_command_data = self.out_buffer.pop_data()
             if remote_command_data is None:
                 return
-            data_json = remote_command_data
+            data_json = {}
+            data_json['remote_command'] = remote_command_data
             data_json["executed_time"] = f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
             # print(f"Emitting {'SYNCD' if self.sync_with_server else ''} {self.emit_event} on {self.namespace} from Thread ws: {threading.current_thread().getName()}. \tFPS: {self.out_buffer.fps()}")
             # print(data_json)
@@ -66,9 +67,9 @@ class WebSocketInteraction(WebSocketMeta):
         WebSocketMeta.__init__(self, app_logger, ws_id, tasks_manager, url, namespace, frame_w, frame_h, executor)
         print(f"Creating websocket interaction {ws_id}")
 
-    def create_ws(ws_id, tasks_manager, url, namespace, frame_w, frame_h, executor=None):
+    def create_ws(app_logger, ws_id, tasks_manager, url, namespace, frame_w, frame_h, executor=None):
         global ws_inter
-        ws_inter = WebSocketInteraction(ws_id, tasks_manager, url, namespace, frame_w, frame_h, executor)
+        ws_inter = WebSocketInteraction(app_logger, ws_id, tasks_manager, url, namespace, frame_w, frame_h, executor)
         ws_inter.attach_callbacks()
         return ws_inter
 

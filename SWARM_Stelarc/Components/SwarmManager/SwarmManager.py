@@ -1,9 +1,7 @@
 from ..SwarmComponentMeta import SwarmComponentMeta
 from .FrameBufferData import FrameBuffer
-from ..Utils.utils import Point
+from ..Utils.utils import *
 import datetime
-import json
-from ..Utils.DataQueue import DataQueue
 
 MAX_HISTORY_SIZE = 10000
 
@@ -102,7 +100,7 @@ class SwarmManager(SwarmComponentMeta):
         self.debug_lines.append({'text': f"{name} - avg: {data.avg:.2f}, minmax: [{data.min:.2f}, {data.max:.2f}], n: {data.non_zeroes}/{self.frame_buffer.size()}",
                                  'color': color, 'side': 'left'})
 
-    def seralize_datetime(self, dict_obj):
+    def serialize_datetime(self, dict_obj):
         try:
             dict_obj = dict_obj.copy()
             for k, v in dict_obj.items():
@@ -118,12 +116,12 @@ class SwarmManager(SwarmComponentMeta):
     def get_swarm_data(self):
         data = {}
         data['frames_stats'] = self.frame_buffer.get_json()
-        data['current_behavior'] = self.seralize_datetime(self.current_behavior)
+        data['current_behavior'] = serialize_datetime(self.current_behavior)
         data['current_behavior']['name'] = self.curr_behavior_name
         data['behavior_mode'] = self.machine_mode
         behaviors_data = []
         for behavior in self.behaviors:
-            copy = self.seralize_datetime(behavior)
+            copy = serialize_datetime(behavior)
             behaviors_data.append(copy)
         data['behaviors_data'] = behaviors_data
         return data
