@@ -79,6 +79,10 @@ class WebSocketsManager(SwarmComponentMeta):
             socket = self.sockets[WS_TYPES.VIDEO_STREAM_OUT][ws_id]
             if namespace in socket.namespace:
                 socket.enqueue_frame(cv2_frame, cameras_data, swarm_data)
+                socket.enqueue_behaviour_data(swarm_data)
+            if 'current_behavior' in swarm_data.keys():
+                self.app_logger.app(f"Keys to send? {'current_behavior' in swarm_data.keys()}")
+            # self.app_logger.app(f"Keys to send? {swarm_data.keys()} - ")
         if draw:
             self.ui_drawer.draw_frame((0, 0, 0), cv2_frame, self.tag)
 

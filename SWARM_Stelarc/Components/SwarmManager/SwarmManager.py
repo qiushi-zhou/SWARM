@@ -18,6 +18,8 @@ class SwarmManager(SwarmComponentMeta):
         self.last_remote_command = None
         self.curr_behavior_name = "NONE"
         self.last_behavior_name = "NONE"
+        self.last_behavior_sent_name = "NONE"
+        self.last_behavior_sent_time = 0
         self.debug_lines = []
         self.websocket_manager = websocket_manager
     def update_config(self):
@@ -77,7 +79,7 @@ class SwarmManager(SwarmComponentMeta):
                 if cmd_sent:
                     self.app_logger.critical(f"Command {command} [{'REMOTE' if remote_action else ''}] SENT")
                     behavior["last_executed_time"] = datetime.datetime.now()
-                    self.last_behavior = self.current_behavior
+                    self.last_behavior = self.current_behavior if self.current_behavior is not None else behavior
                     self.current_behavior = behavior
                     if remote_action and remote_command is not None:
                         behavior['remote'] = remote_action
@@ -95,8 +97,11 @@ class SwarmManager(SwarmComponentMeta):
             self.last_behavior_name = self.last_behavior.get('name', 'NONE').upper()
             self.last_behavior_name = self.last_behavior_name if not self.last_behavior.get('remote', False) else f"{self.last_behavior_name} (REMOTE)"
         b_color = (150, 150, 150) if self.curr_behavior_name == "None" else (255, 255, 0)
-        self.debug_lines.insert(0, {'text': f"Last Behaviour: {self.last_behavior_name}", 'color': (255,0,0), 'side': 'right', 'spaces_after': 0})
-        self.debug_lines.insert(0, {'text': f"Current Behaviour: {self.curr_behavior_name}", 'color': (255,0,0), 'side': 'right', 'spaces_after': 1})
+
+        last_time = self.last_behavior.get('last_executed_time', 0) if self.last_behavior is not None else ''
+        curr_time = self.current_behavior.get('last_executed_time', 0) if self.last_behavior is not None else ''
+        self.debug_lines.insert(0, {'text': f"Last: {self.last_behavior_name} at {last_time}", 'color': (255,0,0), 'side': 'right', 'spaces_after': 0})
+        self.debug_lines.insert(0, {'text': f"Current: {self.curr_behavior_name} at {curr_time}", 'color': (255,0,0), 'side': 'right', 'spaces_after': 1})
         # right_text_pos_orig = self.ui_drawer.add_text_line(f"Current Behaviour: {self.curr_behavior_name}", (255, 0, 0), right_text_pos_orig, s_names=surfaces)
         self.debug_lines.insert(0, {'text': f"Behaviour Type: {self.machine_mode}", 'color': (255,0,0), 'side': 'right'})
         # right_text_pos_orig = self.ui_drawer.add_text_line(f"Behaviour Type: {self.machine_mode}", (255, 0, 0), right_text_pos_orig, s_names=surfaces)
@@ -133,14 +138,26 @@ class SwarmManager(SwarmComponentMeta):
 
     def get_swarm_data(self):
         data = {}
-        if self.current_behavior is None:
-            return data
         data['frames_stats'] = self.frame_buffer.get_json()
-        data['current_behavior'] = serialize_datetime(self.current_behavior)
-        data['last_command'] = self.curr_behavior_name
         data['behavior_mode'] = self.machine_mode
+        data['prev_last_command'] = self.last_behavior_name
         if self.last_remote_command is not None:
             data['last_remote_command'] = self.last_remote_command['name']
+        if self.current_behavior is not None:
+            send_update = False
+            if self.curr_behavior_name != self.last_behavior_sent_name:
+                send_update = True
+            else:
+                if self.current_behavior.get('last_executed_time', 0) != self.last_behavior_sent_time:
+                    send_update = True
+                    self.app_logger.critical(f"Sending behaviour update time: {self.current_behavior.get('last_executed_time', 0)} != {self.last_behavior.get('last_executed_time', 0)}")
+
+            if send_update:
+                data['current_behavior'] = serialize_datetime(self.current_behavior)
+                data['last_command'] = self.curr_behavior_name
+                self.last_behavior_sent_name = self.curr_behavior_name
+                self.last_behavior_sent_time = self.current_behavior.get('last_executed_time', 0)
+                # self.app_logger.critical(f"Sending behaviour update {data}")
         behaviors_data = []
         for behavior in self.behaviors:
             copy = serialize_datetime(behavior)
@@ -228,6 +245,7 @@ class SwarmManager(SwarmComponentMeta):
             last_time = behavior.get("last_executed_time", None)
             if last_time is None:
                 elapsed = 0
+                self.app_logger.critical("Starting default behaviour")
                 behavior["last_executed_time"] = datetime.datetime.now()
             else:
                 elapsed = (datetime.datetime.now() - last_time).seconds
