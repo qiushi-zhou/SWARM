@@ -1,7 +1,7 @@
 url: "wss://anthropomorphicmachine.com"
 sockets:
   - id: "GAL_PROD"
-    enabled: false
+    enabled: true
     namespace: "/gallery_stream"
     type: 'video_stream_out'
     port: 3005
@@ -16,7 +16,7 @@ sockets:
     emit_event: 'gallery_stream_in'
 
   - id: "GAL_DEV"
-    enabled: true
+    enabled: false
     namespace: "/gallery_stream"
     type: 'video_stream_out'
     port: 3006
@@ -31,7 +31,7 @@ sockets:
     emit_event: 'gallery_stream_in'
 
   - id: "OI_PROD"
-    enabled: false
+    enabled: true
     namespace: "/online_interaction"
     type: 'online_interaction'
     port: 3005
@@ -39,7 +39,7 @@ sockets:
     emit_event: 'remote_interaction_update'
 
   - id: "OI_DEV"
-    enabled: true
+    enabled: false
     namespace: "/online_interaction"
     type: 'online_interaction'
     port: 3006
