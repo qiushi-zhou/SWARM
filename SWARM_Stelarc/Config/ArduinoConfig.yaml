@@ -1,5 +1,12 @@
+
+# force_status: 'enabled' or disabled' Forces the machine to be ON / OFF regardless of the working hours and days
+# force_status: 'none' (or just delete the line) Follow the working hours and days be low
+force_status: 'enabled'
 working_hours: ["09:00", "17:00"]  # 24hrs
 working_days: [tue, wed, thu, fri, sat]
+
+remote_working_hours: ["09:00", "17:00"]  # 24hrs
+remote_working_days: [tue, wed, thu, fri, sat]
 statuses:
   - name: not_initialized
     id: 0

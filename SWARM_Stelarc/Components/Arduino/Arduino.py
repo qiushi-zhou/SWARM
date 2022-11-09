@@ -56,6 +56,8 @@ class Arduino():
         self.mockup_commands = mockup_commands
         self.working_days = ["tue", "wed", "thu", "fri", "sat", "sun"]
         self.working_hours = ["10:45", "21:00"]
+        self.not_operational = False
+        self.force_status = 'none'
 
         self.default_statuses = {
             'not_initialized': ArduinoStatus(0, 'Not Initialized', 'Arduino not initialized', 0),
@@ -80,6 +82,7 @@ class Arduino():
     def update_config(self, config_data=None):
         self.port = config_data.get('last_port', "COM4")
         self.working_hours = config_data.get('working_hours', self.working_hours)
+        self.force_status = config_data.get('force_status', self.force_status)
         self.working_hours = [time.strptime(self.working_hours[0], "%H:%M"), time.strptime(self.working_hours[1], "%H:%M")]
         self.working_days = config_data.get('working_days', self.working_days)
         s_list = config_data.get('statuses', [])
@@ -263,6 +266,8 @@ class Arduino():
     def update_status(self, blocking_wait=False, debug=True):
         try:
             self.not_operational = is_in_working_hours(self.working_days, self.working_hours)
+            if self.force_status is not None and self.force_status is not 'none':
+                self.not_operational = False if self.force_status == 'disabled' else False
 
             # if debug:
             #     if self.not_operational:
